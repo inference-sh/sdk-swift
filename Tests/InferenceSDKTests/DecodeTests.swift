@@ -61,6 +61,25 @@ final class DecodeTests: XCTestCase {
         XCTAssertFalse(last.chatId.isEmpty)
     }
 
+    /// Real capture of POST /run {"app":"infsh/kokoro-tts","wait":true}.
+    func testRealRunWaitResultDecodes() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "run-wait-result", withExtension: "json", subdirectory: "Fixtures"))
+        let task = try JSONDecoder().decode(TaskResultDTO.self, from: Data(contentsOf: url))
+        XCTAssertEqual(task.status, .completed)
+        XCTAssertTrue(task.status.isTerminal)
+        XCTAssertEqual(task.fileURL("audio")?.pathExtension, "wav")
+        XCTAssertNil(task.fileURL("missing"))
+    }
+
+    func testAppRunRequestEncodesInput() throws {
+        let req = ApiAppRunRequest(app: "infsh/kokoro-tts", input: ["prompt": "hi", "speed": 1.0], wait: true)
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(req)) as? [String: Any])
+        XCTAssertEqual(obj["app"] as? String, "infsh/kokoro-tts")
+        XCTAssertEqual((obj["input"] as? [String: Any])?["prompt"] as? String, "hi")
+        XCTAssertEqual(obj["wait"] as? Bool, true)
+        XCTAssertNil(obj["stream"])
+    }
+
     func testUnknownEnumValueStillDecodes() throws {
         let s = try JSONDecoder().decode(ChatMessageStatus.self, from: Data(#""brand_new_status""#.utf8))
         XCTAssertEqual(s.rawValue, "brand_new_status")

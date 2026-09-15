@@ -100,12 +100,53 @@ public struct InferenceClient: Sendable {
         return try? decoder.decode(ChatMessageDTO.self, from: data)
     }
 
+    /// POST /chats/{id}/stop — cancel the active agent run and pending tool
+    /// invocations. The stream then ends with a `cancelled` message.
+    public func stopChat(_ chatId: String) async throws {
+        let (data, status) = try await send(request("chats/\(chatId)/stop", accept: "application/json"))
+        guard (200..<300).contains(status) else {
+            throw InferenceError.http(status: status, body: String(decoding: data, as: UTF8.self))
+        }
+    }
+
+    // MARK: - Apps
+
+    /// POST /run with `wait: true`. Blocks until the task is terminal and
+    /// returns the result. Failed and cancelled tasks come back as HTTP 422,
+    /// surfaced as `InferenceError.http`.
+    public func runApp(_ body: ApiAppRunRequest) async throws -> TaskResultDTO {
+        var body = body
+        body.wait = true
+        let (data, status) = try await send(request("run", accept: "application/json", body: body))
+        guard (200..<300).contains(status) else {
+            throw InferenceError.http(status: status, body: String(decoding: data, as: UTF8.self))
+        }
+        return try Self.decoder.decode(TaskResultDTO.self, from: data)
+    }
+
+    /// GET an output file (unauthenticated CDN URL as returned in task output).
+    public func download(_ url: URL) async throws -> Data {
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 120
+        let (data, status) = try await send(req)
+        guard (200..<300).contains(status) else {
+            throw InferenceError.http(status: status, body: String(decoding: data.prefix(200), as: UTF8.self))
+        }
+        return data
+    }
+
     // MARK: - Plumbing
 
     public static let decoder = JSONDecoder()
     public static let encoder = JSONEncoder()
 
     func request<B: Encodable>(_ path: String, accept: String, body: B) throws -> URLRequest {
+        var req = request(path, accept: accept)
+        req.httpBody = try Self.encoder.encode(body)
+        return req
+    }
+
+    func request(_ path: String, accept: String) -> URLRequest {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = "POST"
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -113,18 +154,29 @@ public struct InferenceClient: Sendable {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(accept, forHTTPHeaderField: "Accept")
         req.timeoutInterval = 300
-        req.httpBody = try Self.encoder.encode(body)
         return req
     }
 
+    /// One-shot request. Honors Swift task cancellation by cancelling the URL task.
     private func send(_ req: URLRequest) async throws -> (Data, Int) {
-        try await withCheckedThrowingContinuation { c in
-            URLSession.shared.dataTask(with: req) { data, resp, err in
-                if let err { c.resume(throwing: InferenceError.transport(err.localizedDescription)); return }
-                c.resume(returning: (data ?? Data(), (resp as? HTTPURLResponse)?.statusCode ?? 0))
-            }.resume()
+        let box = TaskBox()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { c in
+                let task = URLSession.shared.dataTask(with: req) { data, resp, err in
+                    if let err { c.resume(throwing: InferenceError.transport(err.localizedDescription)); return }
+                    c.resume(returning: (data ?? Data(), (resp as? HTTPURLResponse)?.statusCode ?? 0))
+                }
+                box.task = task
+                task.resume()
+            }
+        } onCancel: {
+            box.task?.cancel()
         }
     }
+}
+
+final class TaskBox: @unchecked Sendable {
+    var task: URLSessionTask?
 }
 
 // MARK: - Convenience on generated types
@@ -132,6 +184,21 @@ public struct InferenceClient: Sendable {
 public extension ChatMessageStatus {
     /// Mirrors ChatMessageStatus.IsTerminal() in Go.
     var isTerminal: Bool { self == .ready || self == .failed || self == .cancelled }
+}
+
+public extension TaskStatus {
+    /// completed, failed or cancelled.
+    var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled }
+}
+
+public extension TaskResultDTO {
+    /// URL of a file output. Apps return either a bare URL string or `{"uri": ...}`.
+    func fileURL(_ key: String) -> URL? {
+        guard let v = output[key] else { return nil }
+        if let s = v.stringValue { return URL(string: s) }
+        if let s = v["uri"]?.stringValue { return URL(string: s) }
+        return nil
+    }
 }
 
 public extension ChatMessageDTO {

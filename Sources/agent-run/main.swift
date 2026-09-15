@@ -1,6 +1,10 @@
 // Usage example and end-to-end check for InferenceSDK:
 //   INFERENCE_API_KEY=... swift run agent-run okaris/some-agent "hello"
 // Streams POST /agents/run and prints assistant snapshots as they arrive.
+// With TTS_APP=infsh/kokoro-tts the reply is also synthesized via POST /run
+// and the audio downloaded, which is what the voice app does on the phone.
+// With INTERRUPT_AFTER=N the chat is stopped after N snapshots (what pressing
+// talk mid-reply does); the stream is expected to end with `cancelled`.
 
 import Foundation
 import InferenceSDK
@@ -19,12 +23,28 @@ Task {
     defer { sem.signal() }
     do {
         var n = 0
+        let interruptAfter = Int(ProcessInfo.processInfo.environment["INTERRUPT_AFTER"] ?? "") ?? 0
         for try await msg in client.runAgentStream(req) {
             n += 1
             print("[\(n)] chat=\(msg.chatId) status=\(msg.status.rawValue) text=\(msg.text.debugDescription)")
+            if interruptAfter > 0, n == interruptAfter {
+                try await client.stopChat(msg.chatId)
+                print("stopChat sent")
+            }
+            if msg.status.isTerminal, interruptAfter > 0 {
+                print(msg.status == .cancelled ? "INTERRUPT OK: \(msg.status.rawValue)" : "INTERRUPT UNEXPECTED: \(msg.status.rawValue)")
+                exit(msg.status == .cancelled ? 0 : 1)
+            }
             if msg.status.isTerminal {
-                print(msg.status == .ready ? "OK: \(msg.text)" : "FAILED: \(msg.errorText ?? "?")")
-                exit(msg.status == .ready ? 0 : 1)
+                guard msg.status == .ready else { print("FAILED: \(msg.errorText ?? "?")"); exit(1) }
+                print("OK: \(msg.text)")
+                if let tts = ProcessInfo.processInfo.environment["TTS_APP"], !tts.isEmpty {
+                    let task = try await client.runApp(ApiAppRunRequest(app: tts, input: ["prompt": .string(msg.text)]))
+                    guard let url = task.fileURL("audio") else { print("TTS: no audio in output \(task.output)"); exit(1) }
+                    let audio = try await client.download(url)
+                    print("TTS OK: \(url) \(audio.count) bytes, header \(String(decoding: audio.prefix(4), as: UTF8.self))")
+                }
+                exit(0)
             }
         }
         print("stream ended without terminal message")
