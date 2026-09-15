@@ -126,6 +126,14 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(chunks.joined(separator: " ").filter { $0 != " " }, long.filter { $0 != " " })
     }
 
+    func testEnvelopeAndProblemDetails() throws {
+        let env = try JSONDecoder().decode(Envelope<[String]>.self, from: Data(#"{"data":["a"],"messages":[]}"#.utf8))
+        XCTAssertEqual(env.data, ["a"])
+        let err = InferenceError.http(status: 402, body: #"{"type":"https://api.inference.sh/errors/payment","title":"Payment Required","status":402,"detail":"Insufficient balance"}"#)
+        XCTAssertEqual(err.errorDescription, "HTTP 402: Insufficient balance")
+        XCTAssertEqual(InferenceError.http(status: 500, body: "boom").errorDescription, "HTTP 500: boom")
+    }
+
     func testUnknownEnumValueStillDecodes() throws {
         let s = try JSONDecoder().decode(ChatMessageStatus.self, from: Data(#""brand_new_status""#.utf8))
         XCTAssertEqual(s.rawValue, "brand_new_status")

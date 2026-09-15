@@ -12,20 +12,38 @@ public enum InferenceError: Error, LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .http(let status, let body): return "HTTP \(status): \(body)"
+        case .http(let status, let body):
+            // RFC 9457 problem details when the API sent them.
+            if let obj = try? JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any],
+               let detail = (obj["detail"] ?? obj["title"]) as? String {
+                return "HTTP \(status): \(detail)"
+            }
+            return "HTTP \(status): \(body)"
         case .noAssistantMessage: return "No assistant message in response (message was queued?)"
         case .transport(let s): return s
         }
     }
 }
 
+/// Speaks API version 3, which the server uses when no `X-API-Version` header
+/// is sent: JSON responses are `{"data": <dto>, "messages": [...]}`, errors are
+/// RFC 9457 problem details, streams carry bare DTOs.
+///
+/// Never send `X-API-Version: 2`. That is the legacy bare-DTO format, kept for
+/// old clients and scheduled for removal. The first version of this client
+/// sent it because the REST pages under content/docs still recommend it; the
+/// JS and Python SDKs and the CLIs send no header (see js/sdk-js/src/http/client.ts).
 public struct InferenceClient: Sendable {
     public var baseURL: URL
     public var apiKey: String
+    /// Called with any warnings or notices the server attached to a response.
+    public var onMessage: (@Sendable ([ResponseMessage]) -> Void)?
 
-    public init(baseURL: URL = URL(string: "https://api.inference.sh")!, apiKey: String) {
+    public init(baseURL: URL = URL(string: "https://api.inference.sh")!, apiKey: String,
+                onMessage: (@Sendable ([ResponseMessage]) -> Void)? = nil) {
         self.baseURL = baseURL
         self.apiKey = apiKey
+        self.onMessage = onMessage
     }
 
     // MARK: - Agents
@@ -54,7 +72,7 @@ public struct InferenceClient: Sendable {
                 let text = try await stream.drain()
                 guard (200..<300).contains(status) else { throw InferenceError.http(status: status, body: text) }
                 // Plain JSON answer: message queued on a busy chat.
-                let resp = try Self.decoder.decode(CreateAgentMessageResponse.self, from: Data(text.utf8))
+                let resp: CreateAgentMessageResponse = try decode(Data(text.utf8))
                 guard let msg = resp.assistantMessage else { throw InferenceError.noAssistantMessage }
                 continuation.yield(msg)
                 return
@@ -135,7 +153,6 @@ public struct InferenceClient: Sendable {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.setValue("2", forHTTPHeaderField: "X-API-Version")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(accept, forHTTPHeaderField: "Accept")
         // One connection per call. A reused keep-alive connection that the
@@ -152,8 +169,11 @@ public struct InferenceClient: Sendable {
         return req
     }
 
+    /// Unwraps the V3 envelope and forwards its messages.
     private func decode<T: Decodable>(_ data: Data) throws -> T {
-        try Self.decoder.decode(T.self, from: data)
+        let envelope = try Self.decoder.decode(Envelope<T>.self, from: data)
+        if let onMessage, let messages = envelope.messages, !messages.isEmpty { onMessage(messages) }
+        return envelope.data
     }
 
     /// One-shot request. Throws `InferenceError.http` on non-2xx. Honors Swift
@@ -200,6 +220,12 @@ public struct InferenceClient: Sendable {
         }
         return data
     }
+}
+
+/// V3 response envelope.
+struct Envelope<T: Decodable>: Decodable {
+    let data: T
+    let messages: [ResponseMessage]?
 }
 
 final class TaskBox: @unchecked Sendable {
