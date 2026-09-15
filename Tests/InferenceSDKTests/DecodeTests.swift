@@ -28,16 +28,17 @@ final class DecodeTests: XCTestCase {
     }
 
     func testStreamLineParsing() throws {
-        XCTAssertNil(InferenceClient.parseStreamLine(#"{"type":"heartbeat"}"#))
-        XCTAssertNil(InferenceClient.parseStreamLine(#"{"event":"agent_runs","data":{"id":"r"}}"#))
-        XCTAssertNil(InferenceClient.parseStreamLine(""))
+        XCTAssertNil(InferenceClient.parseStreamLine(Data(#"{"type":"heartbeat"}"#.utf8)))
+        XCTAssertNil(InferenceClient.parseStreamLine(Data(#"{"event":"agent_runs","data":{"id":"r"}}"#.utf8)))
+        XCTAssertNil(InferenceClient.parseStreamLine(Data(#"{"data":{"id":"m"},"fields":["status"]}"#.utf8)))
+        XCTAssertNil(InferenceClient.parseStreamLine(Data()))
         let line = """
         {"id":"msg_2","short_id":"m2","created_at":"x","updated_at":"x","user_id":"u","team_id":"t",
          "visibility":"private","chat_id":"chat_1","order":2,"status":"ready","role":"assistant",
          "content":[{"type":"reasoning","text":"thinking"},{"type":"text","text":"Hello "},{"type":"text","text":"there"}],
          "tool_invocations":[]}
         """
-        let msg = try XCTUnwrap(InferenceClient.parseStreamLine(line))
+        let msg = try XCTUnwrap(InferenceClient.parseStreamLine(Data(line.utf8)))
         XCTAssertTrue(msg.status.isTerminal)
         XCTAssertEqual(msg.text, "Hello there")
         XCTAssertEqual(msg.role, .assistant)
@@ -50,7 +51,7 @@ final class DecodeTests: XCTestCase {
         var messages: [ChatMessageDTO] = []
         var skipped = 0
         for line in text.split(separator: "\n") {
-            if let m = InferenceClient.parseStreamLine(String(line)) { messages.append(m) } else { skipped += 1 }
+            if let m = InferenceClient.parseStreamLine(Data(line.utf8)) { messages.append(m) } else { skipped += 1 }
         }
         XCTAssertEqual(skipped, 1, "one heartbeat")
         XCTAssertEqual(messages.count, 10)
@@ -88,6 +89,14 @@ final class DecodeTests: XCTestCase {
         let odd: JSONValue = ["required": ["speed", "script"], "properties": ["script": ["type": "string"], "speed": ["type": "number"]]]
         XCTAssertEqual(TextToSpeech.inputKey(fromSchema: odd), "script")
         XCTAssertEqual(TextToSpeech.inputKey(fromSchema: .null), "text")
+    }
+
+    func testTTSOutputKeyFromSchema() {
+        let inworld: JSONValue = ["properties": ["audio": ["type": "string", "format": "file"]]]
+        XCTAssertEqual(TextToSpeech.outputKey(fromSchema: inworld), "audio")
+        let odd: JSONValue = ["properties": ["duration": ["type": "number"], "speech": ["type": "string", "format": "file"]]]
+        XCTAssertEqual(TextToSpeech.outputKey(fromSchema: odd), "speech")
+        XCTAssertEqual(TextToSpeech.outputKey(fromSchema: .null), "audio")
     }
 
     func testTTSChunking() {

@@ -2,7 +2,7 @@
 
 import Foundation
 
-/// Untyped JSON — what Go's `any`, `interface{}` and `json.RawMessage` become.
+/// Untyped JSON: what Go's any, interface{} and json.RawMessage become.
 public enum JSONValue: Codable, Hashable, Sendable {
     case string(String)
     case number(Double)
@@ -2194,7 +2194,6 @@ public struct EstimateCostResponse: Codable {
 public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let all = Scope(rawValue: "*")
     /// Resource-level scopes (implies all actions)
@@ -2269,7 +2268,6 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
 public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let agents = ScopeGroup(rawValue: "agents")
     public static let apps = ScopeGroup(rawValue: "apps")
@@ -5920,7 +5918,6 @@ public struct FlowRunDTO: Codable {
 public struct FlowActionType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let actionNodeAdd = FlowActionType(rawValue: "node.add")
     public static let actionNodeRemove = FlowActionType(rawValue: "node.remove")
@@ -7823,7 +7820,6 @@ public struct InputRequest: Codable {
 public struct ElicitAction: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let accept = ElicitAction(rawValue: "accept")
     public static let decline = ElicitAction(rawValue: "decline")
@@ -7854,7 +7850,6 @@ public struct ElicitResult: Codable {
 public struct ResultType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// ResultTypeComplete marks an ordinary, finished result.
     public static let complete = ResultType(rawValue: "complete")
@@ -7868,7 +7863,6 @@ public struct ResultType: RawRepresentable, Codable, Hashable, Sendable {
 public struct CacheScope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// CacheScopePublic marks a response as free of user-specific data, so any
     /// client or shared intermediary may cache it across authorization contexts.
@@ -8045,7 +8039,6 @@ public struct ToolCallResponse: Codable {
 public struct ToolContentType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let text = ToolContentType(rawValue: "text")
     public static let image = ToolContentType(rawValue: "image")
@@ -9779,7 +9772,6 @@ public struct SuggestResult: Codable {
 public struct RequirementType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let secret = RequirementType(rawValue: "secret")
     public static let integration = RequirementType(rawValue: "integration")
@@ -9820,7 +9812,6 @@ public struct RequirementError: Codable {
 public struct SetupActionType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let setupActionAddSecret = SetupActionType(rawValue: "add_secret")
     public static let setupActionConnect = SetupActionType(rawValue: "connect")
@@ -11831,7 +11822,6 @@ public typealias Widget = A2UISurface
 public struct A2UIComponentType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let a2UIRow = A2UIComponentType(rawValue: "Row")
     public static let a2UIColumn = A2UIComponentType(rawValue: "Column")
@@ -12214,7 +12204,6 @@ public struct A2UISurface: Codable {
 public struct AppCategory: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let image = AppCategory(rawValue: "image")
     public static let video = AppCategory(rawValue: "video")
@@ -12229,7 +12218,6 @@ public struct AppCategory: RawRepresentable, Codable, Hashable, Sendable {
 public struct AppStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let active = AppStatus(rawValue: "active")
     public static let maintenance = AppStatus(rawValue: "maintenance")
@@ -12240,7 +12228,6 @@ public struct AppStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct GPUType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let any = GPUType(rawValue: "any")
     public static let none = GPUType(rawValue: "none")
@@ -12254,7 +12241,6 @@ public struct GPUType: RawRepresentable, Codable, Hashable, Sendable {
 public struct Visibility: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let `private` = Visibility(rawValue: "private")
     public static let team = Visibility(rawValue: "team")
@@ -12269,7 +12255,6 @@ public struct Visibility: RawRepresentable, Codable, Hashable, Sendable {
 public struct Permission: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let permRead = Permission(rawValue: "read")
     public static let permWrite = Permission(rawValue: "write")
@@ -12283,7 +12268,6 @@ public struct Permission: RawRepresentable, Codable, Hashable, Sendable {
 public struct SubscriptionStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let trialing = SubscriptionStatus(rawValue: "trialing")
     public static let active = SubscriptionStatus(rawValue: "active")
@@ -12295,7 +12279,6 @@ public struct SubscriptionStatus: RawRepresentable, Codable, Hashable, Sendable 
 public struct SubscriptionInterval: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let monthly = SubscriptionInterval(rawValue: "monthly")
     public static let yearly = SubscriptionInterval(rawValue: "yearly")
@@ -12304,7 +12287,6 @@ public struct SubscriptionInterval: RawRepresentable, Codable, Hashable, Sendabl
 public struct PlanType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let base = PlanType(rawValue: "base")
     public static let addon = PlanType(rawValue: "addon")
@@ -12313,7 +12295,6 @@ public struct PlanType: RawRepresentable, Codable, Hashable, Sendable {
 public struct EntitlementSource: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let tier = EntitlementSource(rawValue: "tier")
     public static let override = EntitlementSource(rawValue: "override")
@@ -12325,7 +12306,6 @@ public struct EntitlementSource: RawRepresentable, Codable, Hashable, Sendable {
 public struct EntitlementType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let boolean = EntitlementType(rawValue: "boolean")
     public static let limit = EntitlementType(rawValue: "limit")
@@ -12338,7 +12318,6 @@ public struct EntitlementType: RawRepresentable, Codable, Hashable, Sendable {
 public struct EntitlementScope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let org = EntitlementScope(rawValue: "org")
     public static let team = EntitlementScope(rawValue: "team")
@@ -12348,7 +12327,6 @@ public struct EntitlementScope: RawRepresentable, Codable, Hashable, Sendable {
 public struct EnforcementMode: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let enforcementBlock = EnforcementMode(rawValue: "block")
     public static let enforcementWarn = EnforcementMode(rawValue: "warn")
@@ -12357,7 +12335,6 @@ public struct EnforcementMode: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let busy = ChatStatus(rawValue: "busy")
     public static let idle = ChatStatus(rawValue: "idle")
@@ -12368,7 +12345,6 @@ public struct ChatStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct PlanStepStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = PlanStepStatus(rawValue: "pending")
     public static let inProgress = PlanStepStatus(rawValue: "in_progress")
@@ -12379,7 +12355,6 @@ public struct PlanStepStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatMessageRole: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// LLM wire-protocol roles
     public static let system = ChatMessageRole(rawValue: "system")
@@ -12395,7 +12370,6 @@ public struct ChatMessageRole: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatMessageStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = ChatMessageStatus(rawValue: "pending")
     public static let queued = ChatMessageStatus(rawValue: "queued")
@@ -12407,7 +12381,6 @@ public struct ChatMessageStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatMessageContentType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let text = ChatMessageContentType(rawValue: "text")
     public static let reasoning = ChatMessageContentType(rawValue: "reasoning")
@@ -12419,7 +12392,6 @@ public struct ChatMessageContentType: RawRepresentable, Codable, Hashable, Senda
 public struct IntegrationType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let slack = IntegrationType(rawValue: "slack")
     public static let discord = IntegrationType(rawValue: "discord")
@@ -12539,7 +12511,6 @@ public struct IntegrationContext: Codable {
 public struct EngineStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let running = EngineStatus(rawValue: "running")
     public static let pending = EngineStatus(rawValue: "pending")
@@ -12554,7 +12525,6 @@ public struct EngineStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct WorkerStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let reserved = WorkerStatus(rawValue: "reserved")
     public static let busy = WorkerStatus(rawValue: "busy")
@@ -12806,7 +12776,6 @@ public struct SelectorConfig: Codable {
 public struct GraphNodeType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let unknown = GraphNodeType(rawValue: "unknown")
     public static let join = GraphNodeType(rawValue: "join")
@@ -12824,7 +12793,6 @@ public struct GraphNodeType: RawRepresentable, Codable, Hashable, Sendable {
 public struct GraphNodeStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = GraphNodeStatus(rawValue: "pending")
     public static let ready = GraphNodeStatus(rawValue: "ready")
@@ -12840,7 +12808,6 @@ public struct GraphNodeStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct ResourceType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let knowledge = ResourceType(rawValue: "knowledge")
     public static let app = ResourceType(rawValue: "app")
@@ -12851,7 +12818,6 @@ public struct ResourceType: RawRepresentable, Codable, Hashable, Sendable {
 public struct GraphEdgeType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let dependency = GraphEdgeType(rawValue: "dependency")
     public static let flow = GraphEdgeType(rawValue: "flow")
@@ -12870,7 +12836,6 @@ public struct GraphEdgeType: RawRepresentable, Codable, Hashable, Sendable {
 public struct MergeStrategy: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let concat = MergeStrategy(rawValue: "concat")
     public static let replace = MergeStrategy(rawValue: "replace")
@@ -13033,7 +12998,6 @@ public struct ToolCallFunctionDelta: Codable {
 public struct ToolChoiceMode: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let none = ToolChoiceMode(rawValue: "none")
     public static let auto = ToolChoiceMode(rawValue: "auto")
@@ -13067,7 +13031,6 @@ public struct ToolChoice: Codable {
 public struct ResponseFormatType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let text = ResponseFormatType(rawValue: "text")
     public static let jsonObject = ResponseFormatType(rawValue: "json_object")
@@ -13356,7 +13319,6 @@ public struct LLMContextMessage: Codable {
 public struct SecretScope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// SecretScopeTeam is a normal user secret, visible in team secret lists
     public static let team = SecretScope(rawValue: "team")
@@ -13381,7 +13343,6 @@ public struct PageStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct PageType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let doc = PageType(rawValue: "doc")
     public static let blog = PageType(rawValue: "blog")
@@ -13402,7 +13363,6 @@ public struct CommentStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct InstanceCloudProvider: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let cloudAWS = InstanceCloudProvider(rawValue: "aws")
     public static let cloudAmaya = InstanceCloudProvider(rawValue: "amaya")
@@ -13436,7 +13396,6 @@ public struct InstanceCloudProvider: RawRepresentable, Codable, Hashable, Sendab
 public struct InstanceStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let creating = InstanceStatus(rawValue: "creating")
     public static let pendingProvider = InstanceStatus(rawValue: "pending_provider")
@@ -13450,7 +13409,6 @@ public struct InstanceStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct InstanceTypeDeploymentType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let vm = InstanceTypeDeploymentType(rawValue: "vm")
     public static let container = InstanceTypeDeploymentType(rawValue: "container")
@@ -13460,7 +13418,6 @@ public struct InstanceTypeDeploymentType: RawRepresentable, Codable, Hashable, S
 public struct AppSessionStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let active = AppSessionStatus(rawValue: "active")
     public static let ended = AppSessionStatus(rawValue: "ended")
@@ -13471,7 +13428,6 @@ public struct AppSessionStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct ProjectType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let agent = ProjectType(rawValue: "agent")
     public static let app = ProjectType(rawValue: "app")
@@ -13482,7 +13438,6 @@ public struct ProjectType: RawRepresentable, Codable, Hashable, Sendable {
 public struct UsageEventResourceTier: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let `private` = UsageEventResourceTier(rawValue: "private")
     public static let cloud = UsageEventResourceTier(rawValue: "cloud")
@@ -13492,7 +13447,6 @@ public struct UsageEventResourceTier: RawRepresentable, Codable, Hashable, Senda
 public struct MetaItemType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let text = MetaItemType(rawValue: "text")
     public static let image = MetaItemType(rawValue: "image")
@@ -13505,7 +13459,6 @@ public struct MetaItemType: RawRepresentable, Codable, Hashable, Sendable {
 public struct VideoResolution: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let videoRes480P = VideoResolution(rawValue: "480p")
     public static let videoRes720P = VideoResolution(rawValue: "720p")
@@ -13518,7 +13471,6 @@ public struct VideoResolution: RawRepresentable, Codable, Hashable, Sendable {
 public struct MCPServerAuthType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let mcpServerAuthOAuth = MCPServerAuthType(rawValue: "oauth")
     public static let mcpServerAuthAPIKey = MCPServerAuthType(rawValue: "api_key")
@@ -13529,7 +13481,6 @@ public struct MCPServerAuthType: RawRepresentable, Codable, Hashable, Sendable {
 public struct TeamInviteStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = TeamInviteStatus(rawValue: "pending")
     public static let accepted = TeamInviteStatus(rawValue: "accepted")
@@ -13541,7 +13492,6 @@ public struct TeamInviteStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct RefRouteType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let app = RefRouteType(rawValue: "app")
     public static let agent = RefRouteType(rawValue: "agent")
@@ -13551,7 +13501,6 @@ public struct RefRouteType: RawRepresentable, Codable, Hashable, Sendable {
 public struct RefRouteMode: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let rewrite = RefRouteMode(rawValue: "rewrite")
     public static let redirect = RefRouteMode(rawValue: "redirect")
@@ -13560,7 +13509,6 @@ public struct RefRouteMode: RawRepresentable, Codable, Hashable, Sendable {
 public struct KnowledgeType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let concept = KnowledgeType(rawValue: "concept")
     public static let skill = KnowledgeType(rawValue: "skill")
@@ -13575,7 +13523,6 @@ public struct KnowledgeType: RawRepresentable, Codable, Hashable, Sendable {
 public struct KnowledgeLifecycle: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let permanent = KnowledgeLifecycle(rawValue: "permanent")
     public static let decay = KnowledgeLifecycle(rawValue: "decay")
@@ -13587,7 +13534,6 @@ public struct KnowledgeLifecycle: RawRepresentable, Codable, Hashable, Sendable 
 public struct ArtifactType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let html = ArtifactType(rawValue: "html")
     public static let markdown = ArtifactType(rawValue: "markdown")
@@ -13596,7 +13542,6 @@ public struct ArtifactType: RawRepresentable, Codable, Hashable, Sendable {
 public struct FilterOperator: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let opEqual = FilterOperator(rawValue: "eq")
     public static let opNotEqual = FilterOperator(rawValue: "neq")
@@ -13619,7 +13564,6 @@ public struct FilterOperator: RawRepresentable, Codable, Hashable, Sendable {
 public struct DeviceAuthStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = DeviceAuthStatus(rawValue: "pending")
     public static let approved = DeviceAuthStatus(rawValue: "approved")
@@ -13634,7 +13578,6 @@ public struct DeviceAuthStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct DeviceTokenKind: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// DeviceTokenKindSession mints a revocable CLI session (acts as the user,
     /// supports team switching via X-Team-ID).
@@ -13647,7 +13590,6 @@ public struct DeviceTokenKind: RawRepresentable, Codable, Hashable, Sendable {
 public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// Capacity limits — scale with tier
     public static let resourceAPIKeys = EntitlementResource(rawValue: "api_keys")
@@ -13677,7 +13619,6 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
 public struct ContentRating: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let contentSafe = ContentRating(rawValue: "safe")
     public static let contentSexualSuggestive = ContentRating(rawValue: "sexual_suggestive")
@@ -13692,7 +13633,6 @@ public struct ContentRating: RawRepresentable, Codable, Hashable, Sendable {
 public struct IntegrationProvider: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let google = IntegrationProvider(rawValue: "google")
     public static let googleSA = IntegrationProvider(rawValue: "google-sa")
@@ -13712,7 +13652,6 @@ public struct IntegrationProvider: RawRepresentable, Codable, Hashable, Sendable
 public struct IntegrationAuthType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let serviceAccount = IntegrationAuthType(rawValue: "service_account")
     public static let oAuth = IntegrationAuthType(rawValue: "oauth")
@@ -13725,7 +13664,6 @@ public struct IntegrationAuthType: RawRepresentable, Codable, Hashable, Sendable
 public struct IntegrationStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = IntegrationStatus(rawValue: "pending")
     public static let connected = IntegrationStatus(rawValue: "connected")
@@ -13738,7 +13676,6 @@ public struct IntegrationStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct IntegrationScope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let team = IntegrationScope(rawValue: "team")
     public static let platform = IntegrationScope(rawValue: "platform")
@@ -13749,7 +13686,6 @@ public struct IntegrationScope: RawRepresentable, Codable, Hashable, Sendable {
 public struct IntegrationGrant: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// IntegrationGrantCredentials provides OAuth app credentials (client_id/secret).
     /// Users connect their own accounts against it. Only valid for type=oauth.
@@ -13762,7 +13698,6 @@ public struct IntegrationGrant: RawRepresentable, Codable, Hashable, Sendable {
 public struct CredentialScope: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let platform = CredentialScope(rawValue: "platform")
     /// CredentialScopeOrg: shared across all teams of an org. In the enum for
@@ -13779,7 +13714,6 @@ public struct CredentialScope: RawRepresentable, Codable, Hashable, Sendable {
 public struct NotificationChannel: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let email = NotificationChannel(rawValue: "email")
     public static let sms = NotificationChannel(rawValue: "sms")
@@ -13791,7 +13725,6 @@ public struct NotificationChannel: RawRepresentable, Codable, Hashable, Sendable
 public struct NotificationPriority: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let low = NotificationPriority(rawValue: "low")
     public static let normal = NotificationPriority(rawValue: "normal")
@@ -13803,7 +13736,6 @@ public struct NotificationPriority: RawRepresentable, Codable, Hashable, Sendabl
 public struct NotificationType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// Billing notifications
     public static let lowBalance = NotificationType(rawValue: "low_balance")
@@ -13845,7 +13777,6 @@ public struct NotificationType: RawRepresentable, Codable, Hashable, Sendable {
 public struct NotificationStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = NotificationStatus(rawValue: "pending")
     public static let processing = NotificationStatus(rawValue: "processing")
@@ -13880,7 +13811,6 @@ public struct TaskStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct Infra: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let `private` = Infra(rawValue: "private")
     public static let cloud = Infra(rawValue: "cloud")
@@ -13940,7 +13870,6 @@ public struct TaskMetadata: Codable {
 public struct TeamType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let personal = TeamType(rawValue: "personal")
     public static let team = TeamType(rawValue: "team")
@@ -13950,7 +13879,6 @@ public struct TeamType: RawRepresentable, Codable, Hashable, Sendable {
 public struct TeamStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let active = TeamStatus(rawValue: "active")
     public static let suspended = TeamStatus(rawValue: "suspended")
@@ -13960,7 +13888,6 @@ public struct TeamStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct TeamRole: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let owner = TeamRole(rawValue: "owner")
     public static let admin = TeamRole(rawValue: "admin")
@@ -13970,7 +13897,6 @@ public struct TeamRole: RawRepresentable, Codable, Hashable, Sendable {
 public struct Role: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let guest = Role(rawValue: "guest")
     public static let user = Role(rawValue: "user")
@@ -14015,7 +13941,6 @@ public struct UtilityConfig: Codable {
 public struct AgentEventType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     /// Run lifecycle
     public static let agentEventRunStarted = AgentEventType(rawValue: "run.started")
@@ -14191,7 +14116,6 @@ public struct ContentDeltaPayload: Codable {
 public struct ContentDeltaKind: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let contentDeltaText = ContentDeltaKind(rawValue: "text")
     public static let contentDeltaReasoning = ContentDeltaKind(rawValue: "reasoning")
@@ -14407,7 +14331,6 @@ public struct ErrorPayload: Codable {
 public struct AgentRunState: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let submitted = AgentRunState(rawValue: "submitted")
     public static let working = AgentRunState(rawValue: "working")
@@ -14424,7 +14347,6 @@ public struct AgentRunState: RawRepresentable, Codable, Hashable, Sendable {
 public struct InterruptReason: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let toolApproval = InterruptReason(rawValue: "tool_approval")
     public static let clientTool = InterruptReason(rawValue: "client_tool")
@@ -14440,7 +14362,6 @@ public typealias StringEncodedMap = [String: JSONValue]
 public struct InterruptStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = InterruptStatus(rawValue: "pending")
     public static let resolved = InterruptStatus(rawValue: "resolved")
@@ -14452,7 +14373,6 @@ public struct InterruptStatus: RawRepresentable, Codable, Hashable, Sendable {
 public struct InterruptResolution: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let allow = InterruptResolution(rawValue: "allow")
     public static let deny = InterruptResolution(rawValue: "deny")
@@ -14462,7 +14382,6 @@ public struct InterruptResolution: RawRepresentable, Codable, Hashable, Sendable
 public struct InterruptResourceType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let interruptResourceToolInvocation = InterruptResourceType(rawValue: "tool_invocation")
     public static let interruptResourceHookEvent = InterruptResourceType(rawValue: "hook_event")
@@ -14474,7 +14393,6 @@ public struct InterruptResourceType: RawRepresentable, Codable, Hashable, Sendab
 public struct HookEvent: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let agentStart = HookEvent(rawValue: "agent.start")
     public static let turnStart = HookEvent(rawValue: "agent.turn_start")
@@ -14515,7 +14433,6 @@ public struct HookEventDefinition: Codable {
 public struct HookDecision: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let allow = HookDecision(rawValue: "allow")
     public static let deny = HookDecision(rawValue: "deny")
@@ -14527,7 +14444,6 @@ public struct HookDecision: RawRepresentable, Codable, Hashable, Sendable {
 public struct HookHandlerType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let hookHandlerWebhook = HookHandlerType(rawValue: "webhook")
     public static let hookHandlerTask = HookHandlerType(rawValue: "task")
@@ -14735,7 +14651,6 @@ public struct ErrorEventData: Codable {
 public struct ToolInvocationStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let pending = ToolInvocationStatus(rawValue: "pending")
     public static let inProgress = ToolInvocationStatus(rawValue: "in_progress")
@@ -14750,7 +14665,6 @@ public struct ToolInvocationStatus: RawRepresentable, Codable, Hashable, Sendabl
 public struct ToolType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let app = ToolType(rawValue: "app")
     public static let agent = ToolType(rawValue: "agent")
@@ -14766,7 +14680,6 @@ public struct ToolType: RawRepresentable, Codable, Hashable, Sendable {
 public struct ToolCallType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let toolTypeFunction = ToolCallType(rawValue: "function")
 }
@@ -14775,7 +14688,6 @@ public struct ToolCallType: RawRepresentable, Codable, Hashable, Sendable {
 public struct ToolParamType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ value: String) { self.rawValue = value }
 
     public static let object = ToolParamType(rawValue: "object")
     public static let string = ToolParamType(rawValue: "string")
