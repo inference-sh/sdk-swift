@@ -99,6 +99,13 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(TextToSpeech.outputKey(fromSchema: .null), "audio")
     }
 
+    func testSTTInputKeyFromSchema() {
+        let whisper: JSONValue = ["required": ["audio"], "properties": ["audio": ["type": "string", "format": "file"], "language": ["type": "string"]]]
+        XCTAssertEqual(SpeechToText.inputKey(fromSchema: whisper), "audio")
+        let odd: JSONValue = ["properties": ["recording": ["type": "string", "format": "file"]]]
+        XCTAssertEqual(SpeechToText.inputKey(fromSchema: odd), "recording")
+    }
+
     func testTTSChunking() {
         XCTAssertEqual(TextToSpeech.chunk("short", max: 100), ["short"])
         XCTAssertEqual(TextToSpeech.chunk("   ", max: 100), [])

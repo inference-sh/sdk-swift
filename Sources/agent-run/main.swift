@@ -5,6 +5,8 @@
 // the audio, which is what the voice app does on the phone.
 // INTERRUPT_AFTER=N stops the chat after N snapshots (what pressing talk
 // mid-reply does); the stream is expected to end with `cancelled`.
+// STT_APP=inworld/speech-to-text STT_FILE=path.wav transcribes the file and
+// uses the transcript as the message instead of <text>.
 
 import Foundation
 import InferenceSDK
@@ -16,10 +18,16 @@ guard args.count >= 3, let key = env["INFERENCE_API_KEY"], !key.isEmpty else {
     exit(2)
 }
 let client = InferenceClient(baseURL: URL(string: env["INFERENCE_API_URL"] ?? "https://api.inference.sh")!, apiKey: key)
-let req = ApiAgentRunRequest(chatId: args.count > 3 ? args[3] : nil, agent: args[1], input: LLMInput(role: .user, text: args[2]))
 let interruptAfter = Int(env["INTERRUPT_AFTER"] ?? "") ?? 0
 
 do {
+    var text = args[2]
+    if let app = env["STT_APP"], !app.isEmpty, let path = env["STT_FILE"], !path.isEmpty {
+        let audio = try Data(contentsOf: URL(fileURLWithPath: path))
+        text = try await SpeechToText(client: client, app: app).transcribe(audio)
+        print("STT \(app): \(text.debugDescription)")
+    }
+    let req = ApiAgentRunRequest(chatId: args.count > 3 ? args[3] : nil, agent: args[1], input: LLMInput(role: .user, text: text))
     var n = 0
     for try await msg in client.runAgentStream(req) {
         n += 1

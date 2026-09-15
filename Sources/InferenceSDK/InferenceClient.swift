@@ -106,6 +106,26 @@ public struct InferenceClient: Sendable {
         return try await send(req)
     }
 
+    // MARK: - Files
+
+    /// Two-step upload, same as the JS SDK: POST /files creates the record
+    /// and returns a presigned `upload_url`; the bytes are PUT there. The
+    /// returned `uri` goes into task inputs.
+    public func uploadFile(_ data: Data, filename: String, contentType: String) async throws -> FileDTO {
+        let create = FileCreateRequest(files: [PartialFile(uri: "", contentType: contentType, size: data.count, filename: filename)])
+        let files: [FileDTO] = try await decode(send(request("files", body: create)))
+        guard let file = files.first, let uploadURL = URL(string: file.uploadUrl) else {
+            throw InferenceError.transport("POST /files returned no upload_url")
+        }
+        var put = URLRequest(url: uploadURL)
+        put.httpMethod = "PUT"
+        put.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        put.httpBody = data
+        put.timeoutInterval = 300
+        _ = try await send(put)
+        return file
+    }
+
     // MARK: - Plumbing
 
     public static let decoder = JSONDecoder()
@@ -339,6 +359,61 @@ public actor TextToSpeech {
         }
         if !current.isEmpty { chunks.append(current) }
         return chunks
+    }
+}
+
+// MARK: - Speech to text over any transcription app
+
+/// Uploads audio and runs a transcription app (inworld/speech-to-text,
+/// infsh/fast-whisper-large-v3, …). Input key is the first file-typed property
+/// of the input schema, output key is `text`; both overridable.
+public actor SpeechToText {
+    public struct Spec: Sendable {
+        public var inputKey: String
+        public var outputKey: String
+    }
+
+    public let client: InferenceClient
+    public let app: String
+    private var spec: Spec?
+    private let overrides: (inputKey: String?, outputKey: String?)
+
+    public init(client: InferenceClient, app: String, inputKey: String? = nil, outputKey: String? = nil) {
+        self.client = client
+        self.app = app
+        overrides = (inputKey, outputKey)
+    }
+
+    /// Upload, run with wait, return the transcript.
+    public func transcribe(_ audio: Data, filename: String = "audio.wav", contentType: String = "audio/wav") async throws -> String {
+        let spec = try await resolveSpec()
+        let file = try await client.uploadFile(audio, filename: filename, contentType: contentType)
+        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object([spec.inputKey: .string(file.uri)])))
+        guard let text = result.output[spec.outputKey]?.stringValue else {
+            throw InferenceError.transport("\(app) returned no '\(spec.outputKey)' output: \(result.output)")
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public func resolveSpec() async throws -> Spec {
+        if let spec { return spec }
+        var resolved = Spec(inputKey: overrides.inputKey ?? "", outputKey: overrides.outputKey ?? "text")
+        if resolved.inputKey.isEmpty {
+            let version = try await client.getApp(app).version
+            resolved.inputKey = SpeechToText.inputKey(fromSchema: version?.inputSchema ?? .null)
+        }
+        spec = resolved
+        return resolved
+    }
+
+    /// `audio` when present, else the first file-typed property, else `audio`.
+    public static func inputKey(fromSchema schema: JSONValue) -> String {
+        let props = schema["properties"]?.objectValue ?? [:]
+        if props["audio"] != nil { return "audio" }
+        for (key, prop) in props.sorted(by: { $0.key < $1.key }) where prop["format"]?.stringValue == "file" {
+            return key
+        }
+        return "audio"
     }
 }
 
