@@ -80,6 +80,26 @@ final class DecodeTests: XCTestCase {
         XCTAssertNil(obj["stream"])
     }
 
+    func testTTSInputKeyFromSchema() {
+        let inworld: JSONValue = ["required": ["text"], "properties": ["text": ["type": "string"], "voice_id": ["type": "string"]]]
+        XCTAssertEqual(TextToSpeech.inputKey(fromSchema: inworld), "text")
+        let kokoro: JSONValue = ["properties": ["prompt": ["type": "string"], "voice": ["type": "string"]]]
+        XCTAssertEqual(TextToSpeech.inputKey(fromSchema: kokoro), "prompt")
+        let odd: JSONValue = ["required": ["speed", "script"], "properties": ["script": ["type": "string"], "speed": ["type": "number"]]]
+        XCTAssertEqual(TextToSpeech.inputKey(fromSchema: odd), "script")
+        XCTAssertEqual(TextToSpeech.inputKey(fromSchema: .null), "text")
+    }
+
+    func testTTSChunking() {
+        XCTAssertEqual(TextToSpeech.chunk("short", max: 100), ["short"])
+        XCTAssertEqual(TextToSpeech.chunk("   ", max: 100), [])
+        let long = Array(repeating: "One sentence here.", count: 30).joined(separator: " ")
+        let chunks = TextToSpeech.chunk(long, max: 100)
+        XCTAssertGreaterThan(chunks.count, 1)
+        XCTAssertTrue(chunks.allSatisfy { $0.count <= 100 })
+        XCTAssertEqual(chunks.joined(separator: " ").filter { $0 != " " }, long.filter { $0 != " " })
+    }
+
     func testUnknownEnumValueStillDecodes() throws {
         let s = try JSONDecoder().decode(ChatMessageStatus.self, from: Data(#""brand_new_status""#.utf8))
         XCTAssertEqual(s.rawValue, "brand_new_status")

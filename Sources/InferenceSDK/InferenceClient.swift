@@ -111,6 +111,18 @@ public struct InferenceClient: Sendable {
 
     // MARK: - Apps
 
+    /// GET /apps/{namespace}/{name}. Includes the active version with its schemas.
+    public func getApp(_ ref: String) async throws -> AppDTO {
+        let bare = ref.split(separator: "@").first.map(String.init) ?? ref
+        var req = request("apps/\(bare)", accept: "application/json")
+        req.httpMethod = "GET"
+        let (data, status) = try await send(req)
+        guard (200..<300).contains(status) else {
+            throw InferenceError.http(status: status, body: String(decoding: data, as: UTF8.self))
+        }
+        return try Self.decoder.decode(AppDTO.self, from: data)
+    }
+
     /// POST /run with `wait: true`. Blocks until the task is terminal and
     /// returns the result. Failed and cancelled tasks come back as HTTP 422,
     /// surfaced as `InferenceError.http`.
@@ -208,6 +220,96 @@ public extension ChatMessageDTO {
     }
     var errorText: String? {
         (content ?? []).compactMap(\.error).first
+    }
+}
+
+// MARK: - Text to speech over any TTS app
+
+/// Runs a text-to-speech app and hands back audio. Works with any app whose
+/// output has a file field named `audio` (inworld/*, infsh/kokoro-tts, …).
+/// The input key differs per app (`text`, `prompt`); it is read from the app's
+/// input schema once and cached.
+public actor TextToSpeech {
+    public let client: InferenceClient
+    public let app: String
+    /// Chunk size for apps with a text limit (inworld: 2,000 chars).
+    public let maxChars: Int
+    private var inputKey: String?
+
+    public init(client: InferenceClient, app: String, maxChars: Int = 1800) {
+        self.client = client
+        self.app = app
+        self.maxChars = maxChars
+    }
+
+    /// Yields one audio file per chunk, in order, so playback can start before
+    /// the whole reply is synthesized.
+    public nonisolated func synthesize(_ text: String) -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let key = try await resolveInputKey()
+                    for chunk in TextToSpeech.chunk(text, max: maxChars) {
+                        try Task.checkCancellation()
+                        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object([key: .string(chunk)])))
+                        guard let url = result.fileURL("audio") else {
+                            throw InferenceError.transport("\(app) returned no 'audio' output: \(result.output)")
+                        }
+                        continuation.yield(try await client.download(url))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    public func resolveInputKey() async throws -> String {
+        if let inputKey { return inputKey }
+        let dto = try await client.getApp(app)
+        let key = TextToSpeech.inputKey(fromSchema: dto.version?.inputSchema ?? .null)
+        inputKey = key
+        return key
+    }
+
+    /// `text`, then `prompt`, then `input`, then the first required string
+    /// property, then `text`.
+    public static func inputKey(fromSchema schema: JSONValue) -> String {
+        let props = schema["properties"]?.objectValue ?? [:]
+        for candidate in ["text", "prompt", "input"] where props[candidate] != nil {
+            return candidate
+        }
+        for req in schema["required"]?.arrayValue?.compactMap(\.stringValue) ?? [] {
+            if props[req]?["type"]?.stringValue == "string" { return req }
+        }
+        return "text"
+    }
+
+    /// Splits on sentence ends, then on whitespace, so no chunk exceeds `max`.
+    public static func chunk(_ text: String, max: Int) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > max else { return trimmed.isEmpty ? [] : [trimmed] }
+        var chunks: [String] = []
+        var current = ""
+        let sentences = trimmed.split(omittingEmptySubsequences: true) { ".!?\n".contains($0) }
+        var pieces: [String] = []
+        for s in sentences {
+            let str = String(s).trimmingCharacters(in: .whitespaces)
+            if str.count <= max { pieces.append(str + ".") } else {
+                pieces.append(contentsOf: str.split(separator: " ").map(String.init))
+            }
+        }
+        for piece in pieces {
+            if current.count + piece.count + 1 > max, !current.isEmpty {
+                chunks.append(current)
+                current = ""
+            }
+            current += current.isEmpty ? piece : " " + piece
+        }
+        if !current.isEmpty { chunks.append(current) }
+        return chunks
     }
 }
 

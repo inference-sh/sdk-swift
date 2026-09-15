@@ -38,11 +38,13 @@ Task {
             if msg.status.isTerminal {
                 guard msg.status == .ready else { print("FAILED: \(msg.errorText ?? "?")"); exit(1) }
                 print("OK: \(msg.text)")
-                if let tts = ProcessInfo.processInfo.environment["TTS_APP"], !tts.isEmpty {
-                    let task = try await client.runApp(ApiAppRunRequest(app: tts, input: ["prompt": .string(msg.text)]))
-                    guard let url = task.fileURL("audio") else { print("TTS: no audio in output \(task.output)"); exit(1) }
-                    let audio = try await client.download(url)
-                    print("TTS OK: \(url) \(audio.count) bytes, header \(String(decoding: audio.prefix(4), as: UTF8.self))")
+                if let app = ProcessInfo.processInfo.environment["TTS_APP"], !app.isEmpty {
+                    let tts = TextToSpeech(client: client, app: app)
+                    print("TTS \(app) input key: \(try await tts.resolveInputKey())")
+                    for try await audio in tts.synthesize(msg.text) {
+                        let head = audio.prefix(4).map { String(format: "%02x", $0) }.joined()
+                        print("TTS OK: \(audio.count) bytes, head \(head)")
+                    }
                 }
                 exit(0)
             }
