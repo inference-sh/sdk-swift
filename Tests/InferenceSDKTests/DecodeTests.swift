@@ -106,6 +106,16 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(SpeechToText.inputKey(fromSchema: odd), "recording")
     }
 
+    func testParseAppSpec() {
+        let (app, extra) = parseAppSpec("elevenlabs/stt language_code=eng diarize=false speed=1.5")
+        XCTAssertEqual(app, "elevenlabs/stt")
+        XCTAssertEqual(extra["language_code"], .string("eng"))
+        XCTAssertEqual(extra["diarize"], .bool(false))
+        XCTAssertEqual(extra["speed"], .number(1.5))
+        XCTAssertEqual(parseAppSpec("").app, "")
+        XCTAssertEqual(parseAppSpec("ns/name").extraInput, [:])
+    }
+
     func testTTSChunking() {
         XCTAssertEqual(TextToSpeech.chunk("short", max: 100), ["short"])
         XCTAssertEqual(TextToSpeech.chunk("   ", max: 100), [])

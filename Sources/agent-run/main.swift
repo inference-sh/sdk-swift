@@ -5,12 +5,14 @@
 // the audio, which is what the voice app does on the phone.
 // INTERRUPT_AFTER=N stops the chat after N snapshots (what pressing talk
 // mid-reply does); the stream is expected to end with `cancelled`.
-// STT_APP=inworld/speech-to-text STT_FILE=path.wav transcribes the file and
-// uses the transcript as the message instead of <text>.
+// STT_APP="elevenlabs/stt language_code=eng" STT_FILE=path.wav transcribes the
+// file and uses the transcript as the message instead of <text>. App specs
+// accept trailing key=value extra inputs, same as the app's Settings fields.
 
 import Foundation
 import InferenceSDK
 
+signal(SIGPIPE, SIG_IGN) // Linux: a peer closing mid-write must surface as an error, not kill the process
 let args = CommandLine.arguments
 let env = ProcessInfo.processInfo.environment
 guard args.count >= 3, let key = env["INFERENCE_API_KEY"], !key.isEmpty else {
@@ -22,9 +24,10 @@ let interruptAfter = Int(env["INTERRUPT_AFTER"] ?? "") ?? 0
 
 do {
     var text = args[2]
-    if let app = env["STT_APP"], !app.isEmpty, let path = env["STT_FILE"], !path.isEmpty {
+    if let spec = env["STT_APP"], !spec.isEmpty, let path = env["STT_FILE"], !path.isEmpty {
+        let (app, extra) = parseAppSpec(spec)
         let audio = try Data(contentsOf: URL(fileURLWithPath: path))
-        text = try await SpeechToText(client: client, app: app).transcribe(audio)
+        text = try await SpeechToText(client: client, app: app, extraInput: extra).transcribe(audio)
         print("STT \(app): \(text.debugDescription)")
     }
     let req = ApiAgentRunRequest(chatId: args.count > 3 ? args[3] : nil, agent: args[1], input: LLMInput(role: .user, text: text))
@@ -44,8 +47,9 @@ do {
         }
         guard msg.status == .ready else { print("FAILED: \(msg.errorText ?? "?")"); exit(1) }
         print("OK: \(msg.text)")
-        if let app = env["TTS_APP"], !app.isEmpty {
-            let tts = TextToSpeech(client: client, app: app)
+        if let spec = env["TTS_APP"], !spec.isEmpty {
+            let (app, extra) = parseAppSpec(spec)
+            let tts = TextToSpeech(client: client, app: app, extraInput: extra)
             print("TTS \(app) spec: \(try await tts.resolveSpec())")
             for try await audio in tts.synthesize(msg.text) {
                 print("TTS OK: \(audio.count) bytes, head \(audio.prefix(4).map { String(format: "%02x", $0) }.joined())")

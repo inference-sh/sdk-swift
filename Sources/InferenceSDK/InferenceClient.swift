@@ -87,7 +87,7 @@ public struct InferenceClient: Sendable {
     /// GET /apps/{namespace}/{name}. Includes the active version with its schemas.
     public func getApp(_ ref: String) async throws -> AppDTO {
         let bare = ref.split(separator: "@").first.map(String.init) ?? ref
-        return try await decode(send(request("apps/\(bare)", method: "GET")))
+        return try await decode(send(request("apps/\(bare)", method: "GET"), retries: 1))
     }
 
     /// POST /run with `wait: true`. Blocks until the task is terminal and
@@ -120,9 +120,9 @@ public struct InferenceClient: Sendable {
         var put = URLRequest(url: uploadURL)
         put.httpMethod = "PUT"
         put.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        put.httpBody = data
+        put.setValue("", forHTTPHeaderField: "Expect") // R2 resets on 100-continue
         put.timeoutInterval = 300
-        _ = try await send(put)
+        _ = try await send(put, upload: data, retries: 2)
         return file
     }
 
@@ -138,6 +138,10 @@ public struct InferenceClient: Sendable {
         req.setValue("2", forHTTPHeaderField: "X-API-Version")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(accept, forHTTPHeaderField: "Accept")
+        // One connection per call. A reused keep-alive connection that the
+        // server has already closed surfaces as "connection reset" on the next
+        // POST, and a POST is not safe to retry blindly.
+        req.setValue("close", forHTTPHeaderField: "Connection")
         req.timeoutInterval = 300
         return req
     }
@@ -153,15 +157,38 @@ public struct InferenceClient: Sendable {
     }
 
     /// One-shot request. Throws `InferenceError.http` on non-2xx. Honors Swift
-    /// task cancellation by cancelling the URL task.
-    private func send(_ req: URLRequest) async throws -> Data {
+    /// task cancellation by cancelling the URL task. A raw body goes through an
+    /// upload task (Content-Length, no chunking), which presigned storage
+    /// URLs require. `retries` re-sends on transport errors only; pass it for
+    /// idempotent calls (GET, presigned PUT). Linux's libcurl 7.81 resets the
+    /// first connection to some hosts and succeeds on the next.
+    private func send(_ req: URLRequest, upload: Data? = nil, retries: Int = 0) async throws -> Data {
+        var attempt = 0
+        while true {
+            do {
+                return try await sendOnce(req, upload: upload)
+            } catch InferenceError.transport(let msg) where attempt < retries && !Task.isCancelled {
+                attempt += 1
+                if ProcessInfo.processInfo.environment["INFERENCE_DEBUG"] != nil {
+                    FileHandle.standardError.write(Data("retry \(attempt) after: \(msg)\n".utf8))
+                }
+            }
+        }
+    }
+
+    private func sendOnce(_ req: URLRequest, upload: Data?) async throws -> Data {
+        if ProcessInfo.processInfo.environment["INFERENCE_DEBUG"] != nil {
+            FileHandle.standardError.write(Data("→ \(req.httpMethod ?? "") \(req.url?.absoluteString ?? "") \(upload?.count ?? req.httpBody?.count ?? 0)B\n".utf8))
+        }
         let box = TaskBox()
         let (data, status): (Data, Int) = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { c in
-                let task = URLSession.shared.dataTask(with: req) { data, resp, err in
+                let handler: @Sendable (Data?, URLResponse?, Error?) -> Void = { data, resp, err in
                     if let err { c.resume(throwing: InferenceError.transport(err.localizedDescription)); return }
                     c.resume(returning: (data ?? Data(), (resp as? HTTPURLResponse)?.statusCode ?? 0))
                 }
+                let task: URLSessionTask = upload.map { URLSession.shared.uploadTask(with: req, from: $0, completionHandler: handler) }
+                    ?? URLSession.shared.dataTask(with: req, completionHandler: handler)
                 box.task = task
                 task.resume()
             }
@@ -258,12 +285,16 @@ public actor TextToSpeech {
 
     public let client: InferenceClient
     public let app: String
+    /// Extra app inputs sent with every chunk (voice, language, speed, …).
+    public let extraInput: [String: JSONValue]
     private var spec: Spec?
     private let overrides: (inputKey: String?, outputKey: String?, maxChars: Int?)
 
-    public init(client: InferenceClient, app: String, inputKey: String? = nil, outputKey: String? = nil, maxChars: Int? = nil) {
+    public init(client: InferenceClient, app: String, extraInput: [String: JSONValue] = [:],
+                inputKey: String? = nil, outputKey: String? = nil, maxChars: Int? = nil) {
         self.client = client
         self.app = app
+        self.extraInput = extraInput
         overrides = (inputKey, outputKey, maxChars)
     }
 
@@ -285,7 +316,8 @@ public actor TextToSpeech {
     }
 
     private func synthesizeChunk(_ chunk: String, spec: Spec) async throws -> Data {
-        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object([spec.inputKey: .string(chunk)])))
+        let input = extraInput.merging([spec.inputKey: .string(chunk)]) { _, chunk in chunk }
+        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object(input)))
         guard let url = result.fileURL(spec.outputKey) else {
             throw InferenceError.transport("\(app) returned no '\(spec.outputKey)' output: \(result.output)")
         }
@@ -375,12 +407,18 @@ public actor SpeechToText {
 
     public let client: InferenceClient
     public let app: String
+    /// Extra app inputs (language hint, diarize, …). Formats are per app:
+    /// elevenlabs/stt `language_code: "eng"`, inworld `language: "en-US"`,
+    /// whisper `language: "english"`.
+    public let extraInput: [String: JSONValue]
     private var spec: Spec?
     private let overrides: (inputKey: String?, outputKey: String?)
 
-    public init(client: InferenceClient, app: String, inputKey: String? = nil, outputKey: String? = nil) {
+    public init(client: InferenceClient, app: String, extraInput: [String: JSONValue] = [:],
+                inputKey: String? = nil, outputKey: String? = nil) {
         self.client = client
         self.app = app
+        self.extraInput = extraInput
         overrides = (inputKey, outputKey)
     }
 
@@ -388,7 +426,8 @@ public actor SpeechToText {
     public func transcribe(_ audio: Data, filename: String = "audio.wav", contentType: String = "audio/wav") async throws -> String {
         let spec = try await resolveSpec()
         let file = try await client.uploadFile(audio, filename: filename, contentType: contentType)
-        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object([spec.inputKey: .string(file.uri)])))
+        let input = extraInput.merging([spec.inputKey: .string(file.uri)]) { _, uri in uri }
+        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object(input)))
         guard let text = result.output[spec.outputKey]?.stringValue else {
             throw InferenceError.transport("\(app) returned no '\(spec.outputKey)' output: \(result.output)")
         }
@@ -415,6 +454,23 @@ public actor SpeechToText {
         }
         return "audio"
     }
+}
+
+/// Parses "namespace/name key=value key=value" as typed by a user into an app
+/// ref plus extra inputs. Values that parse as numbers or booleans are typed.
+public func parseAppSpec(_ text: String) -> (app: String, extraInput: [String: JSONValue]) {
+    var parts = text.split(separator: " ").map(String.init)
+    guard !parts.isEmpty else { return ("", [:]) }
+    let app = parts.removeFirst()
+    var extra: [String: JSONValue] = [:]
+    for part in parts {
+        guard let eq = part.firstIndex(of: "=") else { continue }
+        let key = String(part[..<eq]), raw = String(part[part.index(after: eq)...])
+        if let b = Bool(raw) { extra[key] = .bool(b) }
+        else if let d = Double(raw) { extra[key] = .number(d) }
+        else { extra[key] = .string(raw) }
+    }
+    return (app, extra)
 }
 
 // MARK: - Line-oriented HTTP body stream
