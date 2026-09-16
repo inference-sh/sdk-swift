@@ -25,14 +25,10 @@ public enum InferenceError: Error, LocalizedError, Sendable {
     }
 }
 
-/// Speaks API version 3, which the server uses when no `X-API-Version` header
-/// is sent: JSON responses are `{"data": <dto>, "messages": [...]}`, errors are
-/// RFC 9457 problem details, streams carry bare DTOs.
-///
-/// Never send `X-API-Version: 2`. That is the legacy bare-DTO format, kept for
-/// old clients and scheduled for removal. The first version of this client
-/// sent it because the REST pages under content/docs still recommend it; the
-/// JS and Python SDKs and the CLIs send no header (see js/sdk-js/src/http/client.ts).
+/// The API has one response format: JSON responses are
+/// `{"data": <dto>, "messages": [...]}`, errors are RFC 9457 problem details,
+/// streams carry bare DTOs. Send no version header; the JS and Python SDKs and
+/// the CLIs send none either (see js/sdk-js/src/http/client.ts).
 public struct InferenceClient: Sendable {
     public var baseURL: URL
     public var apiKey: String
