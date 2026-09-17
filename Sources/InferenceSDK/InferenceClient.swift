@@ -165,11 +165,34 @@ public struct InferenceClient: Sendable {
         return req
     }
 
-    /// Unwraps the V3 envelope and forwards its messages.
-    private func decode<T: Decodable>(_ data: Data) throws -> T {
-        let envelope = try Self.decoder.decode(Envelope<T>.self, from: data)
+    /// Unwraps the V3 envelope and forwards its messages. Internal so the chat
+    /// endpoint extensions (ChatAPI.swift) share the same path.
+    func decode<T: Decodable>(_ data: Data) throws -> T {
+        let envelope = try Self.decoder.decode(Envelope<T>.self, from: Self.patchNullMemory(data))
         if let onMessage, let messages = envelope.messages, !messages.isEmpty { onMessage(messages) }
         return envelope.data
+    }
+
+    /// The generated `ChatData.memory` is a non-optional map, but the API sends
+    /// `"agent_data": {"memory": null}`, which makes every ChatDTO decode fail
+    /// with "data missing". Types.swift is generated (the real fix is Go-side +
+    /// `make types`), so as a transport-layer shim we coerce any null `memory`
+    /// to `{}` before decoding. No-op for payloads without it.
+    static func patchNullMemory(_ data: Data) -> Data {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) else { return data }
+        func fix(_ any: Any) -> Any {
+            if let dict = any as? [String: Any] {
+                var out = dict
+                for (k, v) in dict {
+                    if k == "memory", v is NSNull { out[k] = [String: Any]() }
+                    else { out[k] = fix(v) }
+                }
+                return out
+            }
+            if let arr = any as? [Any] { return arr.map(fix) }
+            return any
+        }
+        return (try? JSONSerialization.data(withJSONObject: fix(obj))) ?? data
     }
 
     /// One-shot request. Throws `InferenceError.http` on non-2xx. Honors Swift
@@ -178,7 +201,7 @@ public struct InferenceClient: Sendable {
     /// URLs require. `retries` re-sends on transport errors only; pass it for
     /// idempotent calls (GET, presigned PUT). Linux's libcurl 7.81 resets the
     /// first connection to some hosts and succeeds on the next.
-    private func send(_ req: URLRequest, upload: Data? = nil, retries: Int = 0) async throws -> Data {
+    func send(_ req: URLRequest, upload: Data? = nil, retries: Int = 0) async throws -> Data {
         var attempt = 0
         while true {
             do {
