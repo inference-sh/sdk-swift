@@ -72,6 +72,7 @@ public struct InternalToolsConfig: Codable {
     public var hostContext: Bool?
     public var meta: Bool?
     public var artifact: Bool?
+    public var spawn: Bool?
 
     public init(
         plan: Bool? = nil,
@@ -81,7 +82,8 @@ public struct InternalToolsConfig: Codable {
         skills: Bool? = nil,
         hostContext: Bool? = nil,
         meta: Bool? = nil,
-        artifact: Bool? = nil
+        artifact: Bool? = nil,
+        spawn: Bool? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -91,6 +93,7 @@ public struct InternalToolsConfig: Codable {
         self.hostContext = hostContext
         self.meta = meta
         self.artifact = artifact
+        self.spawn = spawn
     }
 
     enum CodingKeys: String, CodingKey {
@@ -102,6 +105,7 @@ public struct InternalToolsConfig: Codable {
         case hostContext = "host_context"
         case meta = "meta"
         case artifact = "artifact"
+        case spawn = "spawn"
     }
 }
 
@@ -13874,6 +13878,12 @@ public struct TeamType: RawRepresentable, Codable, Hashable, Sendable {
     public static let personal = TeamType(rawValue: "personal")
     public static let team = TeamType(rawValue: "team")
     public static let system = TeamType(rawValue: "system")
+    /// TeamTypeOrg is an organization's own workspace. Its id is the org's
+    /// id, its org_id points at itself, its members are the org's admins, and
+    /// it owns what the org owns: the payer row, billing settings, org-scope
+    /// credentials. Minted by org creation only; never archived while member
+    /// teams exist.
+    public static let org = TeamType(rawValue: "org")
 }
 
 public struct TeamStatus: RawRepresentable, Codable, Hashable, Sendable {
