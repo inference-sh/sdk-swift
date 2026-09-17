@@ -4643,6 +4643,9 @@ public struct CursorListRequest: Codable {
     public var permissions: [String]?
     /// Include other users' items in the response
     public var includeOthers: Bool
+    /// IncludePrivate: an owner or admin of the selected team asks for every
+    /// row the team owns, private ones included. Audited; ignored for others.
+    public var includePrivate: Bool?
 
     public init(
         cursor: String = "",
@@ -4655,7 +4658,8 @@ public struct CursorListRequest: Codable {
         sort: [SortOrder]? = nil,
         fields: [String]? = nil,
         permissions: [String]? = nil,
-        includeOthers: Bool = false
+        includeOthers: Bool = false,
+        includePrivate: Bool? = nil
     ) {
         self.cursor = cursor
         self.page = page
@@ -4668,6 +4672,7 @@ public struct CursorListRequest: Codable {
         self.fields = fields
         self.permissions = permissions
         self.includeOthers = includeOthers
+        self.includePrivate = includePrivate
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4682,6 +4687,7 @@ public struct CursorListRequest: Codable {
         case fields = "fields"
         case permissions = "permissions"
         case includeOthers = "include_others"
+        case includePrivate = "include_private"
     }
 }
 
@@ -13073,13 +13079,15 @@ public struct ResponseFormat: Codable {
 }
 
 /// LLMSettings is everything that configures a generation independent of the
-/// conversation: model, context, sampling, system prompt, tools and output
+/// conversation: context, sampling, system prompt, tools and output
 /// constraints. Embedded (tstype extends) by BaseLLMInput — an agent's stored
 /// configuration — and LLMInput — a single call — so a field added here
 /// reaches both, and the call is built from the configuration by one
 /// assignment.
+/// 
+/// Which model runs is not a setting: the app is the model. An app that
+/// fronts several models (a router) declares its own `model` input.
 public struct LLMSettings: Codable {
-    public var model: String?
     public var contextSize: Int
     public var temperature: Double?
     public var topP: Double?
@@ -13099,7 +13107,6 @@ public struct LLMSettings: Codable {
     public var responseFormat: ResponseFormat?
 
     public init(
-        model: String? = nil,
         contextSize: Int = 0,
         temperature: Double? = nil,
         topP: Double? = nil,
@@ -13118,7 +13125,6 @@ public struct LLMSettings: Codable {
         toolChoice: ToolChoice? = nil,
         responseFormat: ResponseFormat? = nil
     ) {
-        self.model = model
         self.contextSize = contextSize
         self.temperature = temperature
         self.topP = topP
@@ -13139,7 +13145,6 @@ public struct LLMSettings: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case model = "model"
         case contextSize = "context_size"
         case temperature = "temperature"
         case topP = "top_p"
@@ -13163,7 +13168,6 @@ public struct LLMSettings: Codable {
 /// LLMInput is the input envelope for an LLM provider task: the settings plus
 /// the conversation, with the current turn split out of the context.
 public struct LLMInput: Codable {
-    public var model: String?
     public var contextSize: Int
     public var temperature: Double?
     public var topP: Double?
@@ -13191,7 +13195,6 @@ public struct LLMInput: Codable {
     public var toolCallId: String?
 
     public init(
-        model: String? = nil,
         contextSize: Int = 0,
         temperature: Double? = nil,
         topP: Double? = nil,
@@ -13218,7 +13221,6 @@ public struct LLMInput: Codable {
         files: [String]? = nil,
         toolCallId: String? = nil
     ) {
-        self.model = model
         self.contextSize = contextSize
         self.temperature = temperature
         self.topP = topP
@@ -13247,7 +13249,6 @@ public struct LLMInput: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case model = "model"
         case contextSize = "context_size"
         case temperature = "temperature"
         case topP = "top_p"
