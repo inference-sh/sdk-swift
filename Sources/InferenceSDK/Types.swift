@@ -8514,6 +8514,9 @@ public struct MenuItem: Codable {
     public var id: String
     public var label: String
     public var slug: String?
+    /// Path is the linked page's path, filled in when a menu is read so a client
+    /// can build the link without fetching each page. Never stored.
+    public var path: String?
     public var pageId: String?
     public var url: String?
     public var icon: String?
@@ -8526,6 +8529,7 @@ public struct MenuItem: Codable {
         id: String = "",
         label: String = "",
         slug: String? = nil,
+        path: String? = nil,
         pageId: String? = nil,
         url: String? = nil,
         icon: String? = nil,
@@ -8537,6 +8541,7 @@ public struct MenuItem: Codable {
         self.id = id
         self.label = label
         self.slug = slug
+        self.path = path
         self.pageId = pageId
         self.url = url
         self.icon = icon
@@ -8550,6 +8555,7 @@ public struct MenuItem: Codable {
         case id = "id"
         case label = "label"
         case slug = "slug"
+        case path = "path"
         case pageId = "page_id"
         case url = "url"
         case icon = "icon"
@@ -8581,6 +8587,7 @@ public struct PageDTO: Codable {
     public var type: PageType
     public var metadata: PageMetadata
     public var slug: String
+    public var path: String
     /// PublishAt mirrors Metadata.PublishAt, which remains the field clients write.
     /// Surfaced here so a reader does not have to reach into the metadata blob.
     public var publishAt: String?
@@ -8605,6 +8612,7 @@ public struct PageDTO: Codable {
         type: PageType,
         metadata: PageMetadata,
         slug: String = "",
+        path: String = "",
         publishAt: String? = nil
     ) {
         self.id = id
@@ -8626,6 +8634,7 @@ public struct PageDTO: Codable {
         self.type = type
         self.metadata = metadata
         self.slug = slug
+        self.path = path
         self.publishAt = publishAt
     }
 
@@ -8649,6 +8658,7 @@ public struct PageDTO: Codable {
         case type = "type"
         case metadata = "metadata"
         case slug = "slug"
+        case path = "path"
         case publishAt = "publish_at"
     }
 }
@@ -13501,6 +13511,9 @@ public struct RefRouteType: RawRepresentable, Codable, Hashable, Sendable {
     public static let app = RefRouteType(rawValue: "app")
     public static let agent = RefRouteType(rawValue: "agent")
     public static let skill = RefRouteType(rawValue: "skill")
+    /// RefRouteTypeURL routes a site path to another (/docs/api-files →
+    /// /docs/api/sdk/files). Alias and target are literal paths, not refs.
+    public static let url = RefRouteType(rawValue: "url")
 }
 
 public struct RefRouteMode: RawRepresentable, Codable, Hashable, Sendable {
