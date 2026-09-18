@@ -1474,7 +1474,7 @@ public struct AppVersionInput: Codable {
     public var env: [String: String]?
     public var kernel: String?
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredIntegrations: [IntegrationRequirement]?
+    public var requiredIntegrations: [CredentialRequirement]?
     public var resources: AppResources?
 
     public init(
@@ -1489,7 +1489,7 @@ public struct AppVersionInput: Codable {
         env: [String: String]? = nil,
         kernel: String? = nil,
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredIntegrations: [IntegrationRequirement]? = nil,
+        requiredIntegrations: [CredentialRequirement]? = nil,
         resources: AppResources? = nil
     ) {
         self.metadata = metadata
@@ -1926,7 +1926,7 @@ public struct SecretUpdateRequest: Codable {
     }
 }
 
-public struct IntegrationConnectRequest: Codable {
+public struct CredentialConnectRequest: Codable {
     public var provider: String
     public var type: String
     public var scopes: [String]?
@@ -1964,7 +1964,7 @@ public struct IntegrationConnectRequest: Codable {
     }
 }
 
-public struct IntegrationCompleteOAuthRequest: Codable {
+public struct CredentialCompleteOAuthRequest: Codable {
     public var provider: String
     public var type: String
     public var code: String
@@ -1994,8 +1994,8 @@ public struct IntegrationCompleteOAuthRequest: Codable {
     }
 }
 
-public struct IntegrationConnectResponse: Codable {
-    public var integration: IntegrationDTO?
+public struct CredentialConnectResponse: Codable {
+    public var integration: CredentialDTO?
     public var authUrl: String?
     public var state: String?
     public var codeVerifier: String?
@@ -2005,7 +2005,7 @@ public struct IntegrationConnectResponse: Codable {
     public var message: String?
 
     public init(
-        integration: IntegrationDTO? = nil,
+        integration: CredentialDTO? = nil,
         authUrl: String? = nil,
         state: String? = nil,
         codeVerifier: String? = nil,
@@ -2700,11 +2700,11 @@ public struct SecretRequirement: Codable {
     }
 }
 
-/// IntegrationRequirement defines an integration that an app requires.
+/// CredentialRequirement defines an integration that an app requires.
 /// Key is the provider slug (e.g. "bytedance", "google").
 /// Secrets lists the specific env var names to inject from this integration.
 /// Scopes lists OAuth scopes needed (for OAuth integrations).
-public struct IntegrationRequirement: Codable {
+public struct CredentialRequirement: Codable {
     public var key: String
     public var description: String?
     public var optional: Bool?
@@ -2853,7 +2853,7 @@ public struct AppVersionDTO: Codable {
     public var env: [String: String]?
     public var kernel: String
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredIntegrations: [IntegrationRequirement]?
+    public var requiredIntegrations: [CredentialRequirement]?
     public var resources: AppResources
     public var checksum: String?
 
@@ -2876,7 +2876,7 @@ public struct AppVersionDTO: Codable {
         env: [String: String]? = nil,
         kernel: String = "",
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredIntegrations: [IntegrationRequirement]? = nil,
+        requiredIntegrations: [CredentialRequirement]? = nil,
         resources: AppResources,
         checksum: String? = nil
     ) {
@@ -4560,6 +4560,223 @@ public struct ChatMessageDTO: Codable {
         case tools = "tools"
         case toolCallId = "tool_call_id"
         case toolInvocations = "tool_invocations"
+    }
+}
+
+/// CredentialDTO is the API response for a credential (never exposes secrets).
+public struct CredentialDTO: Codable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    public var user: UserRelationDTO?
+    public var teamId: String
+    public var team: TeamRelationDTO?
+    public var orgId: String?
+    public var visibility: Visibility
+    public var provider: String
+    public var type: CredentialType
+    public var grant: CredentialGrant?
+    public var scope: CredentialScope
+    public var status: CredentialStatus
+    public var displayName: String
+    public var iconUrl: String?
+    public var accountIdentifier: String?
+    public var accountName: String?
+    public var scopes: StringSlice
+    public var expiresAt: String?
+    public var vaultId: String?
+    public var metadata: [String: JSONValue]?
+    public var isPrimary: Bool
+    public var errorMessage: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        orgId: String? = nil,
+        visibility: Visibility,
+        provider: String = "",
+        type: CredentialType,
+        grant: CredentialGrant? = nil,
+        scope: CredentialScope,
+        status: CredentialStatus,
+        displayName: String = "",
+        iconUrl: String? = nil,
+        accountIdentifier: String? = nil,
+        accountName: String? = nil,
+        scopes: StringSlice,
+        expiresAt: String? = nil,
+        vaultId: String? = nil,
+        metadata: [String: JSONValue]? = nil,
+        isPrimary: Bool = false,
+        errorMessage: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.orgId = orgId
+        self.visibility = visibility
+        self.provider = provider
+        self.type = type
+        self.grant = grant
+        self.scope = scope
+        self.status = status
+        self.displayName = displayName
+        self.iconUrl = iconUrl
+        self.accountIdentifier = accountIdentifier
+        self.accountName = accountName
+        self.scopes = scopes
+        self.expiresAt = expiresAt
+        self.vaultId = vaultId
+        self.metadata = metadata
+        self.isPrimary = isPrimary
+        self.errorMessage = errorMessage
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case orgId = "org_id"
+        case visibility = "visibility"
+        case provider = "provider"
+        case type = "type"
+        case grant = "grant"
+        case scope = "scope"
+        case status = "status"
+        case displayName = "display_name"
+        case iconUrl = "icon_url"
+        case accountIdentifier = "account_identifier"
+        case accountName = "account_name"
+        case scopes = "scopes"
+        case expiresAt = "expires_at"
+        case vaultId = "vault_id"
+        case metadata = "metadata"
+        case isPrimary = "is_primary"
+        case errorMessage = "error_message"
+    }
+}
+
+/// CredentialConfigDTO is the merged view: provider catalog + credential state.
+public struct CredentialConfigDTO: Codable {
+    public var slug: String
+    public var provider: String
+    public var type: String
+    public var name: String
+    public var shortName: String
+    public var description: String
+    public var iconUrl: String?
+    public var howItWorks: [String]?
+    public var docsUrl: String?
+    public var secretFields: [SecretFieldConfig]?
+    public var allowsByok: Bool
+    public var available: Bool
+    public var hasManaged: Bool
+    public var grant: CredentialGrant?
+    public var credential: CredentialDTO?
+
+    public init(
+        slug: String = "",
+        provider: String = "",
+        type: String = "",
+        name: String = "",
+        shortName: String = "",
+        description: String = "",
+        iconUrl: String? = nil,
+        howItWorks: [String]? = nil,
+        docsUrl: String? = nil,
+        secretFields: [SecretFieldConfig]? = nil,
+        allowsByok: Bool = false,
+        available: Bool = false,
+        hasManaged: Bool = false,
+        grant: CredentialGrant? = nil,
+        credential: CredentialDTO? = nil
+    ) {
+        self.slug = slug
+        self.provider = provider
+        self.type = type
+        self.name = name
+        self.shortName = shortName
+        self.description = description
+        self.iconUrl = iconUrl
+        self.howItWorks = howItWorks
+        self.docsUrl = docsUrl
+        self.secretFields = secretFields
+        self.allowsByok = allowsByok
+        self.available = available
+        self.hasManaged = hasManaged
+        self.grant = grant
+        self.credential = credential
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case provider = "provider"
+        case type = "type"
+        case name = "name"
+        case shortName = "short_name"
+        case description = "description"
+        case iconUrl = "icon_url"
+        case howItWorks = "how_it_works"
+        case docsUrl = "docs_url"
+        case secretFields = "secret_fields"
+        case allowsByok = "allows_byok"
+        case available = "available"
+        case hasManaged = "has_managed"
+        case grant = "grant"
+        case credential = "credential"
+    }
+}
+
+/// SecretFieldConfig defines a secret field for the UI
+public struct SecretFieldConfig: Codable {
+    public var key: String
+    public var label: String
+    public var placeholder: String
+    public var sensitive: Bool
+    public var optional: Bool
+
+    public init(
+        key: String = "",
+        label: String = "",
+        placeholder: String = "",
+        sensitive: Bool = false,
+        optional: Bool = false
+    ) {
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.sensitive = sensitive
+        self.optional = optional
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case label = "label"
+        case placeholder = "placeholder"
+        case sensitive = "sensitive"
+        case optional = "optional"
     }
 }
 
@@ -6820,231 +7037,6 @@ public struct InstanceTypeBootTime: Codable {
         case averageSeconds = "average_seconds"
         case updatedAt = "updated_at"
         case sampleSize = "sample_size"
-    }
-}
-
-/// IntegrationDTO for API responses (never exposes tokens)
-public struct IntegrationDTO: Codable {
-    public var id: String
-    public var shortId: String
-    public var createdAt: String
-    public var updatedAt: String
-    public var deletedAt: String?
-    public var userId: String
-    public var user: UserRelationDTO?
-    public var teamId: String
-    public var team: TeamRelationDTO?
-    public var orgId: String?
-    public var visibility: Visibility
-    public var scope: IntegrationScope
-    public var grant: IntegrationGrant?
-    public var provider: IntegrationProvider
-    public var type: IntegrationAuthType
-    public var auth: IntegrationAuthType
-    public var status: IntegrationStatus
-    public var displayName: String
-    public var iconUrl: String?
-    public var scopes: StringSlice
-    public var expiresAt: String?
-    public var serviceAccountEmail: String?
-    public var metadata: [String: JSONValue]?
-    public var accountIdentifier: String?
-    public var accountName: String?
-    public var isPrimary: Bool
-    public var errorMessage: String?
-
-    public init(
-        id: String = "",
-        shortId: String = "",
-        createdAt: String = "",
-        updatedAt: String = "",
-        deletedAt: String? = nil,
-        userId: String = "",
-        user: UserRelationDTO? = nil,
-        teamId: String = "",
-        team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
-        visibility: Visibility,
-        scope: IntegrationScope,
-        grant: IntegrationGrant? = nil,
-        provider: IntegrationProvider,
-        type: IntegrationAuthType,
-        auth: IntegrationAuthType,
-        status: IntegrationStatus,
-        displayName: String = "",
-        iconUrl: String? = nil,
-        scopes: StringSlice,
-        expiresAt: String? = nil,
-        serviceAccountEmail: String? = nil,
-        metadata: [String: JSONValue]? = nil,
-        accountIdentifier: String? = nil,
-        accountName: String? = nil,
-        isPrimary: Bool = false,
-        errorMessage: String? = nil
-    ) {
-        self.id = id
-        self.shortId = shortId
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.deletedAt = deletedAt
-        self.userId = userId
-        self.user = user
-        self.teamId = teamId
-        self.team = team
-        self.orgId = orgId
-        self.visibility = visibility
-        self.scope = scope
-        self.grant = grant
-        self.provider = provider
-        self.type = type
-        self.auth = auth
-        self.status = status
-        self.displayName = displayName
-        self.iconUrl = iconUrl
-        self.scopes = scopes
-        self.expiresAt = expiresAt
-        self.serviceAccountEmail = serviceAccountEmail
-        self.metadata = metadata
-        self.accountIdentifier = accountIdentifier
-        self.accountName = accountName
-        self.isPrimary = isPrimary
-        self.errorMessage = errorMessage
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case shortId = "short_id"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case deletedAt = "deleted_at"
-        case userId = "user_id"
-        case user = "user"
-        case teamId = "team_id"
-        case team = "team"
-        case orgId = "org_id"
-        case visibility = "visibility"
-        case scope = "scope"
-        case grant = "grant"
-        case provider = "provider"
-        case type = "type"
-        case auth = "auth"
-        case status = "status"
-        case displayName = "display_name"
-        case iconUrl = "icon_url"
-        case scopes = "scopes"
-        case expiresAt = "expires_at"
-        case serviceAccountEmail = "service_account_email"
-        case metadata = "metadata"
-        case accountIdentifier = "account_identifier"
-        case accountName = "account_name"
-        case isPrimary = "is_primary"
-        case errorMessage = "error_message"
-    }
-}
-
-/// IntegrationConfigDTO is the API response for integration configuration
-public struct IntegrationConfigDTO: Codable {
-    public var slug: String
-    public var provider: String
-    public var type: String
-    public var auth: String
-    public var name: String
-    public var shortName: String
-    public var description: String
-    public var iconUrl: String?
-    public var howItWorks: [String]?
-    public var docsUrl: String?
-    public var secretFields: [SecretFieldConfig]?
-    public var allowsByok: Bool
-    public var available: Bool
-    public var hasManaged: Bool
-    public var grant: IntegrationGrant?
-    public var integration: IntegrationDTO?
-
-    public init(
-        slug: String = "",
-        provider: String = "",
-        type: String = "",
-        auth: String = "",
-        name: String = "",
-        shortName: String = "",
-        description: String = "",
-        iconUrl: String? = nil,
-        howItWorks: [String]? = nil,
-        docsUrl: String? = nil,
-        secretFields: [SecretFieldConfig]? = nil,
-        allowsByok: Bool = false,
-        available: Bool = false,
-        hasManaged: Bool = false,
-        grant: IntegrationGrant? = nil,
-        integration: IntegrationDTO? = nil
-    ) {
-        self.slug = slug
-        self.provider = provider
-        self.type = type
-        self.auth = auth
-        self.name = name
-        self.shortName = shortName
-        self.description = description
-        self.iconUrl = iconUrl
-        self.howItWorks = howItWorks
-        self.docsUrl = docsUrl
-        self.secretFields = secretFields
-        self.allowsByok = allowsByok
-        self.available = available
-        self.hasManaged = hasManaged
-        self.grant = grant
-        self.integration = integration
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case slug = "slug"
-        case provider = "provider"
-        case type = "type"
-        case auth = "auth"
-        case name = "name"
-        case shortName = "short_name"
-        case description = "description"
-        case iconUrl = "icon_url"
-        case howItWorks = "how_it_works"
-        case docsUrl = "docs_url"
-        case secretFields = "secret_fields"
-        case allowsByok = "allows_byok"
-        case available = "available"
-        case hasManaged = "has_managed"
-        case grant = "grant"
-        case integration = "integration"
-    }
-}
-
-/// SecretFieldConfig defines a secret field for the UI
-public struct SecretFieldConfig: Codable {
-    public var key: String
-    public var label: String
-    public var placeholder: String
-    public var sensitive: Bool
-    public var optional: Bool
-
-    public init(
-        key: String = "",
-        label: String = "",
-        placeholder: String = "",
-        sensitive: Bool = false,
-        optional: Bool = false
-    ) {
-        self.key = key
-        self.label = label
-        self.placeholder = placeholder
-        self.sensitive = sensitive
-        self.optional = optional
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case key = "key"
-        case label = "label"
-        case placeholder = "placeholder"
-        case sensitive = "sensitive"
-        case optional = "optional"
     }
 }
 
@@ -9877,11 +9869,11 @@ public struct SetupAction: Codable {
 /// CheckRequirementsRequest is the request body for checking requirements
 public struct CheckRequirementsRequest: Codable {
     public var secrets: [SecretRequirement]?
-    public var integrations: [IntegrationRequirement]?
+    public var integrations: [CredentialRequirement]?
 
     public init(
         secrets: [SecretRequirement]? = nil,
-        integrations: [IntegrationRequirement]? = nil
+        integrations: [CredentialRequirement]? = nil
     ) {
         self.secrets = secrets
         self.integrations = integrations
@@ -13647,69 +13639,47 @@ public struct ContentRating: RawRepresentable, Codable, Hashable, Sendable {
     public static let contentUnrated = ContentRating(rawValue: "unrated")
 }
 
-/// IntegrationProvider represents an external integration provider.
-public struct IntegrationProvider: RawRepresentable, Codable, Hashable, Sendable {
+/// CredentialProvider names the external service a credential is for.
+public struct CredentialProvider: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let google = IntegrationProvider(rawValue: "google")
-    public static let googleSA = IntegrationProvider(rawValue: "google-sa")
-    public static let slack = IntegrationProvider(rawValue: "slack")
-    public static let notion = IntegrationProvider(rawValue: "notion")
-    public static let gitHub = IntegrationProvider(rawValue: "github")
-    public static let x = IntegrationProvider(rawValue: "x")
-    public static let microsoft = IntegrationProvider(rawValue: "microsoft")
-    public static let salesforce = IntegrationProvider(rawValue: "salesforce")
-    public static let discord = IntegrationProvider(rawValue: "discord")
-    public static let gcp = IntegrationProvider(rawValue: "gcp")
-    public static let mcp = IntegrationProvider(rawValue: "mcp")
-    public static let reddit = IntegrationProvider(rawValue: "reddit")
+    public static let google = CredentialProvider(rawValue: "google")
+    public static let googleSA = CredentialProvider(rawValue: "google-sa")
+    public static let slack = CredentialProvider(rawValue: "slack")
+    public static let notion = CredentialProvider(rawValue: "notion")
+    public static let gitHub = CredentialProvider(rawValue: "github")
+    public static let x = CredentialProvider(rawValue: "x")
+    public static let microsoft = CredentialProvider(rawValue: "microsoft")
+    public static let salesforce = CredentialProvider(rawValue: "salesforce")
+    public static let discord = CredentialProvider(rawValue: "discord")
+    public static let gcp = CredentialProvider(rawValue: "gcp")
+    public static let mcp = CredentialProvider(rawValue: "mcp")
+    public static let reddit = CredentialProvider(rawValue: "reddit")
 }
 
-/// IntegrationAuthType describes the authentication mechanism of an integration.
-public struct IntegrationAuthType: RawRepresentable, Codable, Hashable, Sendable {
+/// CredentialType describes the credential category.
+public struct CredentialType: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let serviceAccount = IntegrationAuthType(rawValue: "service_account")
-    public static let oAuth = IntegrationAuthType(rawValue: "oauth")
-    public static let apiKey = IntegrationAuthType(rawValue: "api_key")
-    public static let wif = IntegrationAuthType(rawValue: "wif")
-    public static let mcp = IntegrationAuthType(rawValue: "mcp")
+    public static let oAuth = CredentialType(rawValue: "oauth")
+    public static let apiKey = CredentialType(rawValue: "api_key")
+    public static let mcp = CredentialType(rawValue: "mcp")
+    public static let serviceAccount = CredentialType(rawValue: "service_account")
+    public static let wif = CredentialType(rawValue: "wif")
 }
 
-/// IntegrationStatus represents the status of an integration connection.
-public struct IntegrationStatus: RawRepresentable, Codable, Hashable, Sendable {
+/// CredentialStatus represents the lifecycle state of a credential.
+public struct CredentialStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let pending = IntegrationStatus(rawValue: "pending")
-    public static let connected = IntegrationStatus(rawValue: "connected")
-    public static let disconnected = IntegrationStatus(rawValue: "disconnected")
-    public static let expired = IntegrationStatus(rawValue: "expired")
-    public static let error = IntegrationStatus(rawValue: "error")
-}
-
-/// IntegrationScope controls credential resolution priority and ownership.
-public struct IntegrationScope: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let team = IntegrationScope(rawValue: "team")
-    public static let platform = IntegrationScope(rawValue: "platform")
-    public static let user = IntegrationScope(rawValue: "user")
-}
-
-/// IntegrationGrant describes what an integration provides.
-public struct IntegrationGrant: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    /// IntegrationGrantCredentials provides OAuth app credentials (client_id/secret).
-    /// Users connect their own accounts against it. Only valid for type=oauth.
-    public static let credentials = IntegrationGrant(rawValue: "credentials")
-    /// IntegrationGrantToken provides ready-to-use access (token, API key, etc.).
-    public static let token = IntegrationGrant(rawValue: "token")
+    public static let pending = CredentialStatus(rawValue: "pending")
+    public static let connected = CredentialStatus(rawValue: "connected")
+    public static let disconnected = CredentialStatus(rawValue: "disconnected")
+    public static let expired = CredentialStatus(rawValue: "expired")
+    public static let error = CredentialStatus(rawValue: "error")
 }
 
 /// CredentialScope controls resolution priority and ownership.
@@ -13726,6 +13696,15 @@ public struct CredentialScope: RawRepresentable, Codable, Hashable, Sendable {
     public static let team = CredentialScope(rawValue: "team")
     public static let user = CredentialScope(rawValue: "user")
     public static let agent = CredentialScope(rawValue: "agent")
+}
+
+/// CredentialGrant describes what a credential provides.
+public struct CredentialGrant: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let credentials = CredentialGrant(rawValue: "credentials")
+    public static let token = CredentialGrant(rawValue: "token")
 }
 
 /// NotificationChannel represents a delivery channel
