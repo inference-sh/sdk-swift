@@ -84,6 +84,43 @@ public extension InferenceClient {
     func resolveInterrupt(_ interruptId: String, decision: String) async throws -> InterruptDTO {
         try await decode(send(request("interrupts/\(interruptId)/resolve", body: DecisionBody(decision: decision))))
     }
+
+    /// GET /agent-runs/{id}/interrupts: interrupts raised by one run.
+    func listRunInterrupts(_ runId: String) async throws -> [InterruptDTO] {
+        try await decode(send(request("agent-runs/\(runId)/interrupts", method: "GET")))
+    }
+
+    /// GET /agents/{ref} projected to what a chat header needs. Returns nil
+    /// on any failure — agent info is decoration, not a dependency (js parity).
+    func fetchAgentInfo(_ agentRef: String) async -> AgentInfo? {
+        guard let agent: AgentDTO = try? await decode(send(request("agents/\(agentRef)", method: "GET"))) else { return nil }
+        return AgentInfo(description: agent.version?.description,
+                         examplePrompts: agent.version?.examplePrompts)
+    }
+}
+
+/// The slice of an agent the chat UI shows (js agent/api.ts AgentInfo).
+public struct AgentInfo: Sendable {
+    public var description: String?
+    public var examplePrompts: [String]?
+}
+
+// MARK: - Busy state (mirrors js/sdk-js/src/utils.ts isChatBusy)
+
+public extension AgentRunDTO {
+    /// The run is holding the chat: submitted, working, or waiting on input.
+    var isActive: Bool {
+        state == .working || state == .submitted || state == .inputRequired
+    }
+}
+
+public extension ChatDTO {
+    /// The JS SDK's `isChatBusy`: the active run decides when there is one,
+    /// else the chat status. Busy chats queue new messages server-side.
+    var isBusy: Bool {
+        if let run = activeRun { return run.isActive }
+        return status == .busy || status == .awaitingInput
+    }
 }
 
 // MARK: - Request/response bodies
