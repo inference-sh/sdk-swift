@@ -13,7 +13,10 @@ public enum ChatStreamEvent: Sendable {
     case chat(ChatDTO)
     case message(ChatMessageDTO, fields: [String]?)   // fields != nil => partial update
     case run(AgentRunDTO)
-    case delta(response: String?, reasoning: String?)  // incremental tokens to concat
+    /// Raw delta object (LLMDelta shape) — feed it to a DeltaAccumulator; the
+    /// js SDK merges the whole object (response, reasoning, tool_calls, …),
+    /// not just the text fields.
+    case delta([String: JSONValue])
 }
 
 /// Server partial-update wrapper: `{ "data": <DTO>, "fields": ["..."] }`.
@@ -44,7 +47,13 @@ public extension InferenceClient {
                 req.setValue("Bearer \(self.apiKey)", forHTTPHeaderField: "Authorization")
                 req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-                req.timeoutInterval = .infinity
+                // For a data task this is an INACTIVITY timeout (resets on every
+                // byte). The server heartbeats every 10s (go/api common/stream),
+                // so 45s of silence means the TCP connection is dead — surface it
+                // so the reconnect loop below replaces it. `.infinity` here made
+                // a stale connection hang forever with no error: the app sat
+                // "thinking" while queued messages completed server-side unseen.
+                req.timeoutInterval = 45
 
                 let stream = HTTPLineStream()
                 do {
@@ -128,9 +137,9 @@ public extension InferenceClient {
             guard let (dto, _) = decodeMaybeWrapped(AgentRunDTO.self, data) else { return nil }
             return .run(dto)
         case "delta":
-            guard let (evt, _) = decodeMaybeWrapped(DeltaEvent.self, data) else { return nil }
-            let obj = evt.delta.objectValue
-            return .delta(response: obj?["response"]?.stringValue, reasoning: obj?["reasoning"]?.stringValue)
+            guard let (evt, _) = decodeMaybeWrapped(DeltaEvent.self, data),
+                  let obj = evt.delta.objectValue else { return nil }
+            return .delta(obj)
         default:
             return nil
         }
