@@ -173,18 +173,36 @@ public struct InferenceClient: Sendable {
         return envelope.data
     }
 
-    /// The generated `ChatData.memory` is a non-optional map, but the API sends
-    /// `"agent_data": {"memory": null}`, which makes every ChatDTO decode fail
-    /// with "data missing". Types.swift is generated (the real fix is Go-side +
-    /// `make types`), so as a transport-layer shim we coerce any null `memory`
-    /// to `{}` before decoding. No-op for payloads without it.
+    /// Transport-layer shims for wire shapes the GENERATED Types.swift cannot
+    /// express (it must not be edited; the real fixes are Go-side + gotypegen):
+    ///
+    /// 1. `ChatData.memory` is a non-optional map but the API sends
+    ///    `"agent_data": {"memory": null}` — every ChatDTO decode failed with
+    ///    "data missing". Null memory becomes `{}`.
+    /// 2. A2UI bound values are a union `string|number|boolean|{path}` on the
+    ///    wire (shared/a2ui.go MarshalJSON), but the generated A2UIBoundValue
+    ///    decodes only `{path}` — one literal `"text": "Hello"` inside a
+    ///    widget failed the whole message decode, silently dropping it from
+    ///    the stream. Literals inside A2UI components (dicts with "id" +
+    ///    string "component") are wrapped as `{"path": "$lit:<json>"}`;
+    ///    `A2UIBoundValue.literal` unwraps them at render time.
     static func patchNullMemory(_ data: Data) -> Data {
         guard let obj = try? JSONSerialization.jsonObject(with: data) else { return data }
+        let boundKeys: Set<String> = ["text", "url", "name", "value", "selections"]
+        func wrapLiteral(_ v: Any) -> Any? {
+            // Already an object ({path}) → leave; string/number/bool → wrap.
+            if v is [String: Any] || v is NSNull { return nil }
+            guard let lit = try? JSONSerialization.data(withJSONObject: [v]),
+                  let s = String(data: lit, encoding: .utf8) else { return nil }
+            return ["path": "$lit:" + s]   // single-element array keeps it valid JSON
+        }
         func fix(_ any: Any) -> Any {
             if let dict = any as? [String: Any] {
+                let isA2UIComponent = dict["id"] is String && dict["component"] is String
                 var out = dict
                 for (k, v) in dict {
                     if k == "memory", v is NSNull { out[k] = [String: Any]() }
+                    else if isA2UIComponent, boundKeys.contains(k), let wrapped = wrapLiteral(v) { out[k] = wrapped }
                     else { out[k] = fix(v) }
                 }
                 return out
