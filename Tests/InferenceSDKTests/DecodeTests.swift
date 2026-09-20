@@ -147,4 +147,46 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(v, back)
         XCTAssertEqual(back["b"]?[2]?.stringValue, "x")
     }
+
+    /// The wire sends A2UI bound values as bare literals (string|number|bool)
+    /// or {path}; the generated A2UIBoundValue only decodes {path}. The
+    /// transport shim tunnels literals through `path` — without it, one
+    /// widget text literal failed the whole message decode and the message
+    /// silently vanished from the stream.
+    func testWidgetBoundLiteralsSurviveDecode() throws {
+        let wire = #"""
+        {"version":"0.9.1","surfaceId":"s","catalogId":"c","components":[
+          {"id":"root","component":"Column","children":["t","n","b","p"]},
+          {"id":"t","component":"Text","text":"Hello"},
+          {"id":"n","component":"Text","text":42},
+          {"id":"b","component":"CheckBox","value":true,"label":"ok"},
+          {"id":"p","component":"Text","text":{"path":"/data/x"}}
+        ]}
+        """#
+        let patched = InferenceClient.patchNullMemory(Data(wire.utf8))
+        let w = try InferenceClient.decoder.decode(Widget.self, from: patched)
+        let byId = Dictionary(uniqueKeysWithValues: (w.components ?? []).map { ($0.id, $0) })
+        XCTAssertEqual(byId["t"]?.text?.display, "Hello")
+        XCTAssertEqual(byId["n"]?.text?.display, "42")
+        XCTAssertEqual(byId["b"]?.value?.literal, .bool(true))
+        XCTAssertEqual(byId["p"]?.text?.display, "[bound: /data/x]")
+        // A non-widget dict with a "text" key is left alone (no id+component).
+        let other = #"{"content":[{"type":"text","text":"plain"}]}"#
+        XCTAssertEqual(InferenceClient.patchNullMemory(Data(other.utf8)).count > 0, true)
+        let obj = try InferenceClient.decoder.decode(JSONValue.self,
+                                                     from: InferenceClient.patchNullMemory(Data(other.utf8)))
+        XCTAssertEqual(obj["content"]?[0]?["text"]?.stringValue, "plain")
+    }
+
+    /// The web's parseWidget accepts a surface, {widget:{...}}, the a2ui
+    /// bridge form, or any of them as a JSON string — and rejects plain text.
+    func testParseWidgetFormats() throws {
+        let surface = #"{"version":"1","surfaceId":"s","catalogId":"c","components":[{"id":"root","component":"Text","text":"hi"}]}"#
+        XCTAssertNotNil(Widget.parse(string: surface))
+        XCTAssertNotNil(Widget.parse(string: #"{"widget":\#(surface)}"#))
+        XCTAssertNotNil(Widget.parse(string: #"{"type":"a2ui","surface":\#(surface)}"#))
+        XCTAssertNil(Widget.parse(string: "Task done, all good."))
+        XCTAssertNil(Widget.parse(string: #"{"status":"ok"}"#))
+        XCTAssertEqual(Widget.parse(string: surface)?.components?.first?.text?.display, "hi")
+    }
 }
