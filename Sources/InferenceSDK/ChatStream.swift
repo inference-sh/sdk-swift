@@ -16,7 +16,10 @@ public enum ChatStreamEvent: Sendable {
     /// Raw delta object (LLMDelta shape) — feed it to a DeltaAccumulator; the
     /// js SDK merges the whole object (response, reasoning, tool_calls, …),
     /// not just the text fields.
-    case delta([String: JSONValue])
+    /// A token delta and the id of the message it belongs to, from
+    /// DeltaEvent.resourceId. Carried explicitly so consumers match instead of
+    /// inferring a target from stream position.
+    case delta(messageId: String, [String: JSONValue])
 }
 
 /// Server partial-update wrapper: `{ "data": <DTO>, "fields": ["..."] }`.
@@ -137,9 +140,13 @@ public extension InferenceClient {
             guard let (dto, _) = decodeMaybeWrapped(AgentRunDTO.self, data) else { return nil }
             return .run(dto)
         case "delta":
+            // No resource id means the server could not attribute the delta.
+            // Drop it rather than pass an unattributable token downstream —
+            // the message snapshot still carries the authoritative text.
             guard let (evt, _) = decodeMaybeWrapped(DeltaEvent.self, data),
-                  let obj = evt.delta.objectValue else { return nil }
-            return .delta(obj)
+                  let obj = evt.delta.objectValue,
+                  let messageId = evt.resourceId, !messageId.isEmpty else { return nil }
+            return .delta(messageId: messageId, obj)
         default:
             return nil
         }
