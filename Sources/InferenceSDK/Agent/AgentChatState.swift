@@ -20,8 +20,8 @@
 //   ChatDTO is a class (reference semantics), so the shared instance is
 //   mutated in place and the returned state holds the same reference —
 //   observers comparing object identity will not see a new chat.
-// - DELTA_TOKEN: js spreads `lastAssistant.content` and would throw if it
-//   were undefined; here nil content is treated as an empty array.
+// - DELTA_TOKEN: js spreads the target's `content` and would throw if it were
+//   undefined; here nil content is treated as an empty array.
 
 import Foundation
 
@@ -114,8 +114,9 @@ public enum ChatAction {
     case updateMessage(ChatMessageDTO, partial: Bool)
     /// js ADD_MESSAGE.
     case addMessage(ChatMessageDTO)
-    /// js DELTA_TOKEN: accumulated LLM output (see DeltaAccumulator.toOutput()).
-    case deltaToken([String: JSONValue])
+    /// js DELTA_TOKEN: accumulated LLM output (see DeltaAccumulator.toOutput())
+    /// and the id of the message it belongs to.
+    case deltaToken(messageId: String, [String: JSONValue])
     /// js SET_CONNECTION_STATUS.
     case setConnectionStatus(ConnectionStatus)
     /// js SET_ERROR.
@@ -212,20 +213,17 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         next.messages = (state.messages + [message]).sorted { $0.order < $1.order }
         return next
 
-    case .deltaToken(let output):
-        // DIVERGENCE (bug fix over js reducer.ts line 99): target the last
-        // GENERATING assistant message, not just the last assistant. The js
-        // form writes the accumulated text into a completed message from an
-        // earlier phase/turn while the next one's row hasn't arrived yet —
-        // and, paired with a stream-lifetime accumulator, briefly painted the
-        // whole turn's concatenated history into each new empty message.
-        guard let lastAssistantIndex = state.messages.lastIndex(where: {
-            $0.role == .assistant && !$0.status.isTerminal
+    case .deltaToken(let messageId, let output):
+        // Apply to the message the delta names. A message whose row has not
+        // arrived yet is skipped rather than misattributed — its snapshot
+        // carries the authoritative text.
+        guard let targetIndex = state.messages.firstIndex(where: {
+            $0.id == messageId
         }) else {
             return state
         }
-        var lastAssistant = state.messages[lastAssistantIndex]
-        var content = lastAssistant.content ?? []
+        var target = state.messages[targetIndex]
+        var content = target.content ?? []
         let response = output["response"]?.stringValue
         if let textIndex = content.firstIndex(where: { $0.type == .text }) {
             content[textIndex].text = response
@@ -233,9 +231,9 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
             // js line 104: create the text block at the front of content.
             content.insert(ChatMessageContent(type: .text, text: response), at: 0)
         }
-        lastAssistant.content = content
+        target.content = content
         var next = state
-        next.messages[lastAssistantIndex] = lastAssistant
+        next.messages[targetIndex] = target
         return next
 
     case .setConnectionStatus(let status):

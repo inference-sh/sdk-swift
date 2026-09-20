@@ -253,12 +253,9 @@ public final class AgentChatSession {
         }
     }
 
-    /// Delta accumulator, scoped to ONE assistant message. DIVERGENCE (bug
-    /// fix over actions.ts line 192): js keeps one accumulator for the whole
-    /// stream, so `response` concats across every LLM phase of a tool run and
-    /// each new (empty) assistant message briefly shows the entire turn's
-    /// concatenated history until its first snapshot lands. Resetting when
-    /// the generating message changes scopes tokens to their own message.
+    /// Delta accumulator, scoped to ONE assistant message. The accumulator is
+    /// cumulative, so sharing one across a stream concats `response` across
+    /// every LLM phase of a tool run.
     private var deltaAccum = createLLMDeltaAccumulator()
     /// The message id `deltaAccum` is accumulating for.
     private var deltaTargetId: String?
@@ -277,20 +274,15 @@ public final class AgentChatSession {
             dispatch(.updateActiveRun(run))
             emitStatus(run.isActive ? "streaming" : "idle")
             if let chat = state.chat { checkTurnEnd(chat) }
-        case .delta(let raw):
-            // Same target rule as the reducer's deltaToken case: the last
-            // still-generating assistant message. New target → fresh
-            // accumulator; no target (row not arrived yet) → drop the token,
-            // the message snapshot carries the authoritative text anyway.
-            guard let targetId = state.messages.last(where: {
-                $0.role == .assistant && !$0.status.isTerminal
-            })?.id else { return }
-            if targetId != deltaTargetId {
-                deltaTargetId = targetId
+        case .delta(let messageId, let raw):
+            // The delta names its message, so no target is inferred from
+            // stream position. A new target starts a fresh accumulator.
+            if messageId != deltaTargetId {
+                deltaTargetId = messageId
                 deltaAccum = createLLMDeltaAccumulator()
             }
             deltaAccum.apply(raw)
-            dispatch(.deltaToken(deltaAccum.toOutput()))
+            dispatch(.deltaToken(messageId: messageId, deltaAccum.toOutput()))
         }
     }
 
