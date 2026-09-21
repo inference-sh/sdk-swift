@@ -154,7 +154,7 @@ final class DecodeTests: XCTestCase {
     /// widget text literal failed the whole message decode and the message
     /// silently vanished from the stream.
     func testWidgetBoundLiteralsSurviveDecode() throws {
-        let wire = #"""
+        let surface = #"""
         {"version":"0.9.1","surfaceId":"s","catalogId":"c","components":[
           {"id":"root","component":"Column","children":["t","n","b","p"]},
           {"id":"t","component":"Text","text":"Hello"},
@@ -163,19 +163,34 @@ final class DecodeTests: XCTestCase {
           {"id":"p","component":"Text","text":{"path":"/data/x"}}
         ]}
         """#
-        let patched = InferenceClient.patchNullMemory(Data(wire.utf8))
+        let patched = InferenceClient.patchWidgetSurface(Data(surface.utf8))
         let w = try InferenceClient.decoder.decode(Widget.self, from: patched)
         let byId = Dictionary(uniqueKeysWithValues: (w.components ?? []).map { ($0.id, $0) })
         XCTAssertEqual(byId["t"]?.text?.display, "Hello")
         XCTAssertEqual(byId["n"]?.text?.display, "42")
         XCTAssertEqual(byId["b"]?.value?.literal, .bool(true))
         XCTAssertEqual(byId["p"]?.text?.display, "[bound: /data/x]")
-        // A non-widget dict with a "text" key is left alone (no id+component).
-        let other = #"{"content":[{"type":"text","text":"plain"}]}"#
-        XCTAssertEqual(InferenceClient.patchNullMemory(Data(other.utf8)).count > 0, true)
-        let obj = try InferenceClient.decoder.decode(JSONValue.self,
-                                                     from: InferenceClient.patchNullMemory(Data(other.utf8)))
-        XCTAssertEqual(obj["content"]?[0]?["text"]?.stringValue, "plain")
+        XCTAssertEqual(byId["p"]?.text?.dataPath, "/data/x")
+        XCTAssertNil(byId["t"]?.text?.dataPath)
+    }
+
+    /// The transport shim only rewrites under a "widget" key — arbitrary user
+    /// JSON in task inputs that happens to carry id/component/text keys must
+    /// come through untouched, while a tool invocation's widget is rewritten.
+    func testWirePatchIsAnchoredToWidgetSubtrees() throws {
+        let wire = #"""
+        {"input": {"id": "x", "component": "Text", "text": "user data"},
+         "widget": {"components": [{"id": "t", "component": "Text", "text": "Hi"}]},
+         "agent_data": {"memory": null}}
+        """#
+        let patched = try InferenceClient.decoder.decode(
+            JSONValue.self, from: InferenceClient.patchWirePayload(Data(wire.utf8)))
+        // Outside a widget: untouched literal.
+        XCTAssertEqual(patched["input"]?["text"]?.stringValue, "user data")
+        // Inside the widget: tunneled.
+        XCTAssertEqual(patched["widget"]?["components"]?[0]?["text"]?["path"]?.stringValue, #"$lit:["Hi"]"#)
+        // Null memory still fixed everywhere.
+        XCTAssertEqual(patched["agent_data"]?["memory"]?.objectValue?.isEmpty, true)
     }
 
     /// The web's parseWidget accepts a surface, {widget:{...}}, the a2ui

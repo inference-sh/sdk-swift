@@ -15,12 +15,12 @@ public struct ChatsAPI: Sendable {
 
     /// POST /chats/list: cursor-paginated chats.
     public func list(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<ChatDTO> {
-        try await client.decode(client.send(client.request("chats/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("chats/list", params)
     }
 
     /// GET /chats/{id}.
     public func get(_ chatId: String) async throws -> ChatDTO {
-        try await client.decode(client.send(client.request("chats/\(chatId)", method: "GET")))
+        try await client.fetchChat(chatId)
     }
 
     /// POST /chats/{id}: update chat fields.
@@ -40,12 +40,12 @@ public struct ChatsAPI: Sendable {
 
     /// POST /chats/{id}/stop: cancel the active run and pending tools.
     public func stop(_ chatId: String) async throws {
-        _ = try await client.send(client.request("chats/\(chatId)/stop"))
+        try await client.stopChat(chatId)
     }
 
     /// POST /chats/messages/{id}/cancel: cancel a queued message.
     public func cancelMessage(_ messageId: String) async throws {
-        _ = try await client.send(client.request("chats/messages/\(messageId)/cancel"))
+        try await client.cancelMessage(messageId)
     }
 
     /// GET /chats/{id}/stream as typed SSE events (the JS `stream()`; transport
