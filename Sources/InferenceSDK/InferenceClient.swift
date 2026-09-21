@@ -159,6 +159,30 @@ public struct InferenceClient: Sendable {
         return req
     }
 
+    /// GET with query items, URLComponents-encoded. One builder for every
+    /// endpoint that takes URL parameters (TasksAPI.listFeatured,
+    /// fetchMessagesPage) instead of per-file percent-encoding.
+    func request(_ path: String, method: String, query: [URLQueryItem]) -> URLRequest {
+        var req = request(path, method: method)
+        if !query.isEmpty, let url = req.url,
+           var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            comps.queryItems = query
+            // URLComponents leaves "+" bare in query values, but the server
+            // (Go net/url) decodes bare "+" as a space — and cursors are
+            // base64, where "+" is data. Escape it explicitly.
+            comps.percentEncodedQuery = comps.percentEncodedQuery?
+                .replacingOccurrences(of: "+", with: "%2B")
+            req.url = comps.url ?? url
+        }
+        return req
+    }
+
+    /// POST {path} with an optional CursorListRequest — the shape of every
+    /// list endpoint in the js SDK.
+    func cursorList<T: Decodable>(_ path: String, _ params: CursorListRequest?) async throws -> CursorListResponse<T> {
+        try await decode(send(request(path, body: params ?? CursorListRequest())))
+    }
+
     func request<B: Encodable>(_ path: String, accept: String = "application/json", body: B) throws -> URLRequest {
         var req = request(path, accept: accept)
         req.httpBody = try Self.encoder.encode(body)
@@ -168,7 +192,7 @@ public struct InferenceClient: Sendable {
     /// Unwraps the V3 envelope and forwards its messages. Internal so the chat
     /// endpoint extensions (ChatAPI.swift) share the same path.
     func decode<T: Decodable>(_ data: Data) throws -> T {
-        let envelope = try Self.decoder.decode(Envelope<T>.self, from: Self.patchNullMemory(data))
+        let envelope = try Self.decoder.decode(Envelope<T>.self, from: Self.patchWirePayload(data))
         if let onMessage, let messages = envelope.messages, !messages.isEmpty { onMessage(messages) }
         return envelope.data
     }
@@ -183,34 +207,50 @@ public struct InferenceClient: Sendable {
     ///    wire (shared/a2ui.go MarshalJSON), but the generated A2UIBoundValue
     ///    decodes only `{path}` — one literal `"text": "Hello"` inside a
     ///    widget failed the whole message decode, silently dropping it from
-    ///    the stream. Literals inside A2UI components (dicts with "id" +
-    ///    string "component") are wrapped as `{"path": "$lit:<json>"}`;
-    ///    `A2UIBoundValue.literal` unwraps them at render time.
-    static func patchNullMemory(_ data: Data) -> Data {
+    ///    the stream. Literals inside A2UI components are wrapped as
+    ///    `{"path": "$lit:<json>"}`; `A2UIBoundValue.literal` unwraps them.
+    ///    The wrapping is anchored to subtrees under a `"widget"` key — the
+    ///    only typed Widget on the wire (ToolInvocationDTO.widget) — so
+    ///    arbitrary user JSON in task inputs/outputs that happens to carry
+    ///    `id`/`component`/`text` keys is never rewritten.
+    static func patchWirePayload(_ data: Data) -> Data {
+        patch(data, inWidget: false)
+    }
+
+    /// The widget-literal rewrite over a payload KNOWN to be an A2UI surface
+    /// (Widget.parse on result strings, where no `"widget"` key wraps it).
+    static func patchWidgetSurface(_ data: Data) -> Data {
+        patch(data, inWidget: true)
+    }
+
+    private static let boundKeys: Set<String> = ["text", "url", "name", "value", "selections"]
+
+    private static func patch(_ data: Data, inWidget: Bool) -> Data {
         guard let obj = try? JSONSerialization.jsonObject(with: data) else { return data }
-        let boundKeys: Set<String> = ["text", "url", "name", "value", "selections"]
-        func wrapLiteral(_ v: Any) -> Any? {
-            // Already an object ({path}) → leave; string/number/bool → wrap.
-            if v is [String: Any] || v is NSNull { return nil }
-            guard let lit = try? JSONSerialization.data(withJSONObject: [v]),
-                  let s = String(data: lit, encoding: .utf8) else { return nil }
-            return ["path": "$lit:" + s]   // single-element array keeps it valid JSON
-        }
-        func fix(_ any: Any) -> Any {
-            if let dict = any as? [String: Any] {
-                let isA2UIComponent = dict["id"] is String && dict["component"] is String
-                var out = dict
-                for (k, v) in dict {
-                    if k == "memory", v is NSNull { out[k] = [String: Any]() }
-                    else if isA2UIComponent, boundKeys.contains(k), let wrapped = wrapLiteral(v) { out[k] = wrapped }
-                    else { out[k] = fix(v) }
-                }
-                return out
+        return (try? JSONSerialization.data(withJSONObject: fix(obj, inWidget: inWidget))) ?? data
+    }
+
+    private static func wrapLiteral(_ v: Any) -> Any? {
+        // Already an object ({path}) → leave; string/number/bool → wrap.
+        if v is [String: Any] || v is NSNull { return nil }
+        guard let lit = try? JSONSerialization.data(withJSONObject: [v]),
+              let s = String(data: lit, encoding: .utf8) else { return nil }
+        return ["path": "$lit:" + s]   // single-element array keeps it valid JSON
+    }
+
+    private static func fix(_ any: Any, inWidget: Bool) -> Any {
+        if let dict = any as? [String: Any] {
+            let isComponent = inWidget && dict["id"] is String && dict["component"] is String
+            var out = dict
+            for (k, v) in dict {
+                if k == "memory", v is NSNull { out[k] = [String: Any]() }
+                else if isComponent, boundKeys.contains(k), let wrapped = wrapLiteral(v) { out[k] = wrapped }
+                else { out[k] = fix(v, inWidget: inWidget || k == "widget") }
             }
-            if let arr = any as? [Any] { return arr.map(fix) }
-            return any
+            return out
         }
-        return (try? JSONSerialization.data(withJSONObject: fix(obj))) ?? data
+        if let arr = any as? [Any] { return arr.map { fix($0, inWidget: inWidget) } }
+        return any
     }
 
     /// One-shot request. Throws `InferenceError.http` on non-2xx. Honors Swift

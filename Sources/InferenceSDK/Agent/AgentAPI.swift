@@ -24,24 +24,14 @@ public extension InferenceClient {
         try await decode(send(request("chats/\(chatId)", method: "GET")))
     }
 
-    /// GET /chats/{id}/messages with optional `limit`/`cursor`. One page plus the
-    /// cursor to the next. The query is appended to the formed URL because
-    /// `request`'s path join would percent-encode the `?`.
+    /// GET /chats/{id}/messages with optional `limit`/`cursor`. One page plus
+    /// the cursor to the next.
     func fetchMessagesPage(chatId: String, limit: Int? = nil, cursor: String? = nil)
         async throws -> (items: [ChatMessageDTO], nextCursor: String, hasNext: Bool) {
-        var req = request("chats/\(chatId)/messages", method: "GET")
-        var query: [String] = []
-        if let limit { query.append("limit=\(limit)") }
-        if let cursor {
-            var allowed = CharacterSet.urlQueryAllowed
-            allowed.remove(charactersIn: "&=+?#;")
-            let value = cursor.addingPercentEncoding(withAllowedCharacters: allowed) ?? cursor
-            query.append("cursor=\(value)")
-        }
-        if !query.isEmpty, let base = req.url {
-            req.url = URL(string: base.absoluteString + "?" + query.joined(separator: "&")) ?? base
-        }
-        let page: MessagesPage = try await decode(send(req))
+        var query: [URLQueryItem] = []
+        if let limit { query.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        let page: MessagesPage = try await decode(send(request("chats/\(chatId)/messages", method: "GET", query: query)))
         return (page.items, page.nextCursor, page.hasNext)
     }
 
@@ -85,15 +75,11 @@ public extension InferenceClient {
         try await decode(send(request("interrupts/\(interruptId)/resolve", body: DecisionBody(decision: decision))))
     }
 
-    /// GET /agent-runs/{id}/interrupts: interrupts raised by one run.
-    func listRunInterrupts(_ runId: String) async throws -> [InterruptDTO] {
-        try await decode(send(request("agent-runs/\(runId)/interrupts", method: "GET")))
-    }
-
     /// GET /agents/{ref} projected to what a chat header needs. Returns nil
     /// on any failure — agent info is decoration, not a dependency (js parity).
+    /// (Run interrupts: `client.agents.listRunInterrupts`.)
     func fetchAgentInfo(_ agentRef: String) async -> AgentInfo? {
-        guard let agent: AgentDTO = try? await decode(send(request("agents/\(agentRef)", method: "GET"))) else { return nil }
+        guard let agent = try? await agents.get(agentRef) else { return nil }
         return AgentInfo(description: agent.version?.description,
                          examplePrompts: agent.version?.examplePrompts)
     }

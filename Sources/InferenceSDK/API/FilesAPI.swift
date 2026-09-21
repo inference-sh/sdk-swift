@@ -16,7 +16,7 @@ public struct FilesAPI: Sendable {
 
     /// POST /files/list: cursor-paginated files.
     public func list(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<FileDTO> {
-        try await client.decode(client.send(client.request("files/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("files/list", params)
     }
 
     /// GET /files/{id}.

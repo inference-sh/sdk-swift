@@ -81,13 +81,13 @@ public struct TasksAPI: Sendable {
 
     /// POST /tasks/list: cursor-paginated tasks.
     public func list(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<TaskDTO> {
-        try await client.decode(client.send(client.request("tasks/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("tasks/list", params)
     }
 
     /// GET /tasks/featured with the list request as query parameters.
     public func listFeatured(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<TaskDTO> {
-        var req = client.request("tasks/featured", method: "GET")
-        if let params { req.url = Self.appendQuery(params, to: req.url) }
+        let req = client.request("tasks/featured", method: "GET",
+                                 query: params.map(Self.queryItems) ?? [])
         return try await client.decode(client.send(req))
     }
 
@@ -198,17 +198,19 @@ public struct TasksAPI: Sendable {
             else { data = obj }
 
             accumulated.merge(data) { _, new in new }
-            let current = try Self.task(from: accumulated)
-            if let fields, obj["data"] != nil { options.onPartialUpdate?(current, fields) }
-            else { options.onUpdate?(current) }
 
             // Terminal status is read off the incoming line (js: data.status),
             // so partial lines that don't touch `status` never terminate.
-            switch Self.parseStatus(data["status"]) {
-            case .completed: return current
-            case .failed: throw TaskRunError.failed(data["error"]?.stringValue ?? "task failed")
-            case .cancelled: throw TaskRunError.cancelled
-            default: break
+            // Materializing the DTO costs a full encode/decode round-trip;
+            // do it only when someone will see it (a callback, or completion).
+            let status = Self.parseStatus(data["status"])
+            if let error = Self.terminalError(status, data["error"]?.stringValue) { throw error }
+            let wantsTask = options.onUpdate != nil || options.onPartialUpdate != nil
+            if wantsTask || status == .completed {
+                let current = try Self.task(from: accumulated)
+                if let fields, obj["data"] != nil { options.onPartialUpdate?(current, fields) }
+                else { options.onUpdate?(current) }
+                if status == .completed { return current }
             }
         }
         throw InferenceError.transport("task stream ended before a terminal status")
@@ -232,12 +234,8 @@ public struct TasksAPI: Sendable {
 
                 let full = try await self.get(taskId)
                 options.onUpdate?(full)
-                switch full.status {
-                case .completed: return full
-                case .failed: throw TaskRunError.failed(full.error ?? "task failed")
-                case .cancelled: throw TaskRunError.cancelled
-                default: return nil
-                }
+                if let error = Self.terminalError(full.status, full.error) { throw error }
+                return full.status == .completed ? full : nil
             })
     }
 
@@ -261,6 +259,16 @@ public struct TasksAPI: Sendable {
         }
     }
 
+    /// failed/cancelled → the matching TaskRunError; anything else → nil.
+    /// Shared by the stream and poll paths so the mapping cannot drift.
+    private static func terminalError(_ status: TaskStatus, _ error: String?) -> TaskRunError? {
+        switch status {
+        case .failed: return .failed(error ?? "task failed")
+        case .cancelled: return .cancelled
+        default: return nil
+        }
+    }
+
     // MARK: - Helpers
 
     private static func jsonObject(_ task: TaskDTO) throws -> [String: JSONValue] {
@@ -269,7 +277,7 @@ public struct TasksAPI: Sendable {
 
     private static func task(from object: [String: JSONValue]) throws -> TaskDTO {
         let data = try InferenceClient.encoder.encode(object)
-        return try InferenceClient.decoder.decode(TaskDTO.self, from: InferenceClient.patchNullMemory(data))
+        return try InferenceClient.decoder.decode(TaskDTO.self, from: InferenceClient.patchWirePayload(data))
     }
 
     /// The JS client turns `params` into query items: primitives via
@@ -277,12 +285,10 @@ public struct TasksAPI: Sendable {
     /// CursorListRequest's non-optional fields always encode, so zero values
     /// (cursor=, limit=0, ...) are sent where JS's Partial<> would omit them;
     /// the API treats zero values as defaults.
-    private static func appendQuery(_ params: CursorListRequest, to url: URL?) -> URL? {
-        guard let url,
-              let encoded = try? InferenceClient.encoder.encode(params),
-              let object = try? InferenceClient.decoder.decode([String: JSONValue].self, from: encoded),
-              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        else { return url }
+    private static func queryItems(_ params: CursorListRequest) -> [URLQueryItem] {
+        guard let encoded = try? InferenceClient.encoder.encode(params),
+              let object = try? InferenceClient.decoder.decode([String: JSONValue].self, from: encoded)
+        else { return [] }
 
         var items: [URLQueryItem] = []
         for (key, value) in object.sorted(by: { $0.key < $1.key }) {
@@ -302,14 +308,11 @@ public struct TasksAPI: Sendable {
                 }
             }
         }
-        components.queryItems = items.isEmpty ? nil : items
-        return components.url ?? url
+        return items
     }
 }
 
-private struct VisibilityBody: Encodable {
-    let visibility: String
-}
+// VisibilityBody is shared — see Bodies.swift.
 
 private struct FeaturedBody: Encodable {
     let isFeatured: Bool

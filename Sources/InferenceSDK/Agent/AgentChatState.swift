@@ -36,17 +36,6 @@ public enum ConnectionStatus: String, Codable, Sendable {
     case error
 }
 
-// The js union is a string literal type; callers dispatch
-// `.setConnectionStatus("streaming")` etc., so keep literals working.
-extension ConnectionStatus: ExpressibleByStringLiteral {
-    public init(stringLiteral value: String) {
-        guard let status = ConnectionStatus(rawValue: value) else {
-            preconditionFailure("invalid ConnectionStatus literal: \(value)")
-        }
-        self = status
-    }
-}
-
 // js agent/types.ts `AgentInfo` (Partial<Pick<AgentVersionDTO,
 // 'description' | 'example_prompts'>>) already exists in Swift: see
 // `AgentInfo` in Agent/AgentAPI.swift.

@@ -19,27 +19,38 @@ public extension Widget {
             return parse(surface)
         }
         guard obj["components"]?.arrayValue != nil else { return nil }
-        // Round-trip through the same decode path as the stream, so the
-        // bound-literal shim (patchNullMemory) applies here too.
+        // This payload IS a surface — apply the bound-literal rewrite
+        // directly (the transport shim only rewrites under a "widget" key).
         guard let data = try? InferenceClient.encoder.encode(input) else { return nil }
-        return try? InferenceClient.decoder.decode(Widget.self, from: InferenceClient.patchNullMemory(data))
+        return try? InferenceClient.decoder.decode(Widget.self, from: InferenceClient.patchWidgetSurface(data))
     }
 
     static func parse(string: String) -> Widget? {
-        guard let value = try? InferenceClient.decoder.decode(JSONValue.self, from: Data(string.utf8)) else { return nil }
+        // Most tool results are plain text — skip the JSONValue decode unless
+        // it can possibly be a widget payload.
+        guard string.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{"),
+              let value = try? InferenceClient.decoder.decode(JSONValue.self, from: Data(string.utf8)) else { return nil }
         return parse(value)
     }
 }
 
 public extension A2UIBoundValue {
     /// The literal the transport shim tunneled through `path` (see
-    /// InferenceClient.patchNullMemory), or nil for a real data-model path.
+    /// InferenceClient.patchWidgetSurface), or nil for a real data-model path.
     var literal: JSONValue? {
         guard let path, path.hasPrefix("$lit:"),
               let arr = try? InferenceClient.decoder.decode([JSONValue].self,
                                                             from: Data(path.dropFirst(5).utf8))
         else { return nil }
         return arr.first
+    }
+
+    /// A REAL data-model path reference, nil when `path` is carrying a
+    /// tunneled literal. Read this (or `literal`), never raw `path` — raw
+    /// `path` is a transport encoding.
+    var dataPath: String? {
+        guard let path, !path.isEmpty, !path.hasPrefix("$lit:") else { return nil }
+        return path
     }
 
     /// The renderer's resolveBoundValue: literal → its string form, path
@@ -52,7 +63,7 @@ public extension A2UIBoundValue {
             }
             if case .bool(let b) = literal { return String(b) }
         }
-        if let path, !path.isEmpty, !path.hasPrefix("$lit:") { return "[bound: \(path)]" }
+        if let dataPath { return "[bound: \(dataPath)]" }
         return ""
     }
 }

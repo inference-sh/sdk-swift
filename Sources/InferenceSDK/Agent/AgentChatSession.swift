@@ -65,6 +65,13 @@ public final class AgentChatSession {
 
     private func emitStatus(_ s: String) { callbacks.onStatusChange?(s) }
 
+    /// Connection-state changes always dispatch AND surface through
+    /// onStatusChange — one seam instead of the pair at every site.
+    private func setConnection(_ s: ConnectionStatus) {
+        dispatch(.setConnectionStatus(s))
+        emitStatus(s.rawValue)
+    }
+
     private func setChat(_ chat: ChatDTO, cursor: String?, hasOlder: Bool?) {
         dispatch(.setChat(chat))
         if cursor != nil || hasOlder != nil {
@@ -84,7 +91,7 @@ public final class AgentChatSession {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        dispatch(.setConnectionStatus("streaming"))
+        dispatch(.setConnectionStatus(.streaming))
         dispatch(.setError(nil))
         do {
             var chatId = state.chatId
@@ -99,7 +106,7 @@ public final class AgentChatSession {
             dispatch(.updateMessage(userMessage, partial: false))
             if streamTask == nil { streamChat(chatId) }
         } catch {
-            dispatch(.setConnectionStatus("error"))
+            dispatch(.setConnectionStatus(.error))
             dispatch(.setError(error.localizedDescription))
             callbacks.onError?(error)
         }
@@ -119,7 +126,7 @@ public final class AgentChatSession {
 
     public func clearError() {
         dispatch(.setError(nil))
-        dispatch(.setConnectionStatus("idle"))
+        dispatch(.setConnectionStatus(.idle))
     }
 
     public func uploadFile(_ data: Data, filename: String, contentType: String) async throws -> FileDTO {
@@ -183,11 +190,7 @@ public final class AgentChatSession {
     /// internal setChatId: same id is a no-op, nil resets, new id streams.
     public func setChatId(_ newChatId: String?) {
         guard newChatId != state.chatId else { return }
-        guard let newChatId else {
-            stopStream()
-            dispatch(.reset)
-            return
-        }
+        guard let newChatId else { reset(); return }
         dispatch(.setChatId(newChatId))
         streamChat(newChatId)
     }
@@ -197,29 +200,15 @@ public final class AgentChatSession {
     private func streamChat(_ id: String) {
         streamTask?.cancel()
         streamTask = nil
-        dispatch(.setConnectionStatus("connecting"))
-        emitStatus("connecting")
+        setConnection(.connecting)
 
         streamTask = Task { [weak self] in
-            // Initial fetch: chat + first message page (Chat.Get no longer
-            // preloads messages).
-            guard let client = self?.client else { return }
             do {
-                let chat = try await client.fetchChat(id)
-                var cursor: String?
-                var hasOlder: Bool?
-                if chat.chatMessages?.isEmpty ?? true {
-                    let page = try await client.fetchMessagesPage(chatId: id)
-                    chat.chatMessages = page.items
-                    cursor = page.nextCursor
-                    hasOlder = page.hasNext
-                }
-                guard let self, !Task.isCancelled else { return }
-                self.setChat(chat, cursor: cursor, hasOlder: hasOlder)
+                guard let self, let loaded = try await self.loadChat(id), !Task.isCancelled else { return }
+                self.setChat(loaded.chat, cursor: loaded.cursor, hasOlder: loaded.hasOlder)
             } catch {
                 guard let self else { return }
-                self.dispatch(.setConnectionStatus("idle"))
-                self.emitStatus("idle")
+                self.setConnection(.idle)
                 self.callbacks.onError?(error)
                 return
             }
@@ -230,8 +219,7 @@ public final class AgentChatSession {
                 return
             }
 
-            self.dispatch(.setConnectionStatus("streaming"))
-            self.emitStatus("streaming")
+            self.setConnection(.streaming)
             self.deltaAccum = createLLMDeltaAccumulator()
             self.deltaTargetId = nil
             do {
@@ -247,8 +235,7 @@ public final class AgentChatSession {
             // Unexpected end (reconnects exhausted): mirror js onEnd.
             if !Task.isCancelled, self.streamTask != nil {
                 self.streamTask = nil
-                self.dispatch(.setConnectionStatus("idle"))
-                self.emitStatus("idle")
+                self.setConnection(.idle)
             }
         }
     }
@@ -288,34 +275,40 @@ public final class AgentChatSession {
 
     /// Poll /chats/{id}/status; on any change refetch the chat + messages.
     private func pollLoop(_ id: String) async {
-        dispatch(.setConnectionStatus("streaming"))
-        emitStatus("streaming")
+        setConnection(.streaming)
         var prevStatus: JSONValue?
         while !Task.isCancelled {
             if let status = try? await client.chats.getStatus(id).status, status != prevStatus {
                 prevStatus = status
-                if let chat = try? await client.fetchChat(id) {
-                    var cursor: String?
-                    var hasOlder: Bool?
-                    if chat.chatMessages?.isEmpty ?? true,
-                       let page = try? await client.fetchMessagesPage(chatId: id) {
-                        chat.chatMessages = page.items
-                        cursor = page.nextCursor
-                        hasOlder = page.hasNext
-                    }
-                    setChat(chat, cursor: cursor, hasOlder: hasOlder)
-                    for m in chat.chatMessages ?? [] { dispatch(.updateMessage(m, partial: false)) }
+                // setChat installs chat.chatMessages wholesale — no
+                // per-message dispatch needed.
+                if let loaded = try? await loadChat(id) {
+                    setChat(loaded.chat, cursor: loaded.cursor, hasOlder: loaded.hasOlder)
                 }
             }
             try? await Task.sleep(nanoseconds: 3_000_000_000)
         }
     }
 
+    /// Fetch the chat and, since Chat.Get no longer preloads messages, its
+    /// first message page. Shared by the stream and poll paths.
+    private func loadChat(_ id: String) async throws -> (chat: ChatDTO, cursor: String?, hasOlder: Bool?)? {
+        let chat = try await client.fetchChat(id)
+        var cursor: String?
+        var hasOlder: Bool?
+        if chat.chatMessages?.isEmpty ?? true {
+            let page = try await client.fetchMessagesPage(chatId: id)
+            chat.chatMessages = page.items
+            cursor = page.nextCursor
+            hasOlder = page.hasNext
+        }
+        return (chat, cursor, hasOlder)
+    }
+
     private func stopStream() {
         streamTask?.cancel()
         streamTask = nil
-        dispatch(.setConnectionStatus("idle"))
-        emitStatus("idle")
+        setConnection(.idle)
     }
 
     /// Shared error surface for the tool/interrupt calls (js repeats this
@@ -323,7 +316,7 @@ public final class AgentChatSession {
     private func surfacing(_ body: () async throws -> Void) async throws {
         do { try await body() }
         catch {
-            dispatch(.setConnectionStatus("error"))
+            dispatch(.setConnectionStatus(.error))
             dispatch(.setError(error.localizedDescription))
             callbacks.onError?(error)
             throw error

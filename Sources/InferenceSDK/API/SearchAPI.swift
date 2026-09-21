@@ -31,7 +31,6 @@ private struct SearchBody: Encodable {
     let q: String
     let type: String?
     let limit: Int?
-    enum CodingKeys: String, CodingKey { case q, type, limit }
 }
 
 // MARK: - Namespace (js: client.search)

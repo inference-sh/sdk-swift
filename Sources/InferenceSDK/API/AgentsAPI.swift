@@ -24,7 +24,7 @@ public struct AgentsAPI: Sendable {
 
     /// POST /agents/list: cursor-paginated agent templates.
     public func list(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<AgentDTO> {
-        try await client.decode(client.send(client.request("agents/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("agents/list", params)
     }
 
     /// GET /agents/{id}.
@@ -54,7 +54,7 @@ public struct AgentsAPI: Sendable {
 
     /// POST /agents/{id}/versions/list: cursor-paginated template versions.
     public func listVersions(_ agentId: String, _ params: CursorListRequest? = nil) async throws -> CursorListResponse<AgentVersionDTO> {
-        try await client.decode(client.send(client.request("agents/\(agentId)/versions/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("agents/\(agentId)/versions/list", params)
     }
 
     /// POST /agents/{id}/transfer: move ownership to another team.
@@ -113,17 +113,7 @@ public struct InternalToolDefinition: Codable, Sendable {
     }
 }
 
-// MARK: - Request bodies (ad-hoc object literals in the js source)
-
-private struct TeamBody: Encodable {
-    let teamId: String
-    enum CodingKeys: String, CodingKey { case teamId = "team_id" }
-}
-
-private struct VisibilityBody: Encodable {
-    let visibility: String
-    enum CodingKeys: String, CodingKey { case visibility }
-}
+// Request bodies shared across API files live in Bodies.swift.
 
 // MARK: - Namespace (js: client.agents)
 

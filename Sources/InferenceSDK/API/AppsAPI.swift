@@ -15,7 +15,7 @@ public struct AppsAPI: Sendable {
 
     /// POST /apps/list: cursor-paginated apps.
     public func list(_ params: CursorListRequest? = nil) async throws -> CursorListResponse<AppDTO> {
-        try await client.decode(client.send(client.request("apps/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("apps/list", params)
     }
 
     /// GET /apps/{id}.
@@ -50,7 +50,7 @@ public struct AppsAPI: Sendable {
 
     /// POST /apps/{id}/versions/list: cursor-paginated app versions.
     public func listVersions(_ appId: String, _ params: CursorListRequest? = nil) async throws -> CursorListResponse<AppVersionDTO> {
-        try await client.decode(client.send(client.request("apps/\(appId)/versions/list", body: params ?? CursorListRequest(cursor: ""))))
+        try await client.cursorList("apps/\(appId)/versions/list", params)
     }
 
     /// POST /apps/{id}/transfer: move ownership to another team.
@@ -68,9 +68,11 @@ public struct AppsAPI: Sendable {
         try await client.decode(client.send(client.request("apps/\(appId)/status", body: StatusBody(status: status, message: message))))
     }
 
-    /// GET /apps/{name}: look up an app by qualified name (e.g. "inference/claude-haiku").
+    /// GET /apps/{name}: look up an app by qualified name (e.g.
+    /// "inference/claude-haiku"). Delegates to the pre-existing getApp, which
+    /// also strips an "@version" suffix and retries once.
     public func getByName(_ name: String) async throws -> AppDTO {
-        try await client.decode(client.send(client.request("apps/\(name)", method: "GET")))
+        try await client.getApp(name)
     }
 
     /// GET /apps/{id}/license: the app's license record.
@@ -91,25 +93,15 @@ public struct AppsAPI: Sendable {
 
 // MARK: - Request bodies (ad-hoc object literals in the js source)
 
-private struct TeamBody: Encodable {
-    let teamId: String
-    enum CodingKeys: String, CodingKey { case teamId = "team_id" }
-}
-
-private struct VisibilityBody: Encodable {
-    let visibility: String
-    enum CodingKeys: String, CodingKey { case visibility }
-}
+// TeamBody/VisibilityBody are shared — see Bodies.swift.
 
 private struct StatusBody: Encodable {
     let status: String
     let message: String?
-    enum CodingKeys: String, CodingKey { case status, message }
 }
 
 private struct LicenseBody: Encodable {
     let license: String
-    enum CodingKeys: String, CodingKey { case license }
 }
 
 // MARK: - Namespace (js: client.apps)

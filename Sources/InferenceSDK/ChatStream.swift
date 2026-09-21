@@ -154,8 +154,8 @@ public extension InferenceClient {
 
     /// Wrapper first ({data, fields}), then the bare DTO. Fields is nil unless wrapped.
     private static func decodeMaybeWrapped<T: Decodable>(_ type: T.Type, _ data: Data) -> (T, [String]?)? {
-        // Same null-memory shim as the REST path (see InferenceClient.decode).
-        let data = InferenceClient.patchNullMemory(data)
+        // Same wire shims as the REST path (see InferenceClient.decode).
+        let data = InferenceClient.patchWirePayload(data)
         if let w = try? decoder.decode(PartialDataWrapper<T>.self, from: data) {
             return (w.data, w.fields)
         }
