@@ -2570,19 +2570,24 @@ public struct AppFunction: Codable {
     /// LLMInput and returns an LLMOutput). Promoted onto the version's
     /// metadata by AppVersion.DeriveCapabilities.
     public var capabilities: [String]?
+    /// Kind is how the function talks to its caller, from engine discovery:
+    /// a stream function declares a socket parameter. Empty means run.
+    public var kind: FunctionKind?
 
     public init(
         name: String = "",
         description: String? = nil,
         inputSchema: JSONValue = .null,
         outputSchema: JSONValue = .null,
-        capabilities: [String]? = nil
+        capabilities: [String]? = nil,
+        kind: FunctionKind? = nil
     ) {
         self.name = name
         self.description = description
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
         self.capabilities = capabilities
+        self.kind = kind
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2591,6 +2596,7 @@ public struct AppFunction: Codable {
         case inputSchema = "input_schema"
         case outputSchema = "output_schema"
         case capabilities = "capabilities"
+        case kind = "kind"
     }
 }
 
@@ -4720,6 +4726,9 @@ public struct CredentialConfigDTO: Codable {
     public var available: Bool
     public var hasManaged: Bool
     public var grant: CredentialGrant?
+    /// CustomProviderID is set when the provider is one the team defined
+    /// itself (models.CustomProvider), so the UI can offer edit and remove.
+    public var customProviderId: String?
     public var credential: CredentialDTO?
 
     public init(
@@ -4737,6 +4746,7 @@ public struct CredentialConfigDTO: Codable {
         available: Bool = false,
         hasManaged: Bool = false,
         grant: CredentialGrant? = nil,
+        customProviderId: String? = nil,
         credential: CredentialDTO? = nil
     ) {
         self.slug = slug
@@ -4753,6 +4763,7 @@ public struct CredentialConfigDTO: Codable {
         self.available = available
         self.hasManaged = hasManaged
         self.grant = grant
+        self.customProviderId = customProviderId
         self.credential = credential
     }
 
@@ -4771,6 +4782,7 @@ public struct CredentialConfigDTO: Codable {
         case available = "available"
         case hasManaged = "has_managed"
         case grant = "grant"
+        case customProviderId = "custom_provider_id"
         case credential = "credential"
     }
 }
@@ -10101,6 +10113,143 @@ public struct SecretDTO: Codable {
     }
 }
 
+/// SocketAccess is where one end of a socket dials and the credential it
+/// presents. The task's caller gets one in the run response; the worker gets
+/// its own with the dispatch.
+/// 
+/// Browsers cannot set headers on a WebSocket: they append
+/// `?access_token=<token>` to the URL. Everything else sends
+/// `Authorization: Bearer <token>`.
+public struct SocketAccess: Codable {
+    public var id: String
+    public var url: String
+    public var token: String
+    public var expiresAt: String
+
+    public init(
+        id: String = "",
+        url: String = "",
+        token: String = "",
+        expiresAt: String = ""
+    ) {
+        self.id = id
+        self.url = url
+        self.token = token
+        self.expiresAt = expiresAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case url = "url"
+        case token = "token"
+        case expiresAt = "expires_at"
+    }
+}
+
+/// SocketDTO is a socket and what is known of its life. The traffic figures
+/// come from the relay once the socket has closed.
+public struct SocketDTO: Codable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    public var user: UserRelationDTO?
+    public var teamId: String
+    public var team: TeamRelationDTO?
+    public var orgId: String?
+    public var visibility: Visibility
+    public var taskId: String
+    public var relay: String
+    public var status: SocketStatus
+    public var pairedAt: String?
+    public var endedAt: String?
+    public var outcome: SocketOutcome?
+    public var closeCode: Int?
+    public var closeReason: String?
+    public var clientFrames: Int
+    public var clientBytes: Int
+    public var workerFrames: Int
+    public var workerBytes: Int
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        orgId: String? = nil,
+        visibility: Visibility,
+        taskId: String = "",
+        relay: String = "",
+        status: SocketStatus,
+        pairedAt: String? = nil,
+        endedAt: String? = nil,
+        outcome: SocketOutcome? = nil,
+        closeCode: Int? = nil,
+        closeReason: String? = nil,
+        clientFrames: Int = 0,
+        clientBytes: Int = 0,
+        workerFrames: Int = 0,
+        workerBytes: Int = 0
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.orgId = orgId
+        self.visibility = visibility
+        self.taskId = taskId
+        self.relay = relay
+        self.status = status
+        self.pairedAt = pairedAt
+        self.endedAt = endedAt
+        self.outcome = outcome
+        self.closeCode = closeCode
+        self.closeReason = closeReason
+        self.clientFrames = clientFrames
+        self.clientBytes = clientBytes
+        self.workerFrames = workerFrames
+        self.workerBytes = workerBytes
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case orgId = "org_id"
+        case visibility = "visibility"
+        case taskId = "task_id"
+        case relay = "relay"
+        case status = "status"
+        case pairedAt = "paired_at"
+        case endedAt = "ended_at"
+        case outcome = "outcome"
+        case closeCode = "close_code"
+        case closeReason = "close_reason"
+        case clientFrames = "client_frames"
+        case clientBytes = "client_bytes"
+        case workerFrames = "worker_frames"
+        case workerBytes = "worker_bytes"
+    }
+}
+
 /// MeStatsResponse is returned by GET /me/stats.
 public struct MeStatsResponse: Codable {
     public var knowledgeCount: Int
@@ -11032,6 +11181,9 @@ public struct TaskResultDTO: Codable {
     public var createdAt: String
     public var updatedAt: String
     public var runAt: String?
+    /// Socket is set when the function is a stream function: the caller dials
+    /// it to talk to the app. POST /sockets/{id}/access issues a fresh one.
+    public var socket: SocketAccess?
 
     public init(
         id: String = "",
@@ -11043,7 +11195,8 @@ public struct TaskResultDTO: Codable {
         sessionId: String? = nil,
         createdAt: String = "",
         updatedAt: String = "",
-        runAt: String? = nil
+        runAt: String? = nil,
+        socket: SocketAccess? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -11055,6 +11208,7 @@ public struct TaskResultDTO: Codable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.runAt = runAt
+        self.socket = socket
     }
 
     enum CodingKeys: String, CodingKey {
@@ -11068,6 +11222,7 @@ public struct TaskResultDTO: Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case runAt = "run_at"
+        case socket = "socket"
     }
 }
 
@@ -13810,6 +13965,50 @@ public struct NotificationStatus: RawRepresentable, Codable, Hashable, Sendable 
     public static let failed = NotificationStatus(rawValue: "failed")
     public static let bounced = NotificationStatus(rawValue: "bounced")
     public static let cancelled = NotificationStatus(rawValue: "cancelled")
+}
+
+/// FunctionKind is how an app function talks to its caller.
+public struct FunctionKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// FunctionKindRun takes an input and returns an output (optionally
+    /// yielding progress on the way). The zero value means this.
+    public static let run = FunctionKind(rawValue: "run")
+    /// FunctionKindStream holds a socket with the caller for the life of the
+    /// task: frames both ways, no input/output exchange.
+    public static let stream = FunctionKind(rawValue: "stream")
+}
+
+/// SocketStatus is where a socket is in its life.
+public struct SocketStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// SocketStatusPending: opened, and the two ends have not met yet. An end
+    /// that gave up waiting may dial again, so an unpaired end does not close
+    /// the socket; the task ending does.
+    public static let pending = SocketStatus(rawValue: "pending")
+    /// SocketStatusOpen: both ends are connected through the relay.
+    public static let `open` = SocketStatus(rawValue: "open")
+    /// SocketStatusClosed: over. Outcome says why.
+    public static let closed = SocketStatus(rawValue: "closed")
+}
+
+/// SocketOutcome is why a socket closed.
+public struct SocketOutcome: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let clientClosed = SocketOutcome(rawValue: "client_closed")
+    public static let workerClosed = SocketOutcome(rawValue: "worker_closed")
+    /// SocketOutcomeDrained: the relay restarted under a live socket.
+    public static let drained = SocketOutcome(rawValue: "drained")
+    /// SocketOutcomeNeverPaired: the task ended before the two ends met.
+    public static let neverPaired = SocketOutcome(rawValue: "never_paired")
+    /// SocketOutcomeTaskEnded: the task ended and the relay's own account of
+    /// the socket has not arrived (yet).
+    public static let taskEnded = SocketOutcome(rawValue: "task_ended")
 }
 
 /// DeltaEvent is the generic streaming envelope on the NDJSON wire.
