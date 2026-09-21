@@ -1897,19 +1897,28 @@ public struct SecretCreateRequest: Codable {
     /// chosen once, here; scope is immutable after creation. Empty = the
     /// provider's default (team). Requires the matching admin role.
     public var connectionScope: CredentialScope?
+    /// ProviderName and ProviderWebsite describe a provider the platform does
+    /// not list: the name the credential is shown under, and the site its
+    /// logo is looked up from. Ignored for a provider the platform knows.
+    public var providerName: String?
+    public var providerWebsite: String?
 
     public init(
         key: String = "",
         value: String = "",
         description: String? = nil,
         provider: String? = nil,
-        connectionScope: CredentialScope? = nil
+        connectionScope: CredentialScope? = nil,
+        providerName: String? = nil,
+        providerWebsite: String? = nil
     ) {
         self.key = key
         self.value = value
         self.description = description
         self.provider = provider
         self.connectionScope = connectionScope
+        self.providerName = providerName
+        self.providerWebsite = providerWebsite
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1918,6 +1927,37 @@ public struct SecretCreateRequest: Codable {
         case description = "description"
         case provider = "provider"
         case connectionScope = "connection_scope"
+        case providerName = "provider_name"
+        case providerWebsite = "provider_website"
+    }
+}
+
+/// SecretProviderRequest attaches an existing secret to a provider's
+/// credential — the link a secret gets when it is created against a provider.
+/// An empty Provider detaches it back to a plain secret.
+public struct SecretProviderRequest: Codable {
+    public var provider: String
+    public var connectionScope: CredentialScope?
+    public var providerName: String?
+    public var providerWebsite: String?
+
+    public init(
+        provider: String = "",
+        connectionScope: CredentialScope? = nil,
+        providerName: String? = nil,
+        providerWebsite: String? = nil
+    ) {
+        self.provider = provider
+        self.connectionScope = connectionScope
+        self.providerName = providerName
+        self.providerWebsite = providerWebsite
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+        case connectionScope = "connection_scope"
+        case providerName = "provider_name"
+        case providerWebsite = "provider_website"
     }
 }
 
@@ -10059,6 +10099,9 @@ public struct SecretDTO: Codable {
     public var maskedValue: String
     public var description: String?
     public var scope: SecretScope?
+    /// CredentialID is the credential this secret is attached to; empty for
+    /// a plain secret.
+    public var credentialId: String?
 
     public init(
         id: String = "",
@@ -10075,7 +10118,8 @@ public struct SecretDTO: Codable {
         key: String = "",
         maskedValue: String = "",
         description: String? = nil,
-        scope: SecretScope? = nil
+        scope: SecretScope? = nil,
+        credentialId: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -10092,6 +10136,7 @@ public struct SecretDTO: Codable {
         self.maskedValue = maskedValue
         self.description = description
         self.scope = scope
+        self.credentialId = credentialId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -10110,6 +10155,7 @@ public struct SecretDTO: Codable {
         case maskedValue = "masked_value"
         case description = "description"
         case scope = "scope"
+        case credentialId = "credential_id"
     }
 }
 
