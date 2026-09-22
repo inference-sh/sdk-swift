@@ -19,10 +19,8 @@ public extension Widget {
             return parse(surface)
         }
         guard obj["components"]?.arrayValue != nil else { return nil }
-        // This payload IS a surface — apply the bound-literal rewrite
-        // directly (the transport shim only rewrites under a "widget" key).
         guard let data = try? InferenceClient.encoder.encode(input) else { return nil }
-        return try? InferenceClient.decoder.decode(Widget.self, from: InferenceClient.patchWidgetSurface(data))
+        return try? InferenceClient.decoder.decode(Widget.self, from: data)
     }
 
     static func parse(string: String) -> Widget? {
@@ -34,36 +32,24 @@ public extension Widget {
     }
 }
 
-public extension A2UIBoundValue {
-    /// The literal the transport shim tunneled through `path` (see
-    /// InferenceClient.patchWidgetSurface), or nil for a real data-model path.
-    var literal: JSONValue? {
-        guard let path, path.hasPrefix("$lit:"),
-              let arr = try? InferenceClient.decoder.decode([JSONValue].self,
-                                                            from: Data(path.dropFirst(5).utf8))
-        else { return nil }
-        return arr.first
-    }
-
-    /// A REAL data-model path reference, nil when `path` is carrying a
-    /// tunneled literal. Read this (or `literal`), never raw `path` — raw
-    /// `path` is a transport encoding.
-    var dataPath: String? {
-        guard let path, !path.isEmpty, !path.hasPrefix("$lit:") else { return nil }
+// A2UI bound values (`A2UIBound` in the TS types) are a wire union —
+// string | number | boolean | {"path": ...} — so the generated fields are
+// JSONValue. These read them the way the web renderer does.
+public extension JSONValue {
+    /// A data-model path reference (`{"path": ...}`), nil for a literal.
+    var boundPath: String? {
+        guard let path = self["path"]?.stringValue, !path.isEmpty else { return nil }
         return path
     }
 
     /// The renderer's resolveBoundValue: literal → its string form, path
-    /// reference → a "[bound: path]" placeholder, nothing → "".
-    var display: String {
-        if let literal {
-            if let s = literal.stringValue { return s }
-            if case .number(let n) = literal {
-                return n == n.rounded() ? String(Int(n)) : String(n)
-            }
-            if case .bool(let b) = literal { return String(b) }
+    /// reference → a "[bound: path]" placeholder, anything else → "".
+    var boundDisplay: String {
+        switch self {
+        case .string(let s): return s
+        case .number(let n): return n == n.rounded() ? String(Int(n)) : String(n)
+        case .bool(let b): return String(b)
+        default: return boundPath.map { "[bound: \($0)]" } ?? ""
         }
-        if let dataPath { return "[bound: \(dataPath)]" }
-        return ""
     }
 }

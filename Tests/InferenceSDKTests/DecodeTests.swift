@@ -148,12 +148,10 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(back["b"]?[2]?.stringValue, "x")
     }
 
-    /// The wire sends A2UI bound values as bare literals (string|number|bool)
-    /// or {path}; the generated A2UIBoundValue only decodes {path}. The
-    /// transport shim tunnels literals through `path` — without it, one
-    /// widget text literal failed the whole message decode and the message
-    /// silently vanished from the stream.
-    func testWidgetBoundLiteralsSurviveDecode() throws {
+    /// A2UI bound values are a wire union (string | number | bool | {path});
+    /// the generated fields are JSONValue so literal forms decode instead of
+    /// failing the whole message (gotypegen: custom-MarshalJSON → JSONValue).
+    func testWidgetBoundValuesDecode() throws {
         let surface = #"""
         {"version":"0.9.1","surfaceId":"s","catalogId":"c","components":[
           {"id":"root","component":"Column","children":["t","n","b","p"]},
@@ -163,34 +161,22 @@ final class DecodeTests: XCTestCase {
           {"id":"p","component":"Text","text":{"path":"/data/x"}}
         ]}
         """#
-        let patched = InferenceClient.patchWidgetSurface(Data(surface.utf8))
-        let w = try InferenceClient.decoder.decode(Widget.self, from: patched)
+        let w = try InferenceClient.decoder.decode(Widget.self, from: Data(surface.utf8))
         let byId = Dictionary(uniqueKeysWithValues: (w.components ?? []).map { ($0.id, $0) })
-        XCTAssertEqual(byId["t"]?.text?.display, "Hello")
-        XCTAssertEqual(byId["n"]?.text?.display, "42")
-        XCTAssertEqual(byId["b"]?.value?.literal, .bool(true))
-        XCTAssertEqual(byId["p"]?.text?.display, "[bound: /data/x]")
-        XCTAssertEqual(byId["p"]?.text?.dataPath, "/data/x")
-        XCTAssertNil(byId["t"]?.text?.dataPath)
+        XCTAssertEqual(byId["t"]?.text?.boundDisplay, "Hello")
+        XCTAssertEqual(byId["n"]?.text?.boundDisplay, "42")
+        XCTAssertEqual(byId["b"]?.value, .bool(true))
+        XCTAssertEqual(byId["p"]?.text?.boundDisplay, "[bound: /data/x]")
+        XCTAssertEqual(byId["p"]?.text?.boundPath, "/data/x")
+        XCTAssertNil(byId["t"]?.text?.boundPath)
     }
 
-    /// The transport shim only rewrites under a "widget" key — arbitrary user
-    /// JSON in task inputs that happens to carry id/component/text keys must
-    /// come through untouched, while a tool invocation's widget is rewritten.
-    func testWirePatchIsAnchoredToWidgetSubtrees() throws {
-        let wire = #"""
-        {"input": {"id": "x", "component": "Text", "text": "user data"},
-         "widget": {"components": [{"id": "t", "component": "Text", "text": "Hi"}]},
-         "agent_data": {"memory": null}}
-        """#
-        let patched = try InferenceClient.decoder.decode(
-            JSONValue.self, from: InferenceClient.patchWirePayload(Data(wire.utf8)))
-        // Outside a widget: untouched literal.
-        XCTAssertEqual(patched["input"]?["text"]?.stringValue, "user data")
-        // Inside the widget: tunneled.
-        XCTAssertEqual(patched["widget"]?["components"]?[0]?["text"]?["path"]?.stringValue, #"$lit:["Hi"]"#)
-        // Null memory still fixed everywhere.
-        XCTAssertEqual(patched["agent_data"]?["memory"]?.objectValue?.isEmpty, true)
+    /// `"memory": null` (a nil named map on the Go side) must decode — the
+    /// generated field is Optional since gotypegen treats named maps as nullable.
+    func testNullMemoryDecodes() throws {
+        let data = try InferenceClient.decoder.decode(
+            ChatData.self, from: Data(#"{"plan_steps":null,"memory":null,"always_allowed_tools":null}"#.utf8))
+        XCTAssertNil(data.memory)
     }
 
     /// The web's parseWidget accepts a surface, {widget:{...}}, the a2ui
@@ -202,6 +188,6 @@ final class DecodeTests: XCTestCase {
         XCTAssertNotNil(Widget.parse(string: #"{"type":"a2ui","surface":\#(surface)}"#))
         XCTAssertNil(Widget.parse(string: "Task done, all good."))
         XCTAssertNil(Widget.parse(string: #"{"status":"ok"}"#))
-        XCTAssertEqual(Widget.parse(string: surface)?.components?.first?.text?.display, "hi")
+        XCTAssertEqual(Widget.parse(string: surface)?.components?.first?.text?.boundDisplay, "hi")
     }
 }

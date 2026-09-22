@@ -277,7 +277,7 @@ public struct TasksAPI: Sendable {
 
     private static func task(from object: [String: JSONValue]) throws -> TaskDTO {
         let data = try InferenceClient.encoder.encode(object)
-        return try InferenceClient.decoder.decode(TaskDTO.self, from: InferenceClient.patchWirePayload(data))
+        return try InferenceClient.decoder.decode(TaskDTO.self, from: data)
     }
 
     /// The JS client turns `params` into query items: primitives via
