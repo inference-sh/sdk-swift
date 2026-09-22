@@ -4436,6 +4436,9 @@ public final class ChatDTO: Codable {
     public var status: ChatStatus
     public var output: JSONValue?
     public var context: [String: String]?
+    /// ChannelContext names the channel this chat came through (slack, a
+    /// wearable's tag, ...). Unset for chats started in the app or the SDK.
+    public var channelContext: ChannelContext?
     public var agentId: String?
     public var agent: AgentDTO?
     public var agentVersionId: String?
@@ -4465,6 +4468,7 @@ public final class ChatDTO: Codable {
         status: ChatStatus,
         output: JSONValue? = nil,
         context: [String: String]? = nil,
+        channelContext: ChannelContext? = nil,
         agentId: String? = nil,
         agent: AgentDTO? = nil,
         agentVersionId: String? = nil,
@@ -4493,6 +4497,7 @@ public final class ChatDTO: Codable {
         self.status = status
         self.output = output
         self.context = context
+        self.channelContext = channelContext
         self.agentId = agentId
         self.agent = agent
         self.agentVersionId = agentVersionId
@@ -4523,6 +4528,7 @@ public final class ChatDTO: Codable {
         case status = "status"
         case output = "output"
         case context = "context"
+        case channelContext = "channel_context"
         case agentId = "agent_id"
         case agent = "agent"
         case agentVersionId = "agent_version_id"
