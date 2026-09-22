@@ -4663,7 +4663,7 @@ public struct CredentialDTO: Codable {
     public var iconUrl: String?
     public var accountIdentifier: String?
     public var accountName: String?
-    public var scopes: StringSlice
+    public var scopes: StringSlice?
     public var expiresAt: String?
     public var vaultId: String?
     public var metadata: [String: JSONValue]?
@@ -4691,7 +4691,7 @@ public struct CredentialDTO: Codable {
         iconUrl: String? = nil,
         accountIdentifier: String? = nil,
         accountName: String? = nil,
-        scopes: StringSlice,
+        scopes: StringSlice? = nil,
         expiresAt: String? = nil,
         vaultId: String? = nil,
         metadata: [String: JSONValue]? = nil,
@@ -5923,10 +5923,10 @@ public struct FlowDTO: Codable {
     public var publishedVersionId: String
     public var publishedVersion: FlowVersionDTO?
     public var inputSchema: JSONValue
-    public var input: FlowRunInputs
+    public var input: FlowRunInputs?
     public var outputSchema: JSONValue
-    public var outputMappings: OutputMappings
-    public var nodeData: FlowNodeDataMap
+    public var outputMappings: OutputMappings?
+    public var nodeData: FlowNodeDataMap?
     public var nodes: [FlowNode]?
     public var edges: [FlowEdge]?
     public var viewport: FlowViewport?
@@ -5955,10 +5955,10 @@ public struct FlowDTO: Codable {
         publishedVersionId: String = "",
         publishedVersion: FlowVersionDTO? = nil,
         inputSchema: JSONValue = .null,
-        input: FlowRunInputs,
+        input: FlowRunInputs? = nil,
         outputSchema: JSONValue = .null,
-        outputMappings: OutputMappings,
-        nodeData: FlowNodeDataMap,
+        outputMappings: OutputMappings? = nil,
+        nodeData: FlowNodeDataMap? = nil,
         nodes: [FlowNode]? = nil,
         edges: [FlowEdge]? = nil,
         viewport: FlowViewport? = nil
@@ -6038,10 +6038,10 @@ public struct FlowVersionDTO: Codable {
     public var deletedAt: String?
     public var graphVersion: Int
     public var inputSchema: JSONValue
-    public var input: FlowRunInputs
+    public var input: FlowRunInputs?
     public var outputSchema: JSONValue
-    public var outputMappings: OutputMappings
-    public var nodeData: FlowNodeDataMap
+    public var outputMappings: OutputMappings?
+    public var nodeData: FlowNodeDataMap?
     public var nodes: [FlowNode]?
     public var edges: [FlowEdge]?
     public var viewport: FlowViewport?
@@ -6054,10 +6054,10 @@ public struct FlowVersionDTO: Codable {
         deletedAt: String? = nil,
         graphVersion: Int = 0,
         inputSchema: JSONValue = .null,
-        input: FlowRunInputs,
+        input: FlowRunInputs? = nil,
         outputSchema: JSONValue = .null,
-        outputMappings: OutputMappings,
-        nodeData: FlowNodeDataMap,
+        outputMappings: OutputMappings? = nil,
+        nodeData: FlowNodeDataMap? = nil,
         nodes: [FlowNode]? = nil,
         edges: [FlowEdge]? = nil,
         viewport: FlowViewport? = nil
@@ -6137,7 +6137,7 @@ public struct FlowRunDTO: Codable {
     public var flowRunStarted: String?
     public var flowRunFinished: String?
     public var flowRunCancelled: String?
-    public var input: FlowRunInputs
+    public var input: FlowRunInputs?
     public var failOnError: Bool
     public var output: JSONValue
     public var nodeTasks: [String: NodeTaskDTO]?
@@ -6165,7 +6165,7 @@ public struct FlowRunDTO: Codable {
         flowRunStarted: String? = nil,
         flowRunFinished: String? = nil,
         flowRunCancelled: String? = nil,
-        input: FlowRunInputs,
+        input: FlowRunInputs? = nil,
         failOnError: Bool = false,
         output: JSONValue = .null,
         nodeTasks: [String: NodeTaskDTO]? = nil,
@@ -6491,12 +6491,12 @@ public struct UpdateNodeDataPayload: Codable {
 public struct SetInputPayload: Codable {
     public var nodeId: String
     public var inputKey: String
-    public var input: FlowRunInput
+    public var input: JSONValue
 
     public init(
         nodeId: String = "",
         inputKey: String = "",
-        input: FlowRunInput
+        input: JSONValue = .null
     ) {
         self.nodeId = nodeId
         self.inputKey = inputKey
@@ -8195,7 +8195,7 @@ public struct MCPServerDTO: Codable {
     public var serverUrl: String
     public var authType: MCPServerAuthType
     public var oauthClientId: String?
-    public var defaultScopes: StringSlice
+    public var defaultScopes: StringSlice?
     public var documentationUrl: String
     public var connectionStatus: String?
 
@@ -8215,7 +8215,7 @@ public struct MCPServerDTO: Codable {
         serverUrl: String = "",
         authType: MCPServerAuthType,
         oauthClientId: String? = nil,
-        defaultScopes: StringSlice,
+        defaultScopes: StringSlice? = nil,
         documentationUrl: String = "",
         connectionStatus: String? = nil
     ) {
@@ -9133,7 +9133,7 @@ public struct PlanDTO: Codable {
     public var requiredPlanIds: [String]?
     public var requiredPlanNames: [String]?
     public var stackable: Bool
-    public var limits: PlanLimits
+    public var limits: PlanLimits?
 
     public init(
         id: String = "",
@@ -9152,7 +9152,7 @@ public struct PlanDTO: Codable {
         requiredPlanIds: [String]? = nil,
         requiredPlanNames: [String]? = nil,
         stackable: Bool = false,
-        limits: PlanLimits
+        limits: PlanLimits? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -11652,11 +11652,11 @@ public struct SubmitTelemetryRequest: Codable {
 /// ToolInvocationFunction contains the function details for a tool invocation
 public struct ToolInvocationFunction: Codable {
     public var name: String
-    public var arguments: StringEncodedMap
+    public var arguments: StringEncodedMap?
 
     public init(
         name: String = "",
-        arguments: StringEncodedMap
+        arguments: StringEncodedMap? = nil
     ) {
         self.name = name
         self.arguments = arguments
@@ -12129,13 +12129,13 @@ public struct A2UIComponent: Codable {
     public var direction: String?
     public var gap: Int?
     /// Text
-    public var text: A2UIBoundValue?
+    public var text: JSONValue?
     public var variant: String?
     /// Image
-    public var url: A2UIBoundValue?
+    public var url: JSONValue?
     public var fit: String?
     /// Icon
-    public var name: A2UIBoundValue?
+    public var name: JSONValue?
     /// Divider
     public var axis: String?
     /// Button / Card
@@ -12144,7 +12144,7 @@ public struct A2UIComponent: Codable {
     public var action: A2UIAction?
     /// TextField
     public var label: String?
-    public var value: A2UIBoundValue?
+    public var value: JSONValue?
     public var textFieldType: String?
     public var validationRegexp: String?
     public var placeholder: String?
@@ -12157,7 +12157,7 @@ public struct A2UIComponent: Codable {
     public var enableTime: Bool?
     /// ChoicePicker
     public var options: [A2UIChoiceOption]?
-    public var selections: A2UIBoundValue?
+    public var selections: JSONValue?
     public var maxAllowedSelections: Int?
     /// Modal
     public var entryPointChild: String?
@@ -12198,17 +12198,17 @@ public struct A2UIComponent: Codable {
         align: String? = nil,
         direction: String? = nil,
         gap: Int? = nil,
-        text: A2UIBoundValue? = nil,
+        text: JSONValue? = nil,
         variant: String? = nil,
-        url: A2UIBoundValue? = nil,
+        url: JSONValue? = nil,
         fit: String? = nil,
-        name: A2UIBoundValue? = nil,
+        name: JSONValue? = nil,
         axis: String? = nil,
         child: String? = nil,
         primary: Bool? = nil,
         action: A2UIAction? = nil,
         label: String? = nil,
-        value: A2UIBoundValue? = nil,
+        value: JSONValue? = nil,
         textFieldType: String? = nil,
         validationRegexp: String? = nil,
         placeholder: String? = nil,
@@ -12218,7 +12218,7 @@ public struct A2UIComponent: Codable {
         enableDate: Bool? = nil,
         enableTime: Bool? = nil,
         options: [A2UIChoiceOption]? = nil,
-        selections: A2UIBoundValue? = nil,
+        selections: JSONValue? = nil,
         maxAllowedSelections: Int? = nil,
         entryPointChild: String? = nil,
         contentChild: String? = nil,
@@ -12670,12 +12670,12 @@ public struct ChannelType: RawRepresentable, Codable, Hashable, Sendable {
 /// ChatData contains agent-specific data for a chat session
 public struct ChatData: Codable {
     public var planSteps: [PlanStep]?
-    public var memory: StringEncodedMap
+    public var memory: StringEncodedMap?
     public var alwaysAllowedTools: [String]?
 
     public init(
         planSteps: [PlanStep]? = nil,
-        memory: StringEncodedMap,
+        memory: StringEncodedMap? = nil,
         alwaysAllowedTools: [String]? = nil
     ) {
         self.planSteps = planSteps
@@ -12942,7 +12942,7 @@ public struct FlowNodeConnection: Codable {
 }
 
 /// FlowRunInputs maps node IDs to their input key-value pairs
-public typealias FlowRunInputs = [String: [String: FlowRunInput]]
+public typealias FlowRunInputs = [String: [String: JSONValue]]
 
 /// FlowRunInput represents a single input value or connection for a flow node
 public struct FlowRunInput: Codable {
@@ -15074,11 +15074,11 @@ public struct ToolCall: Codable {
 /// ToolCallFunction contains the function name and arguments from an LLM tool call
 public struct ToolCallFunction: Codable {
     public var name: String
-    public var arguments: StringEncodedMap
+    public var arguments: StringEncodedMap?
 
     public init(
         name: String = "",
-        arguments: StringEncodedMap
+        arguments: StringEncodedMap? = nil
     ) {
         self.name = name
         self.arguments = arguments
