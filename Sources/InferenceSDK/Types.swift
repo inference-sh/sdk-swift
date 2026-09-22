@@ -13971,6 +13971,7 @@ public struct NotificationType: RawRepresentable, Codable, Hashable, Sendable {
     public static let usageSummary = NotificationType(rawValue: "usage_summary")
     public static let spendingLimit = NotificationType(rawValue: "spending_limit")
     public static let invoice = NotificationType(rawValue: "invoice")
+    public static let creditNote = NotificationType(rawValue: "credit_note")
     public static let subscriptionCreated = NotificationType(rawValue: "subscription_created")
     public static let subscriptionCredit = NotificationType(rawValue: "subscription_credit")
     public static let subscriptionCanceled = NotificationType(rawValue: "subscription_canceled")
