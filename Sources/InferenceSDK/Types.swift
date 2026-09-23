@@ -424,6 +424,9 @@ public struct ClientToolConfig: Codable {
 public struct ToolAuthConfig: Codable {
     public var type: String
     public var provider: String?
+    public var credentialId: String?
+    /// Deprecated: the credential id used to be called integration_id. Read
+    /// through CredentialRef(); never written.
     public var integrationId: String?
     public var secret: String?
     public var header: String?
@@ -431,12 +434,14 @@ public struct ToolAuthConfig: Codable {
     public init(
         type: String = "",
         provider: String? = nil,
+        credentialId: String? = nil,
         integrationId: String? = nil,
         secret: String? = nil,
         header: String? = nil
     ) {
         self.type = type
         self.provider = provider
+        self.credentialId = credentialId
         self.integrationId = integrationId
         self.secret = secret
         self.header = header
@@ -445,6 +450,7 @@ public struct ToolAuthConfig: Codable {
     enum CodingKeys: String, CodingKey {
         case type = "type"
         case provider = "provider"
+        case credentialId = "credential_id"
         case integrationId = "integration_id"
         case secret = "secret"
         case header = "header"
@@ -486,18 +492,24 @@ public struct HTTPToolConfig: Codable {
 }
 
 public struct MCPToolConfig: Codable {
-    public var integrationId: String
+    public var credentialId: String?
+    /// Deprecated: the credential id used to be called integration_id. Read
+    /// through CredentialRef(); never written.
+    public var integrationId: String?
     public var toolName: String
 
     public init(
-        integrationId: String = "",
+        credentialId: String? = nil,
+        integrationId: String? = nil,
         toolName: String = ""
     ) {
+        self.credentialId = credentialId
         self.integrationId = integrationId
         self.toolName = toolName
     }
 
     enum CodingKeys: String, CodingKey {
+        case credentialId = "credential_id"
         case integrationId = "integration_id"
         case toolName = "tool_name"
     }
@@ -650,19 +662,19 @@ public struct HTTPToolConfigDTO: Codable {
 }
 
 public struct MCPToolConfigDTO: Codable {
-    public var integrationId: String
+    public var credentialId: String
     public var toolName: String
 
     public init(
-        integrationId: String = "",
+        credentialId: String = "",
         toolName: String = ""
     ) {
-        self.integrationId = integrationId
+        self.credentialId = credentialId
         self.toolName = toolName
     }
 
     enum CodingKeys: String, CodingKey {
-        case integrationId = "integration_id"
+        case credentialId = "credential_id"
         case toolName = "tool_name"
     }
 }
