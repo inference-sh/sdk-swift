@@ -73,6 +73,7 @@ public struct InternalToolsConfig: Codable {
     public var meta: Bool?
     public var artifact: Bool?
     public var spawn: Bool?
+    public var remote: Bool?
 
     public init(
         plan: Bool? = nil,
@@ -83,7 +84,8 @@ public struct InternalToolsConfig: Codable {
         hostContext: Bool? = nil,
         meta: Bool? = nil,
         artifact: Bool? = nil,
-        spawn: Bool? = nil
+        spawn: Bool? = nil,
+        remote: Bool? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -94,6 +96,7 @@ public struct InternalToolsConfig: Codable {
         self.meta = meta
         self.artifact = artifact
         self.spawn = spawn
+        self.remote = remote
     }
 
     enum CodingKeys: String, CodingKey {
@@ -106,6 +109,7 @@ public struct InternalToolsConfig: Codable {
         case meta = "meta"
         case artifact = "artifact"
         case spawn = "spawn"
+        case remote = "remote"
     }
 }
 
@@ -420,29 +424,39 @@ public struct ClientToolConfig: Codable {
     }
 }
 
+/// ToolAuthType says how an HTTP tool authenticates.
+public struct ToolAuthType: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// ToolAuthTypeNone sends no credentials (same as leaving type empty).
+    public static let none = ToolAuthType(rawValue: "none")
+    /// ToolAuthTypeCredential sends a connected credential's access token.
+    public static let credential = ToolAuthType(rawValue: "credential")
+    /// ToolAuthTypeAPIKey sends a vault secret in a header.
+    public static let apiKey = ToolAuthType(rawValue: "api_key")
+    /// ToolAuthTypeBearer sends a vault secret as a bearer token.
+    public static let bearer = ToolAuthType(rawValue: "bearer")
+}
+
 /// ToolAuthConfig declares how a tool authenticates.
 public struct ToolAuthConfig: Codable {
-    public var type: String
+    public var type: ToolAuthType
     public var provider: String?
     public var credentialId: String?
-    /// Deprecated: the credential id used to be called integration_id. Read
-    /// through CredentialRef(); never written.
-    public var integrationId: String?
     public var secret: String?
     public var header: String?
 
     public init(
-        type: String = "",
+        type: ToolAuthType,
         provider: String? = nil,
         credentialId: String? = nil,
-        integrationId: String? = nil,
         secret: String? = nil,
         header: String? = nil
     ) {
         self.type = type
         self.provider = provider
         self.credentialId = credentialId
-        self.integrationId = integrationId
         self.secret = secret
         self.header = header
     }
@@ -451,7 +465,6 @@ public struct ToolAuthConfig: Codable {
         case type = "type"
         case provider = "provider"
         case credentialId = "credential_id"
-        case integrationId = "integration_id"
         case secret = "secret"
         case header = "header"
     }
@@ -493,24 +506,18 @@ public struct HTTPToolConfig: Codable {
 
 public struct MCPToolConfig: Codable {
     public var credentialId: String?
-    /// Deprecated: the credential id used to be called integration_id. Read
-    /// through CredentialRef(); never written.
-    public var integrationId: String?
     public var toolName: String
 
     public init(
         credentialId: String? = nil,
-        integrationId: String? = nil,
         toolName: String = ""
     ) {
         self.credentialId = credentialId
-        self.integrationId = integrationId
         self.toolName = toolName
     }
 
     enum CodingKeys: String, CodingKey {
         case credentialId = "credential_id"
-        case integrationId = "integration_id"
         case toolName = "tool_name"
     }
 }
@@ -759,6 +766,11 @@ public struct AgentDTO: Codable {
     public var images: AgentImages
     public var versionId: String
     public var version: AgentVersionDTO?
+    /// ProfileID is set when a harness profile on a remote thinks for this
+    /// agent instead of our loop.
+    public var profileId: String?
+    /// RemoteID is the machine the agent's terminal tools run on by default.
+    public var remoteId: String?
 
     public init(
         id: String = "",
@@ -779,7 +791,9 @@ public struct AgentDTO: Codable {
         title: String = "",
         images: AgentImages,
         versionId: String = "",
-        version: AgentVersionDTO? = nil
+        version: AgentVersionDTO? = nil,
+        profileId: String? = nil,
+        remoteId: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -800,6 +814,8 @@ public struct AgentDTO: Codable {
         self.images = images
         self.versionId = versionId
         self.version = version
+        self.profileId = profileId
+        self.remoteId = remoteId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -822,6 +838,8 @@ public struct AgentDTO: Codable {
         case images = "images"
         case versionId = "version_id"
         case version = "version"
+        case profileId = "profile_id"
+        case remoteId = "remote_id"
     }
 }
 
@@ -1070,6 +1088,10 @@ public struct AgentRunDTO: Codable {
     public var toolInvocationId: String?
     public var triggerId: String?
     public var metadata: JSONValue?
+    /// ProfileID is the harness profile that thought for this run; nil when it
+    /// was our own loop. RemoteID is the machine it ran on, if any.
+    public var profileId: String?
+    public var remoteId: String?
 
     public init(
         id: String = "",
@@ -1096,7 +1118,9 @@ public struct AgentRunDTO: Codable {
         interruptMeta: JSONValue? = nil,
         toolInvocationId: String? = nil,
         triggerId: String? = nil,
-        metadata: JSONValue? = nil
+        metadata: JSONValue? = nil,
+        profileId: String? = nil,
+        remoteId: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -1123,6 +1147,8 @@ public struct AgentRunDTO: Codable {
         self.toolInvocationId = toolInvocationId
         self.triggerId = triggerId
         self.metadata = metadata
+        self.profileId = profileId
+        self.remoteId = remoteId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1151,6 +1177,8 @@ public struct AgentRunDTO: Codable {
         case toolInvocationId = "tool_invocation_id"
         case triggerId = "trigger_id"
         case metadata = "metadata"
+        case profileId = "profile_id"
+        case remoteId = "remote_id"
     }
 }
 
@@ -1495,7 +1523,7 @@ public struct AppVersionInput: Codable {
     public var env: [String: String]?
     public var kernel: String?
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredIntegrations: [CredentialRequirement]?
+    public var requiredCredentials: [CredentialRequirement]?
     public var resources: AppResources?
 
     public init(
@@ -1510,7 +1538,7 @@ public struct AppVersionInput: Codable {
         env: [String: String]? = nil,
         kernel: String? = nil,
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredIntegrations: [CredentialRequirement]? = nil,
+        requiredCredentials: [CredentialRequirement]? = nil,
         resources: AppResources? = nil
     ) {
         self.metadata = metadata
@@ -1524,7 +1552,7 @@ public struct AppVersionInput: Codable {
         self.env = env
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
-        self.requiredIntegrations = requiredIntegrations
+        self.requiredCredentials = requiredCredentials
         self.resources = resources
     }
 
@@ -1540,7 +1568,7 @@ public struct AppVersionInput: Codable {
         case env = "env"
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
-        case requiredIntegrations = "required_integrations"
+        case requiredCredentials = "required_credentials"
         case resources = "resources"
     }
 }
@@ -2060,7 +2088,7 @@ public struct CredentialCompleteOAuthRequest: Codable {
 }
 
 public struct CredentialConnectResponse: Codable {
-    public var integration: CredentialDTO?
+    public var credential: CredentialDTO?
     public var authUrl: String?
     public var state: String?
     public var codeVerifier: String?
@@ -2070,7 +2098,7 @@ public struct CredentialConnectResponse: Codable {
     public var message: String?
 
     public init(
-        integration: CredentialDTO? = nil,
+        credential: CredentialDTO? = nil,
         authUrl: String? = nil,
         state: String? = nil,
         codeVerifier: String? = nil,
@@ -2079,7 +2107,7 @@ public struct CredentialConnectResponse: Codable {
         confirmationType: String? = nil,
         message: String? = nil
     ) {
-        self.integration = integration
+        self.credential = credential
         self.authUrl = authUrl
         self.state = state
         self.codeVerifier = codeVerifier
@@ -2090,7 +2118,7 @@ public struct CredentialConnectResponse: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case integration = "integration"
+        case credential = "credential"
         case authUrl = "auth_url"
         case state = "state"
         case codeVerifier = "code_verifier"
@@ -2309,9 +2337,10 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Secrets (sensitive - excluded from read-only preset)
     public static let secretsRead = Scope(rawValue: "secrets:read")
     public static let secretsWrite = Scope(rawValue: "secrets:write")
-    /// Action-level scopes for Integrations
-    public static let integrationsRead = Scope(rawValue: "integrations:read")
-    public static let integrationsWrite = Scope(rawValue: "integrations:write")
+    /// Action-level scopes for credentials (connected accounts, vaults,
+    /// auth schemes, MCP servers).
+    public static let credentialsRead = Scope(rawValue: "credentials:read")
+    public static let credentialsWrite = Scope(rawValue: "credentials:write")
     /// Action-level scopes for Engines
     public static let enginesRead = Scope(rawValue: "engines:read")
     public static let enginesWrite = Scope(rawValue: "engines:write")
@@ -2348,7 +2377,7 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let teams = ScopeGroup(rawValue: "teams")
     public static let billing = ScopeGroup(rawValue: "billing")
     public static let secrets = ScopeGroup(rawValue: "secrets")
-    public static let integrations = ScopeGroup(rawValue: "integrations")
+    public static let credentials = ScopeGroup(rawValue: "credentials")
     public static let engines = ScopeGroup(rawValue: "engines")
     public static let apiKeys = ScopeGroup(rawValue: "apikeys")
     public static let knowledge = ScopeGroup(rawValue: "knowledge")
@@ -2771,24 +2800,45 @@ public struct SecretRequirement: Codable {
     }
 }
 
-/// CredentialRequirement defines an integration that an app requires.
-/// Key is the provider slug (e.g. "bytedance", "google").
-/// Secrets lists the specific env var names to inject from this integration.
-/// Scopes lists OAuth scopes needed (for OAuth integrations).
+/// CredentialRequirement is an entry under credentials: in inf.yml: keys an
+/// app needs that belong to a provider. Provider names whose credential
+/// supplies them; Secrets lists the keys to inject from it (an API key
+/// credential), Scopes what to ask for (an OAuth one).
+/// 
+/// 	credentials:
+/// 	  - provider: acme
+/// 	    name: Acme CRM
+/// 	    website: acme.com
+/// 	    secrets: [ACME_API_KEY]
+/// 
+/// Key is a capability of a provider the platform defines ("x.tweet.read",
+/// "google.sheets"): an OAuth grant with the scopes it implies. An entry sets
+/// Provider, Key, or both; with both, Key decides how it is resolved.
 public struct CredentialRequirement: Codable {
-    public var key: String
+    public var provider: String?
+    /// Name and Website describe a provider the platform does not list: the
+    /// name its credential is shown under and the site its logo comes from.
+    public var name: String?
+    public var website: String?
+    public var key: String?
     public var description: String?
     public var optional: Bool?
     public var secrets: [String]?
     public var scopes: [String]?
 
     public init(
-        key: String = "",
+        provider: String? = nil,
+        name: String? = nil,
+        website: String? = nil,
+        key: String? = nil,
         description: String? = nil,
         optional: Bool? = nil,
         secrets: [String]? = nil,
         scopes: [String]? = nil
     ) {
+        self.provider = provider
+        self.name = name
+        self.website = website
         self.key = key
         self.description = description
         self.optional = optional
@@ -2797,6 +2847,9 @@ public struct CredentialRequirement: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+        case name = "name"
+        case website = "website"
         case key = "key"
         case description = "description"
         case optional = "optional"
@@ -2932,7 +2985,7 @@ public struct AppVersionDTO: Codable {
     public var env: [String: String]?
     public var kernel: String
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredIntegrations: [CredentialRequirement]?
+    public var requiredCredentials: [CredentialRequirement]?
     public var resources: AppResources
     public var checksum: String?
 
@@ -2955,7 +3008,7 @@ public struct AppVersionDTO: Codable {
         env: [String: String]? = nil,
         kernel: String = "",
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredIntegrations: [CredentialRequirement]? = nil,
+        requiredCredentials: [CredentialRequirement]? = nil,
         resources: AppResources,
         checksum: String? = nil
     ) {
@@ -2977,7 +3030,7 @@ public struct AppVersionDTO: Codable {
         self.env = env
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
-        self.requiredIntegrations = requiredIntegrations
+        self.requiredCredentials = requiredCredentials
         self.resources = resources
         self.checksum = checksum
     }
@@ -3001,7 +3054,7 @@ public struct AppVersionDTO: Codable {
         case env = "env"
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
-        case requiredIntegrations = "required_integrations"
+        case requiredCredentials = "required_credentials"
         case resources = "resources"
         case checksum = "checksum"
     }
@@ -4461,6 +4514,11 @@ public final class ChatDTO: Codable {
     public var agentData: ChatData
     public var activeRun: AgentRunDTO?
     public var pendingInterrupts: [InterruptDTO]?
+    /// HarnessSessionID is the harness's own session id when a remote profile
+    /// thinks for this chat; `claude --resume <id>` opens it on that machine.
+    public var harnessSessionId: String?
+    /// ForkedFromMessageID is the message this chat was branched at.
+    public var forkedFromMessageId: String?
 
     public init(
         id: String = "",
@@ -4490,7 +4548,9 @@ public final class ChatDTO: Codable {
         chatMessages: [ChatMessageDTO]? = nil,
         agentData: ChatData,
         activeRun: AgentRunDTO? = nil,
-        pendingInterrupts: [InterruptDTO]? = nil
+        pendingInterrupts: [InterruptDTO]? = nil,
+        harnessSessionId: String? = nil,
+        forkedFromMessageId: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -4520,6 +4580,8 @@ public final class ChatDTO: Codable {
         self.agentData = agentData
         self.activeRun = activeRun
         self.pendingInterrupts = pendingInterrupts
+        self.harnessSessionId = harnessSessionId
+        self.forkedFromMessageId = forkedFromMessageId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4551,6 +4613,8 @@ public final class ChatDTO: Codable {
         case agentData = "agent_data"
         case activeRun = "active_run"
         case pendingInterrupts = "pending_interrupts"
+        case harnessSessionId = "harness_session_id"
+        case forkedFromMessageId = "forked_from_message_id"
     }
 }
 
@@ -4784,9 +4848,9 @@ public struct CredentialConfigDTO: Codable {
     public var available: Bool
     public var hasManaged: Bool
     public var grant: CredentialGrant?
-    /// CustomProviderID is set when the provider is one the team defined
-    /// itself (models.CustomProvider), so the UI can offer edit and remove.
-    public var customProviderId: String?
+    /// AuthSchemeID is set when the provider is one the team defined
+    /// itself (models.AuthScheme), so the UI can offer edit and remove.
+    public var authSchemeId: String?
     public var credential: CredentialDTO?
 
     public init(
@@ -4804,7 +4868,7 @@ public struct CredentialConfigDTO: Codable {
         available: Bool = false,
         hasManaged: Bool = false,
         grant: CredentialGrant? = nil,
-        customProviderId: String? = nil,
+        authSchemeId: String? = nil,
         credential: CredentialDTO? = nil
     ) {
         self.slug = slug
@@ -4821,7 +4885,7 @@ public struct CredentialConfigDTO: Codable {
         self.available = available
         self.hasManaged = hasManaged
         self.grant = grant
-        self.customProviderId = customProviderId
+        self.authSchemeId = authSchemeId
         self.credential = credential
     }
 
@@ -4840,7 +4904,7 @@ public struct CredentialConfigDTO: Codable {
         case available = "available"
         case hasManaged = "has_managed"
         case grant = "grant"
-        case customProviderId = "custom_provider_id"
+        case authSchemeId = "auth_scheme_id"
         case credential = "credential"
     }
 }
@@ -9784,8 +9848,8 @@ public struct CompletePaymentRequest: Codable {
     }
 }
 
-/// UpdateIntegrationScopesRequest updates integration scopes.
-public struct UpdateIntegrationScopesRequest: Codable {
+/// UpdateCredentialScopesRequest adds OAuth scopes to a connected credential.
+public struct UpdateCredentialScopesRequest: Codable {
     public var scopes: [String]?
 
     public init(
@@ -9905,13 +9969,13 @@ public struct RequirementType: RawRepresentable, Codable, Hashable, Sendable {
     public init(rawValue: String) { self.rawValue = rawValue }
 
     public static let secret = RequirementType(rawValue: "secret")
-    public static let integration = RequirementType(rawValue: "integration")
+    public static let credential = RequirementType(rawValue: "credential")
     public static let scope = RequirementType(rawValue: "scope")
 }
 
 /// RequirementError represents a single missing requirement with actionable info
 public struct RequirementError: Codable {
-    /// "secret" | "integration" | "scope"
+    /// "secret" | "credential" | "scope"
     public var type: RequirementType
     /// The requirement key that's missing
     public var key: String
@@ -9961,19 +10025,29 @@ public struct SetupAction: Codable {
     public var scopes: [String]?
     /// Scope key → friendly description
     public var scopeDescriptions: [String: String]?
+    /// Secrets are the keys to supply for an add_secret action on a
+    /// provider: saved against Provider, they become its credential.
+    public var secrets: [String]?
+    /// ProviderWebsite is where the logo of a provider the platform does not
+    /// list comes from; sent back when the keys are saved.
+    public var providerWebsite: String?
 
     public init(
         type: SetupActionType,
         provider: String? = nil,
         providerName: String? = nil,
         scopes: [String]? = nil,
-        scopeDescriptions: [String: String]? = nil
+        scopeDescriptions: [String: String]? = nil,
+        secrets: [String]? = nil,
+        providerWebsite: String? = nil
     ) {
         self.type = type
         self.provider = provider
         self.providerName = providerName
         self.scopes = scopes
         self.scopeDescriptions = scopeDescriptions
+        self.secrets = secrets
+        self.providerWebsite = providerWebsite
     }
 
     enum CodingKeys: String, CodingKey {
@@ -9982,25 +10056,27 @@ public struct SetupAction: Codable {
         case providerName = "provider_name"
         case scopes = "scopes"
         case scopeDescriptions = "scope_descriptions"
+        case secrets = "secrets"
+        case providerWebsite = "provider_website"
     }
 }
 
 /// CheckRequirementsRequest is the request body for checking requirements
 public struct CheckRequirementsRequest: Codable {
     public var secrets: [SecretRequirement]?
-    public var integrations: [CredentialRequirement]?
+    public var credentials: [CredentialRequirement]?
 
     public init(
         secrets: [SecretRequirement]? = nil,
-        integrations: [CredentialRequirement]? = nil
+        credentials: [CredentialRequirement]? = nil
     ) {
         self.secrets = secrets
-        self.integrations = integrations
+        self.credentials = credentials
     }
 
     enum CodingKeys: String, CodingKey {
         case secrets = "secrets"
-        case integrations = "integrations"
+        case credentials = "credentials"
     }
 }
 
@@ -13068,7 +13144,7 @@ public struct GraphNodeType: RawRepresentable, Codable, Hashable, Sendable {
     public static let conditional = GraphNodeType(rawValue: "conditional")
     public static let flowNode = GraphNodeType(rawValue: "flow_node")
     public static let trigger = GraphNodeType(rawValue: "trigger")
-    public static let integrationRequirement = GraphNodeType(rawValue: "integration_requirement")
+    public static let credentialRequirement = GraphNodeType(rawValue: "credential_requirement")
 }
 
 /// GraphNodeStatus represents the status of a node
@@ -13576,7 +13652,7 @@ public struct SecretScope: RawRepresentable, Codable, Hashable, Sendable {
 
     /// SecretScopeTeam is a normal user secret, visible in team secret lists
     public static let team = SecretScope(rawValue: "team")
-    /// SecretScopeInternal is an integration-managed secret, hidden from user lists
+    /// SecretScopeInternal is a credential-managed secret, hidden from user lists
     public static let `internal` = SecretScope(rawValue: "internal")
     /// SecretScopeSystem is a global system setting, owned by system team, admin-only
     public static let system = SecretScope(rawValue: "system")
@@ -14098,21 +14174,29 @@ public struct DeltaEvent: Codable {
     /// companion is deliberately absent — nothing needs to route before matching.
     /// Empty when the task has no execution edge (a plain app run).
     public var resourceId: String?
+    /// End, when set, carries no delta: it is the id of the task or agent run
+    /// whose deltas on this key are complete. It follows the last of them on
+    /// the same key, so an in-process follower reads to it instead of guessing
+    /// when the stream is over. The stream layer never sends it to clients.
+    public var end: String?
 
     public init(
         delta: JSONValue = .null,
         seq: Int = 0,
-        resourceId: String? = nil
+        resourceId: String? = nil,
+        end: String? = nil
     ) {
         self.delta = delta
         self.seq = seq
         self.resourceId = resourceId
+        self.end = end
     }
 
     enum CodingKeys: String, CodingKey {
         case delta = "delta"
         case seq = "seq"
         case resourceId = "resource_id"
+        case end = "end"
     }
 }
 
