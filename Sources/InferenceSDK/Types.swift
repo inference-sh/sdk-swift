@@ -11509,19 +11509,29 @@ public struct TeamMemberDTO: Codable {
     public var teamId: String
     public var role: TeamRole
     public var user: TeamMemberUserDTO?
+    /// AssignableRoles are the roles the caller may set this member to, the
+    /// current one included; Removable, whether the caller may remove them.
+    /// Set on GET /teams/{id}/members by the rules the member writes enforce;
+    /// absent means none.
+    public var assignableRoles: [TeamRole]?
+    public var removable: Bool?
 
     public init(
         id: String = "",
         userId: String = "",
         teamId: String = "",
         role: TeamRole,
-        user: TeamMemberUserDTO? = nil
+        user: TeamMemberUserDTO? = nil,
+        assignableRoles: [TeamRole]? = nil,
+        removable: Bool? = nil
     ) {
         self.id = id
         self.userId = userId
         self.teamId = teamId
         self.role = role
         self.user = user
+        self.assignableRoles = assignableRoles
+        self.removable = removable
     }
 
     enum CodingKeys: String, CodingKey {
@@ -11530,6 +11540,8 @@ public struct TeamMemberDTO: Codable {
         case teamId = "team_id"
         case role = "role"
         case user = "user"
+        case assignableRoles = "assignable_roles"
+        case removable = "removable"
     }
 }
 
