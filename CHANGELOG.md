@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Types regenerated from the api: credential wire names, `CredentialRequirement` provider/name/website, auth schemes.
+
 ## 0.1.0
 
 First public release.
