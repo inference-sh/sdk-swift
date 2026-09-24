@@ -6,11 +6,12 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "InferenceSDK", targets: ["InferenceSDK"]),
-        .executable(name: "agent-run", targets: ["agent-run"]),
     ],
     targets: [
         .target(name: "InferenceSDK"),
-        .executableTarget(name: "agent-run", dependencies: ["InferenceSDK"]),
+        // Example CLI and live end-to-end check (see Makefile `e2e`). Not a
+        // product, so depending on the library never builds it.
+        .executableTarget(name: "agent-run", dependencies: ["InferenceSDK"], path: "Examples/agent-run"),
         .testTarget(name: "InferenceSDKTests", dependencies: ["InferenceSDK"], resources: [.copy("Fixtures")]),
     ]
 )

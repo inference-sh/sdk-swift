@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+    tags: ["*"]
+  pull_request:
+
+jobs:
+  macos:
+    name: macOS (swift test)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - run: swift --version
+      - run: swift test
+
+  linux:
+    name: Linux (swift test)
+    runs-on: ubuntu-latest
+    container: swift:5.10-jammy
+    steps:
+      - uses: actions/checkout@v6
+      - run: swift test
