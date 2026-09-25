@@ -3,9 +3,9 @@
 //
 // Skipped from the js file:
 // - The legacy `Agent` runner class and `AgentsAPI.create` — superseded by the
-//   agent/ session module (see ChatAPI.swift / ChatStream.swift).
+//   agent/ session module (see Agent/AgentAPI.swift / ChatStream.swift).
 // - `submitToolResult` and `resolveInterrupt` — the same endpoints already
-//   exist on InferenceClient in ChatAPI.swift (mirror of js agent/api.ts).
+//   exist on InferenceClient in Agent/AgentAPI.swift (mirror of js agent/api.ts).
 //
 // Divergence from JS, shared by every API struct here: methods return the
 // decoded DTO directly instead of a `Response<T>` envelope — `decode` unwraps
@@ -64,7 +64,7 @@ public struct AgentsAPI: Sendable {
 
     /// POST /agents/{id}/visibility.
     public func updateVisibility(_ agentId: String, visibility: String) async throws -> AgentDTO {
-        try await client.decode(client.send(client.request("agents/\(agentId)/visibility", body: VisibilityBody(visibility: visibility))))
+        try await client.decode(client.send(client.request("agents/\(agentId)/visibility", body: SetVisibilityRequest(visibility: visibility))))
     }
 
     /// GET /agents/{id}/versions/{versionId}.

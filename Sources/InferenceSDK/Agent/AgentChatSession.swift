@@ -116,7 +116,7 @@ public final class AgentChatSession {
     public func stopGeneration() {
         guard let chatId = state.chatId else { return }
         let client = self.client
-        Task.detached { try? await client.stopChat(chatId) }
+        Task.detached { try? await client.chats.stop(chatId) }
     }
 
     public func reset() {
@@ -154,7 +154,7 @@ public final class AgentChatSession {
     }
 
     public func cancelMessage(_ messageId: String) async throws {
-        do { try await client.cancelMessage(messageId) }
+        do { try await client.chats.cancelMessage(messageId) }
         catch {
             dispatch(.setError(error.localizedDescription))
             callbacks.onError?(error)
@@ -171,8 +171,8 @@ public final class AgentChatSession {
     public func loadOlderMessages() async -> Bool {
         guard let chatId = state.chatId, let cursor = state.messageCursor, !cursor.isEmpty else { return false }
         guard let page = try? await client.fetchMessagesPage(chatId: chatId, cursor: cursor) else { return false }
-        if !page.items.isEmpty {
-            dispatch(.prependMessages(messages: page.items, cursor: page.nextCursor, hasMore: page.hasNext))
+        if let items = page.items, !items.isEmpty {
+            dispatch(.prependMessages(messages: items, cursor: page.nextCursor, hasMore: page.hasNext))
         }
         return page.hasNext
     }
@@ -293,7 +293,7 @@ public final class AgentChatSession {
     /// Fetch the chat and, since Chat.Get no longer preloads messages, its
     /// first message page. Shared by the stream and poll paths.
     private func loadChat(_ id: String) async throws -> (chat: ChatDTO, cursor: String?, hasOlder: Bool?)? {
-        let chat = try await client.fetchChat(id)
+        let chat = try await client.chats.get(id)
         var cursor: String?
         var hasOlder: Bool?
         if chat.chatMessages?.isEmpty ?? true {

@@ -4,7 +4,7 @@
 // struct here (see ChatsAPI.swift):
 // - `run` takes the input inside ApiAppRunRequest instead of the JS
 //   (params, processedInput) pair — that split exists for the JS SDK's file
-//   preprocessing, which this SDK does explicitly via `uploadFile`.
+//   preprocessing, which this SDK does explicitly via `files.upload`.
 // - `stripTask` is not ported: in JS it spreads the task and re-assigns the
 //   same fields, a no-op, and TaskDTO is a value type anyway.
 // - The JS `stream(taskId)` EventSource factory is not ported; `run` consumes
@@ -17,9 +17,6 @@
 // - In polling mode maxReconnects is honored as documented ("maximum retry
 //   attempts"); the JS pollUntilTerminal rejects on the first poll error,
 //   which makes its maxRetries dead code.
-//
-// The existing `InferenceClient.runApp` (POST /run with wait: true) predates
-// this file and stays.
 
 import Foundation
 #if canImport(FoundationNetworking)
@@ -113,7 +110,7 @@ public struct TasksAPI: Sendable {
 
     /// POST /tasks/{id}/visibility.
     public func updateVisibility(_ taskId: String, visibility: String) async throws -> TaskDTO {
-        try await client.decode(client.send(client.request("tasks/\(taskId)/visibility", body: VisibilityBody(visibility: visibility))))
+        try await client.decode(client.send(client.request("tasks/\(taskId)/visibility", body: SetVisibilityRequest(visibility: visibility))))
     }
 
     /// POST /tasks/{id}/featured.
@@ -311,8 +308,6 @@ public struct TasksAPI: Sendable {
         return items
     }
 }
-
-// VisibilityBody is shared — see Bodies.swift.
 
 private struct FeaturedBody: Encodable {
     let isFeatured: Bool

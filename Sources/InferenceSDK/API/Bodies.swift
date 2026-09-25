@@ -8,7 +8,3 @@ struct TeamBody: Encodable {
     let teamId: String
     enum CodingKeys: String, CodingKey { case teamId = "team_id" }
 }
-
-struct VisibilityBody: Encodable {
-    let visibility: String
-}
