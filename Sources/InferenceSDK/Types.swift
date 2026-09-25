@@ -755,7 +755,6 @@ public struct AgentDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var projectId: String?
     public var project: ProjectDTO?
@@ -786,7 +785,6 @@ public struct AgentDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         projectId: String? = nil,
         project: ProjectDTO? = nil,
@@ -809,7 +807,6 @@ public struct AgentDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.projectId = projectId
         self.project = project
@@ -834,7 +831,6 @@ public struct AgentDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case projectId = "project_id"
         case project = "project"
@@ -860,7 +856,6 @@ public struct AgentVersionDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var description: String
     public var systemPrompt: String
@@ -883,7 +878,6 @@ public struct AgentVersionDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         description: String = "",
         systemPrompt: String = "",
@@ -905,7 +899,6 @@ public struct AgentVersionDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.description = description
         self.systemPrompt = systemPrompt
@@ -929,7 +922,6 @@ public struct AgentVersionDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case description = "description"
         case systemPrompt = "system_prompt"
@@ -1079,7 +1071,6 @@ public struct AgentRunDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var agentId: String
     public var agent: AgentDTO?
@@ -1110,7 +1101,6 @@ public struct AgentRunDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         agentId: String = "",
         agent: AgentDTO? = nil,
@@ -1138,7 +1128,6 @@ public struct AgentRunDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.agentId = agentId
         self.agent = agent
@@ -1168,7 +1157,6 @@ public struct AgentRunDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case agentId = "agent_id"
         case agent = "agent"
@@ -2516,7 +2504,6 @@ public struct ApiKeyDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var name: String
     public var key: String
@@ -2535,7 +2522,6 @@ public struct ApiKeyDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         name: String = "",
         key: String = "",
@@ -2553,7 +2539,6 @@ public struct ApiKeyDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.name = name
         self.key = key
@@ -2573,7 +2558,6 @@ public struct ApiKeyDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case name = "name"
         case key = "key"
@@ -2876,7 +2860,6 @@ public struct AppDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var namespace: String
     public var name: String
@@ -2905,7 +2888,6 @@ public struct AppDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         namespace: String = "",
         name: String = "",
@@ -2929,7 +2911,6 @@ public struct AppDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.namespace = namespace
         self.name = name
@@ -2955,7 +2936,6 @@ public struct AppDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case namespace = "namespace"
         case name = "name"
@@ -3121,7 +3101,6 @@ public struct AppSessionDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var workerId: String
     public var appId: String
@@ -3144,7 +3123,6 @@ public struct AppSessionDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         workerId: String = "",
         appId: String = "",
@@ -3166,7 +3144,6 @@ public struct AppSessionDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.workerId = workerId
         self.appId = appId
@@ -3190,7 +3167,6 @@ public struct AppSessionDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case workerId = "worker_id"
         case appId = "app_id"
@@ -3386,7 +3362,6 @@ public struct ArtifactDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     /// Namespace is the owning team's username, copied at creation. Immutable.
     public var namespace: String
@@ -3422,7 +3397,6 @@ public struct ArtifactDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         namespace: String = "",
         name: String = "",
@@ -3447,7 +3421,6 @@ public struct ArtifactDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.namespace = namespace
         self.name = name
@@ -3474,7 +3447,6 @@ public struct ArtifactDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case namespace = "namespace"
         case name = "name"
@@ -4157,7 +4129,6 @@ public struct PermissionModelDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
 
     public init(
@@ -4165,14 +4136,12 @@ public struct PermissionModelDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility
     ) {
         self.userId = userId
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
     }
 
@@ -4181,7 +4150,6 @@ public struct PermissionModelDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
     }
 }
@@ -4253,7 +4221,6 @@ public struct BountyProgramDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var name: String
     public var description: String
@@ -4285,7 +4252,6 @@ public struct BountyProgramDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         name: String = "",
         description: String = "",
@@ -4313,7 +4279,6 @@ public struct BountyProgramDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.name = name
         self.description = description
@@ -4343,7 +4308,6 @@ public struct BountyProgramDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case name = "name"
         case description = "description"
@@ -4375,7 +4339,6 @@ public struct BountySubmissionDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var bountyId: String
     public var resourceId: String?
@@ -4394,7 +4357,6 @@ public struct BountySubmissionDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         bountyId: String = "",
         resourceId: String? = nil,
@@ -4412,7 +4374,6 @@ public struct BountySubmissionDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.bountyId = bountyId
         self.resourceId = resourceId
@@ -4432,7 +4393,6 @@ public struct BountySubmissionDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case bountyId = "bounty_id"
         case resourceId = "resource_id"
@@ -4500,7 +4460,6 @@ public final class ChatDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var parentId: String?
     public var parent: ChatDTO?
@@ -4539,7 +4498,6 @@ public final class ChatDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         parentId: String? = nil,
         parent: ChatDTO? = nil,
@@ -4571,7 +4529,6 @@ public final class ChatDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.parentId = parentId
         self.parent = parent
@@ -4605,7 +4562,6 @@ public final class ChatDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case parentId = "parent_id"
         case parent = "parent"
@@ -4641,7 +4597,6 @@ public struct ChatMessageDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var chatId: String
     public var chat: ChatDTO?
@@ -4665,7 +4620,6 @@ public struct ChatMessageDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         chatId: String = "",
         chat: ChatDTO? = nil,
@@ -4688,7 +4642,6 @@ public struct ChatMessageDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.chatId = chatId
         self.chat = chat
@@ -4713,7 +4666,6 @@ public struct ChatMessageDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case chatId = "chat_id"
         case chat = "chat"
@@ -4740,11 +4692,11 @@ public struct CredentialDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var provider: String
     public var type: CredentialType
-    public var grant: CredentialGrant?
+    public var grant: CredentialGrant
+    public var appCredentialId: String?
     public var scope: CredentialScope
     public var status: CredentialStatus
     public var displayName: String
@@ -4768,11 +4720,11 @@ public struct CredentialDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         provider: String = "",
         type: CredentialType,
-        grant: CredentialGrant? = nil,
+        grant: CredentialGrant,
+        appCredentialId: String? = nil,
         scope: CredentialScope,
         status: CredentialStatus,
         displayName: String = "",
@@ -4795,11 +4747,11 @@ public struct CredentialDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.provider = provider
         self.type = type
         self.grant = grant
+        self.appCredentialId = appCredentialId
         self.scope = scope
         self.status = status
         self.displayName = displayName
@@ -4824,11 +4776,11 @@ public struct CredentialDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case provider = "provider"
         case type = "type"
         case grant = "grant"
+        case appCredentialId = "app_credential_id"
         case scope = "scope"
         case status = "status"
         case displayName = "display_name"
@@ -4859,7 +4811,15 @@ public struct CredentialConfigDTO: Codable {
     public var allowsByok: Bool
     public var available: Bool
     public var hasManaged: Bool
-    public var grant: CredentialGrant?
+    /// ConnectionScope is who a new connection belongs to by default: the
+    /// team, or each user (their own account).
+    public var connectionScope: CredentialScope
+    /// App is the OAuth app a login to this provider goes through (a
+    /// grant=credentials row): the workspace's own, its org's or the
+    /// platform's. Nil when the provider signs in through an app and none is
+    /// set up yet, or when it doesn't sign in through one. Credential is the
+    /// login itself.
+    public var app: CredentialDTO?
     /// AuthSchemeID is set when the provider is one the team defined
     /// itself (models.AuthScheme), so the UI can offer edit and remove.
     public var authSchemeId: String?
@@ -4879,7 +4839,8 @@ public struct CredentialConfigDTO: Codable {
         allowsByok: Bool = false,
         available: Bool = false,
         hasManaged: Bool = false,
-        grant: CredentialGrant? = nil,
+        connectionScope: CredentialScope,
+        app: CredentialDTO? = nil,
         authSchemeId: String? = nil,
         credential: CredentialDTO? = nil
     ) {
@@ -4896,7 +4857,8 @@ public struct CredentialConfigDTO: Codable {
         self.allowsByok = allowsByok
         self.available = available
         self.hasManaged = hasManaged
-        self.grant = grant
+        self.connectionScope = connectionScope
+        self.app = app
         self.authSchemeId = authSchemeId
         self.credential = credential
     }
@@ -4915,7 +4877,8 @@ public struct CredentialConfigDTO: Codable {
         case allowsByok = "allows_byok"
         case available = "available"
         case hasManaged = "has_managed"
-        case grant = "grant"
+        case connectionScope = "connection_scope"
+        case app = "app"
         case authSchemeId = "auth_scheme_id"
         case credential = "credential"
     }
@@ -5255,7 +5218,6 @@ public struct EngineDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var instance: InstanceDTO?
     public var config: EngineConfig
@@ -5276,7 +5238,6 @@ public struct EngineDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         instance: InstanceDTO? = nil,
         config: EngineConfig,
@@ -5296,7 +5257,6 @@ public struct EngineDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.instance = instance
         self.config = config
@@ -5318,7 +5278,6 @@ public struct EngineDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case instance = "instance"
         case config = "config"
@@ -5342,7 +5301,6 @@ public struct EngineSummary: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var instance: InstanceDTO?
     public var name: String
@@ -5359,7 +5317,6 @@ public struct EngineSummary: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         instance: InstanceDTO? = nil,
         name: String = "",
@@ -5375,7 +5332,6 @@ public struct EngineSummary: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.instance = instance
         self.name = name
@@ -5393,7 +5349,6 @@ public struct EngineSummary: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case instance = "instance"
         case name = "name"
@@ -5833,7 +5788,6 @@ public struct FileDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var path: String
     public var remotePath: String
@@ -5856,7 +5810,6 @@ public struct FileDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         path: String = "",
         remotePath: String = "",
@@ -5878,7 +5831,6 @@ public struct FileDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.path = path
         self.remotePath = remotePath
@@ -5902,7 +5854,6 @@ public struct FileDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case path = "path"
         case remotePath = "remote_path"
@@ -5996,7 +5947,6 @@ public struct FlowDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var namespace: String
     public var name: String
@@ -6029,7 +5979,6 @@ public struct FlowDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         namespace: String = "",
         name: String = "",
@@ -6060,7 +6009,6 @@ public struct FlowDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.namespace = namespace
         self.name = name
@@ -6093,7 +6041,6 @@ public struct FlowDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case namespace = "namespace"
         case name = "name"
@@ -6214,7 +6161,6 @@ public struct FlowRunDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var flowId: String
     public var flowVersionId: String
@@ -6242,7 +6188,6 @@ public struct FlowRunDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         flowId: String = "",
         flowVersionId: String = "",
@@ -6269,7 +6214,6 @@ public struct FlowRunDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.flowId = flowId
         self.flowVersionId = flowVersionId
@@ -6298,7 +6242,6 @@ public struct FlowRunDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case flowId = "flow_id"
         case flowVersionId = "flow_version_id"
@@ -6892,7 +6835,6 @@ public struct InstanceDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var cloud: InstanceCloudProvider
     public var name: String
@@ -6929,7 +6871,6 @@ public struct InstanceDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         cloud: InstanceCloudProvider,
         name: String = "",
@@ -6965,7 +6906,6 @@ public struct InstanceDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.cloud = cloud
         self.name = name
@@ -7003,7 +6943,6 @@ public struct InstanceDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case cloud = "cloud"
         case name = "name"
@@ -7043,7 +6982,6 @@ public struct InstanceTypeDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var cloud: InstanceCloudProvider
     public var cloudLogoUrl: String?
@@ -7066,7 +7004,6 @@ public struct InstanceTypeDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         cloud: InstanceCloudProvider,
         cloudLogoUrl: String? = nil,
@@ -7088,7 +7025,6 @@ public struct InstanceTypeDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.cloud = cloud
         self.cloudLogoUrl = cloudLogoUrl
@@ -7112,7 +7048,6 @@ public struct InstanceTypeDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case cloud = "cloud"
         case cloudLogoUrl = "cloud_logo_url"
@@ -7227,7 +7162,6 @@ public struct InterruptDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var runId: String
     public var chatId: String
@@ -7252,7 +7186,6 @@ public struct InterruptDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         runId: String = "",
         chatId: String = "",
@@ -7276,7 +7209,6 @@ public struct InterruptDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.runId = runId
         self.chatId = chatId
@@ -7302,7 +7234,6 @@ public struct InterruptDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case runId = "run_id"
         case chatId = "chat_id"
@@ -7361,7 +7292,6 @@ public struct SkillDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var namespace: String
     public var name: String
@@ -7382,7 +7312,6 @@ public struct SkillDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         namespace: String = "",
         name: String = "",
@@ -7402,7 +7331,6 @@ public struct SkillDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.namespace = namespace
         self.name = name
@@ -7424,7 +7352,6 @@ public struct SkillDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case namespace = "namespace"
         case name = "name"
@@ -7542,7 +7469,6 @@ public struct KnowledgeDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var namespace: String
     public var name: String
@@ -7566,7 +7492,6 @@ public struct KnowledgeDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         namespace: String = "",
         name: String = "",
@@ -7588,7 +7513,6 @@ public struct KnowledgeDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.namespace = namespace
         self.name = name
@@ -7612,7 +7536,6 @@ public struct KnowledgeDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case namespace = "namespace"
         case name = "name"
@@ -8272,7 +8195,6 @@ public struct MCPServerDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var slug: String
     public var name: String
@@ -8293,7 +8215,6 @@ public struct MCPServerDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         slug: String = "",
         name: String = "",
@@ -8312,7 +8233,6 @@ public struct MCPServerDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.slug = slug
         self.name = name
@@ -8333,7 +8253,6 @@ public struct MCPServerDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case slug = "slug"
         case name = "name"
@@ -8360,7 +8279,6 @@ public struct NotificationDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var type: NotificationType
     public var channel: NotificationChannel
@@ -8388,7 +8306,6 @@ public struct NotificationDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         type: NotificationType,
         channel: NotificationChannel,
@@ -8415,7 +8332,6 @@ public struct NotificationDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.type = type
         self.channel = channel
@@ -8444,7 +8360,6 @@ public struct NotificationDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case type = "type"
         case channel = "channel"
@@ -8475,7 +8390,6 @@ public struct NotificationPreferencesDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var emailEnabled: Bool
     public var smsEnabled: Bool
@@ -8500,7 +8414,6 @@ public struct NotificationPreferencesDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         emailEnabled: Bool = false,
         smsEnabled: Bool = false,
@@ -8524,7 +8437,6 @@ public struct NotificationPreferencesDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.emailEnabled = emailEnabled
         self.smsEnabled = smsEnabled
@@ -8550,7 +8462,6 @@ public struct NotificationPreferencesDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case emailEnabled = "email_enabled"
         case smsEnabled = "sms_enabled"
@@ -8756,7 +8667,6 @@ public struct PageDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var isFeatured: Bool
     public var title: String
@@ -8781,7 +8691,6 @@ public struct PageDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         isFeatured: Bool = false,
         title: String = "",
@@ -8803,7 +8712,6 @@ public struct PageDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.isFeatured = isFeatured
         self.title = title
@@ -8827,7 +8735,6 @@ public struct PageDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case isFeatured = "is_featured"
         case title = "title"
@@ -8853,7 +8760,6 @@ public struct CommentDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     /// ResourceType and ResourceID address what is commented on ("artifacts",
     /// "pages"). PageID stays for the page comment API that predates them.
@@ -8884,7 +8790,6 @@ public struct CommentDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         resourceType: String = "",
         resourceId: String = "",
@@ -8908,7 +8813,6 @@ public struct CommentDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.resourceType = resourceType
         self.resourceId = resourceId
@@ -8934,7 +8838,6 @@ public struct CommentDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case resourceType = "resource_type"
         case resourceId = "resource_id"
@@ -8988,7 +8891,6 @@ public struct ArtifactCommentThreadDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     /// ResourceType and ResourceID address what is commented on ("artifacts",
     /// "pages"). PageID stays for the page comment API that predates them.
@@ -9020,7 +8922,6 @@ public struct ArtifactCommentThreadDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         resourceType: String = "",
         resourceId: String = "",
@@ -9045,7 +8946,6 @@ public struct ArtifactCommentThreadDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.resourceType = resourceType
         self.resourceId = resourceId
@@ -9072,7 +8972,6 @@ public struct ArtifactCommentThreadDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case resourceType = "resource_type"
         case resourceId = "resource_id"
@@ -9101,7 +9000,6 @@ public struct MenuDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var name: String
     public var slug: String
@@ -9118,7 +9016,6 @@ public struct MenuDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         name: String = "",
         slug: String = "",
@@ -9134,7 +9031,6 @@ public struct MenuDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.name = name
         self.slug = slug
@@ -9152,7 +9048,6 @@ public struct MenuDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case name = "name"
         case slug = "slug"
@@ -9377,7 +9272,6 @@ public final class ProjectDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var name: String
     public var description: String
@@ -9398,7 +9292,6 @@ public final class ProjectDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         name: String = "",
         description: String = "",
@@ -9418,7 +9311,6 @@ public final class ProjectDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.name = name
         self.description = description
@@ -9440,7 +9332,6 @@ public final class ProjectDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case name = "name"
         case description = "description"
@@ -10199,7 +10090,6 @@ public struct SecretDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var key: String
     public var maskedValue: String
@@ -10219,7 +10109,6 @@ public struct SecretDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         key: String = "",
         maskedValue: String = "",
@@ -10236,7 +10125,6 @@ public struct SecretDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.key = key
         self.maskedValue = maskedValue
@@ -10255,7 +10143,6 @@ public struct SecretDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case key = "key"
         case maskedValue = "masked_value"
@@ -10310,7 +10197,6 @@ public struct SocketDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var taskId: String
     public var relay: String
@@ -10335,7 +10221,6 @@ public struct SocketDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         taskId: String = "",
         relay: String = "",
@@ -10359,7 +10244,6 @@ public struct SocketDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.taskId = taskId
         self.relay = relay
@@ -10385,7 +10269,6 @@ public struct SocketDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case taskId = "task_id"
         case relay = "relay"
@@ -10530,7 +10413,6 @@ public struct SurveyResponseDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var questionId: String
     public var response: String
@@ -10548,7 +10430,6 @@ public struct SurveyResponseDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         questionId: String = "",
         response: String = "",
@@ -10565,7 +10446,6 @@ public struct SurveyResponseDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.questionId = questionId
         self.response = response
@@ -10584,7 +10464,6 @@ public struct SurveyResponseDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case questionId = "question_id"
         case response = "response"
@@ -11137,7 +11016,6 @@ public struct TaskDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var graphId: String?
     public var userPublicKey: String?
@@ -11185,7 +11063,6 @@ public struct TaskDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         graphId: String? = nil,
         userPublicKey: String? = nil,
@@ -11232,7 +11109,6 @@ public struct TaskDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.graphId = graphId
         self.userPublicKey = userPublicKey
@@ -11281,7 +11157,6 @@ public struct TaskDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case graphId = "graph_id"
         case userPublicKey = "user_public_key"
@@ -11691,7 +11566,6 @@ public struct TelemetryReportDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var ip: String
     public var level: Int
@@ -11707,7 +11581,6 @@ public struct TelemetryReportDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         ip: String = "",
         level: Int = 0,
@@ -11722,7 +11595,6 @@ public struct TelemetryReportDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.ip = ip
         self.level = level
@@ -11739,7 +11611,6 @@ public struct TelemetryReportDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case ip = "ip"
         case level = "level"
@@ -11791,7 +11662,6 @@ public struct ToolInvocationDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var chatMessageId: String
     public var toolInvocationId: String
@@ -11814,7 +11684,6 @@ public struct ToolInvocationDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         chatMessageId: String = "",
         toolInvocationId: String = "",
@@ -11836,7 +11705,6 @@ public struct ToolInvocationDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.chatMessageId = chatMessageId
         self.toolInvocationId = toolInvocationId
@@ -11860,7 +11728,6 @@ public struct ToolInvocationDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case chatMessageId = "chat_message_id"
         case toolInvocationId = "tool_invocation_id"
@@ -11968,7 +11835,6 @@ public struct UsageEventDTO: Codable {
     public var user: UserRelationDTO?
     public var teamId: String
     public var team: TeamRelationDTO?
-    public var orgId: String?
     public var visibility: Visibility
     public var usageBillingRecordId: String
     public var referenceId: String
@@ -11989,7 +11855,6 @@ public struct UsageEventDTO: Codable {
         user: UserRelationDTO? = nil,
         teamId: String = "",
         team: TeamRelationDTO? = nil,
-        orgId: String? = nil,
         visibility: Visibility,
         usageBillingRecordId: String = "",
         referenceId: String = "",
@@ -12009,7 +11874,6 @@ public struct UsageEventDTO: Codable {
         self.user = user
         self.teamId = teamId
         self.team = team
-        self.orgId = orgId
         self.visibility = visibility
         self.usageBillingRecordId = usageBillingRecordId
         self.referenceId = referenceId
@@ -12031,7 +11895,6 @@ public struct UsageEventDTO: Codable {
         case user = "user"
         case teamId = "team_id"
         case team = "team"
-        case orgId = "org_id"
         case visibility = "visibility"
         case usageBillingRecordId = "usage_billing_record_id"
         case referenceId = "reference_id"
@@ -14045,12 +13908,18 @@ public struct CredentialScope: RawRepresentable, Codable, Hashable, Sendable {
     public static let agent = CredentialScope(rawValue: "agent")
 }
 
-/// CredentialGrant describes what a credential provides.
+/// CredentialGrant is which layer a credential row is. OAuth has two: the
+/// app (client id and secret, owned by the platform, an org or a team) and
+/// the logins made through it (owned by a team or a user). Every other
+/// credential type is a token row.
 public struct CredentialGrant: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
+    /// CredentialGrantCredentials: an OAuth app. Never a connection.
     public static let credentials = CredentialGrant(rawValue: "credentials")
+    /// CredentialGrantToken: a connection: an OAuth login, an API key, a
+    /// service account, an MCP authorization.
     public static let token = CredentialGrant(rawValue: "token")
 }
 
