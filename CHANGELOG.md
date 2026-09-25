@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Types regenerated from the api: `agents.harness`, `chats.work_dir`, settings v2, `RemoteStatus`, credential types.
+
 ## 0.1.1
 
 - Types regenerated from the api: credential wire names, `CredentialRequirement` provider/name/website, auth schemes.
