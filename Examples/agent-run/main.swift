@@ -36,8 +36,8 @@ do {
         n += 1
         print("[\(n)] chat=\(msg.chatId) status=\(msg.status.rawValue) text=\(msg.text.debugDescription)")
         if n == interruptAfter {
-            try await client.stopChat(msg.chatId)
-            print("stopChat sent")
+            try await client.chats.stop(msg.chatId)
+            print("chats.stop sent")
         }
         guard msg.status.isTerminal else { continue }
         if interruptAfter > 0 {

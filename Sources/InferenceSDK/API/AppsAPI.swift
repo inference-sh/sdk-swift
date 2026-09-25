@@ -60,7 +60,7 @@ public struct AppsAPI: Sendable {
 
     /// POST /apps/{id}/visibility.
     public func updateVisibility(_ appId: String, visibility: String) async throws -> AppDTO {
-        try await client.decode(client.send(client.request("apps/\(appId)/visibility", body: VisibilityBody(visibility: visibility))))
+        try await client.decode(client.send(client.request("apps/\(appId)/visibility", body: SetVisibilityRequest(visibility: visibility))))
     }
 
     /// POST /apps/{id}/status: update app lifecycle status. `message` is dropped when nil.
@@ -69,10 +69,11 @@ public struct AppsAPI: Sendable {
     }
 
     /// GET /apps/{name}: look up an app by qualified name (e.g.
-    /// "inference/claude-haiku"). Delegates to the pre-existing getApp, which
-    /// also strips an "@version" suffix and retries once.
+    /// "inference/claude-haiku"). An "@version" suffix is stripped; includes
+    /// the active version with its schemas. Retries once on transport errors.
     public func getByName(_ name: String) async throws -> AppDTO {
-        try await client.getApp(name)
+        let bare = name.split(separator: "@").first.map(String.init) ?? name
+        return try await client.decode(client.send(client.request("apps/\(bare)", method: "GET"), retries: 1))
     }
 
     /// GET /apps/{id}/license: the app's license record.
@@ -93,7 +94,7 @@ public struct AppsAPI: Sendable {
 
 // MARK: - Request bodies (ad-hoc object literals in the js source)
 
-// TeamBody/VisibilityBody are shared — see Bodies.swift.
+// TeamBody is shared — see Bodies.swift.
 
 private struct StatusBody: Encodable {
     let status: String

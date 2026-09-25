@@ -19,25 +19,14 @@ public extension InferenceClient {
         try await decode(send(request("chats/\(chatId)/messages", body: MessageBody(message: message))))
     }
 
-    /// GET /chats/{id}. Messages are not preloaded; fetch them separately.
-    func fetchChat(_ chatId: String) async throws -> ChatDTO {
-        try await decode(send(request("chats/\(chatId)", method: "GET")))
-    }
-
-    /// GET /chats/{id}/messages with optional `limit`/`cursor`. One page plus
-    /// the cursor to the next.
+    /// GET /chats/{id}/messages with optional `limit`/`cursor`. One page; the
+    /// chat itself (without preloaded messages) is `chats.get`.
     func fetchMessagesPage(chatId: String, limit: Int? = nil, cursor: String? = nil)
-        async throws -> (items: [ChatMessageDTO], nextCursor: String, hasNext: Bool) {
+        async throws -> CursorListResponse<ChatMessageDTO> {
         var query: [URLQueryItem] = []
         if let limit { query.append(URLQueryItem(name: "limit", value: String(limit))) }
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
-        let page: MessagesPage = try await decode(send(request("chats/\(chatId)/messages", method: "GET", query: query)))
-        return (page.items, page.nextCursor, page.hasNext)
-    }
-
-    /// POST /chats/messages/{id}/cancel: cancel a message that is still running.
-    func cancelMessage(_ messageId: String) async throws {
-        _ = try await send(request("chats/messages/\(messageId)/cancel"))
+        return try await decode(send(request("chats/\(chatId)/messages", method: "GET", query: query)))
     }
 
     /// POST /chats/{id}/agent: switch the chat's agent. Returns the updated chat.
@@ -59,7 +48,7 @@ public extension InferenceClient {
 
     /// POST /tools/{id}: submit a client-side tool result.
     func submitToolResult(_ toolInvocationId: String, result: String) async throws {
-        _ = try await send(request("tools/\(toolInvocationId)", body: ResultBody(result: result)))
+        _ = try await send(request("tools/\(toolInvocationId)", body: ToolResultRequest(result: result)))
     }
 
     /// POST /chats/{chatId}/tools/{id}/always-allow: whitelist `toolName` for the chat.
@@ -132,11 +121,6 @@ private struct RejectBody: Encodable {
     enum CodingKeys: String, CodingKey { case reason }
 }
 
-private struct ResultBody: Encodable {
-    let result: String
-    enum CodingKeys: String, CodingKey { case result }
-}
-
 private struct ToolNameBody: Encodable {
     let toolName: String
     enum CodingKeys: String, CodingKey { case toolName = "tool_name" }
@@ -145,15 +129,4 @@ private struct ToolNameBody: Encodable {
 private struct DecisionBody: Encodable {
     let decision: String
     enum CodingKeys: String, CodingKey { case decision }
-}
-
-private struct MessagesPage: Decodable {
-    let items: [ChatMessageDTO]
-    let nextCursor: String
-    let hasNext: Bool
-    enum CodingKeys: String, CodingKey {
-        case items
-        case nextCursor = "next_cursor"
-        case hasNext = "has_next"
-    }
 }

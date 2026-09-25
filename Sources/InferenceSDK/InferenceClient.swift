@@ -90,27 +90,14 @@ public struct InferenceClient: Sendable {
         return (try? decoder.decode(StreamLine.self, from: line))?.message
     }
 
-    /// POST /chats/{id}/stop: cancel the active agent run and pending tool
-    /// invocations. The stream then ends with a `cancelled` message.
-    public func stopChat(_ chatId: String) async throws {
-        _ = try await send(request("chats/\(chatId)/stop"))
-    }
-
-    // MARK: - Apps
-
-    /// GET /apps/{namespace}/{name}. Includes the active version with its schemas.
-    public func getApp(_ ref: String) async throws -> AppDTO {
-        let bare = ref.split(separator: "@").first.map(String.init) ?? ref
-        return try await decode(send(request("apps/\(bare)", method: "GET"), retries: 1))
-    }
-
-    /// POST /run with `wait: true`. Blocks until the task is terminal and
-    /// returns the result. Failed and cancelled tasks come back as HTTP 422,
-    /// surfaced as `InferenceError.http`.
-    public func runApp(_ body: ApiAppRunRequest) async throws -> TaskResultDTO {
+    /// POST /apps/run with `wait: true`: the server blocks until the task is
+    /// terminal and returns the slim result. Failed and cancelled tasks come
+    /// back as HTTP 422, surfaced as `InferenceError.http`. Used by the speech
+    /// helpers below; the public way to run an app is `tasks.run`.
+    func runAppWaiting(_ body: ApiAppRunRequest) async throws -> TaskResultDTO {
         var body = body
         body.wait = true
-        return try await decode(send(request("run", body: body)))
+        return try await decode(send(request("apps/run", body: body)))
     }
 
     /// GET an output file (unauthenticated CDN URL as returned in task output).
@@ -118,26 +105,6 @@ public struct InferenceClient: Sendable {
         var req = URLRequest(url: url)
         req.timeoutInterval = 120
         return try await send(req)
-    }
-
-    // MARK: - Files
-
-    /// Two-step upload, same as the JS SDK: POST /files creates the record
-    /// and returns a presigned `upload_url`; the bytes are PUT there. The
-    /// returned `uri` goes into task inputs.
-    public func uploadFile(_ data: Data, filename: String, contentType: String) async throws -> FileDTO {
-        let create = FileCreateRequest(files: [PartialFile(uri: "", contentType: contentType, size: data.count, filename: filename)])
-        let files: [FileDTO] = try await decode(send(request("files", body: create)))
-        guard let file = files.first, let uploadURL = URL(string: file.uploadUrl) else {
-            throw InferenceError.transport("POST /files returned no upload_url")
-        }
-        var put = URLRequest(url: uploadURL)
-        put.httpMethod = "PUT"
-        put.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        put.setValue("", forHTTPHeaderField: "Expect") // R2 resets on 100-continue
-        put.timeoutInterval = 300
-        _ = try await send(put, upload: data, retries: 2)
-        return file
     }
 
     // MARK: - Plumbing
@@ -190,7 +157,7 @@ public struct InferenceClient: Sendable {
     }
 
     /// Unwraps the V3 envelope and forwards its messages. Internal so the chat
-    /// endpoint extensions (ChatAPI.swift) share the same path.
+    /// endpoint extensions (Agent/AgentAPI.swift) share the same path.
     func decode<T: Decodable>(_ data: Data) throws -> T {
         let envelope = try Self.decoder.decode(Envelope<T>.self, from: data)
         if let onMessage, let messages = envelope.messages, !messages.isEmpty { onMessage(messages) }
@@ -364,7 +331,7 @@ public actor TextToSpeech {
 
     private func synthesizeChunk(_ chunk: String, spec: Spec) async throws -> Data {
         let input = extraInput.merging([spec.inputKey: .string(chunk)]) { _, chunk in chunk }
-        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object(input)))
+        let result = try await client.runAppWaiting(ApiAppRunRequest(app: app, input: .object(input)))
         guard let url = result.fileURL(spec.outputKey) else {
             throw InferenceError.transport("\(app) returned no '\(spec.outputKey)' output: \(result.output)")
         }
@@ -375,7 +342,7 @@ public actor TextToSpeech {
         if let spec { return spec }
         var resolved = Spec(inputKey: overrides.inputKey ?? "", outputKey: overrides.outputKey ?? "", maxChars: overrides.maxChars ?? 0)
         if resolved.inputKey.isEmpty || resolved.outputKey.isEmpty || resolved.maxChars == 0 {
-            let version = try await client.getApp(app).version
+            let version = try await client.apps.getByName(app).version
             let input = version?.inputSchema ?? .null
             if resolved.inputKey.isEmpty { resolved.inputKey = TextToSpeech.inputKey(fromSchema: input) }
             if resolved.outputKey.isEmpty { resolved.outputKey = TextToSpeech.outputKey(fromSchema: version?.outputSchema ?? .null) }
@@ -472,9 +439,9 @@ public actor SpeechToText {
     /// Upload, run with wait, return the transcript.
     public func transcribe(_ audio: Data, filename: String = "audio.wav", contentType: String = "audio/wav") async throws -> String {
         let spec = try await resolveSpec()
-        let file = try await client.uploadFile(audio, filename: filename, contentType: contentType)
+        let file = try await client.files.upload(audio, filename: filename, contentType: contentType)
         let input = extraInput.merging([spec.inputKey: .string(file.uri)]) { _, uri in uri }
-        let result = try await client.runApp(ApiAppRunRequest(app: app, input: .object(input)))
+        let result = try await client.runAppWaiting(ApiAppRunRequest(app: app, input: .object(input)))
         guard let text = result.output[spec.outputKey]?.stringValue else {
             throw InferenceError.transport("\(app) returned no '\(spec.outputKey)' output: \(result.output)")
         }
@@ -485,7 +452,7 @@ public actor SpeechToText {
         if let spec { return spec }
         var resolved = Spec(inputKey: overrides.inputKey ?? "", outputKey: overrides.outputKey ?? "text")
         if resolved.inputKey.isEmpty {
-            let version = try await client.getApp(app).version
+            let version = try await client.apps.getByName(app).version
             resolved.inputKey = SpeechToText.inputKey(fromSchema: version?.inputSchema ?? .null)
         }
         spec = resolved

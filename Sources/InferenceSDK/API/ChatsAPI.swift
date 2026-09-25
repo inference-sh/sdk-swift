@@ -20,7 +20,7 @@ public struct ChatsAPI: Sendable {
 
     /// GET /chats/{id}.
     public func get(_ chatId: String) async throws -> ChatDTO {
-        try await client.fetchChat(chatId)
+        try await client.decode(client.send(client.request("chats/\(chatId)", method: "GET")))
     }
 
     /// POST /chats/{id}: update chat fields.
@@ -38,14 +38,15 @@ public struct ChatsAPI: Sendable {
         try await client.decode(client.send(client.request("chats/\(chatId)/status", method: "GET")))
     }
 
-    /// POST /chats/{id}/stop: cancel the active run and pending tools.
+    /// POST /chats/{id}/stop: cancel the active run and pending tools. The
+    /// stream then ends with a `cancelled` message.
     public func stop(_ chatId: String) async throws {
-        try await client.stopChat(chatId)
+        _ = try await client.send(client.request("chats/\(chatId)/stop"))
     }
 
     /// POST /chats/messages/{id}/cancel: cancel a queued message.
     public func cancelMessage(_ messageId: String) async throws {
-        try await client.cancelMessage(messageId)
+        _ = try await client.send(client.request("chats/messages/\(messageId)/cancel"))
     }
 
     /// GET /chats/{id}/stream as typed SSE events (the JS `stream()`; transport
