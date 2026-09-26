@@ -8004,17 +8004,24 @@ public struct ElicitationCapability: Codable {
 }
 
 /// ClientCapabilities advertises what a client can do.
+/// 
+/// Extensions carries the extensions the client supports, keyed by identifier
+/// (e.g. ExtensionTasks), each with its extension-defined settings object.
 public struct ClientCapabilities: Codable {
     public var elicitation: ElicitationCapability?
+    public var extensions: [String: JSONValue]?
 
     public init(
-        elicitation: ElicitationCapability? = nil
+        elicitation: ElicitationCapability? = nil,
+        extensions: [String: JSONValue]? = nil
     ) {
         self.elicitation = elicitation
+        self.extensions = extensions
     }
 
     enum CodingKeys: String, CodingKey {
         case elicitation = "elicitation"
+        case extensions = "extensions"
     }
 }
 
@@ -8077,6 +8084,9 @@ public struct ResultType: RawRepresentable, Codable, Hashable, Sendable {
     /// ResultTypeInputRequired marks a Multi Round-Trip Request interim result.
     /// Recognised so the outbound client never mistakes one for tool output.
     public static let inputRequired = ResultType(rawValue: "input_required")
+    /// ResultTypeTask marks a CreateTaskResult: the server accepted the request
+    /// as a task under the tasks extension and the result arrives via tasks/get.
+    public static let task = ResultType(rawValue: "task")
 }
 
 /// CacheScope says who may reuse a cached result, per MCP 2026-07-28 (SEP-2549).
