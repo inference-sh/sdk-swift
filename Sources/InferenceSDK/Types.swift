@@ -1204,13 +1204,13 @@ public struct APIResponse<T: Codable>: Codable {
 }
 
 public struct APIError: Codable {
-    public var code: String
+    public var code: ErrorCode
     public var message: String
     public var suggestions: [String]?
     public var meta: [String: JSONValue]?
 
     public init(
-        code: String = "",
+        code: ErrorCode,
         message: String = "",
         suggestions: [String]? = nil,
         meta: [String: JSONValue]? = nil
@@ -1342,6 +1342,8 @@ public struct ApiAgentRunRequest: Codable {
     public var input: LLMInput
     public var context: [String: String]?
     public var stream: Bool?
+    /// ChannelContext is recorded on the chat the first time it is seen.
+    public var channelContext: ChannelContext?
 
     public init(
         chatId: String? = nil,
@@ -1350,7 +1352,8 @@ public struct ApiAgentRunRequest: Codable {
         agentName: String? = nil,
         input: LLMInput,
         context: [String: String]? = nil,
-        stream: Bool? = nil
+        stream: Bool? = nil,
+        channelContext: ChannelContext? = nil
     ) {
         self.chatId = chatId
         self.agent = agent
@@ -1359,6 +1362,7 @@ public struct ApiAgentRunRequest: Codable {
         self.input = input
         self.context = context
         self.stream = stream
+        self.channelContext = channelContext
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1369,6 +1373,7 @@ public struct ApiAgentRunRequest: Codable {
         case input = "input"
         case context = "context"
         case stream = "stream"
+        case channelContext = "channel_context"
     }
 }
 
@@ -2052,25 +2057,32 @@ public struct CredentialConnectRequest: Codable {
     }
 }
 
+/// CredentialCompleteOAuthRequest is what the provider's redirect delivered:
+/// the code and state, the PKCE verifier the client kept, and every other
+/// query param the callback carried (QuickBooks' realmId, Shopify's shop),
+/// which a scheme reads as {{callback.*}}.
 public struct CredentialCompleteOAuthRequest: Codable {
     public var provider: String
     public var type: String
     public var code: String
     public var state: String
     public var codeVerifier: String?
+    public var params: [String: String]?
 
     public init(
         provider: String = "",
         type: String = "",
         code: String = "",
         state: String = "",
-        codeVerifier: String? = nil
+        codeVerifier: String? = nil,
+        params: [String: String]? = nil
     ) {
         self.provider = provider
         self.type = type
         self.code = code
         self.state = state
         self.codeVerifier = codeVerifier
+        self.params = params
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2079,6 +2091,7 @@ public struct CredentialCompleteOAuthRequest: Codable {
         case code = "code"
         case state = "state"
         case codeVerifier = "code_verifier"
+        case params = "params"
     }
 }
 
@@ -2299,6 +2312,7 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     public static let projects = Scope(rawValue: "projects")
     public static let teams = Scope(rawValue: "teams")
     public static let billing = Scope(rawValue: "billing")
+    public static let artifacts = Scope(rawValue: "artifacts")
     /// Action-level scopes for Agents
     public static let agentsRead = Scope(rawValue: "agents:read")
     public static let agentsWrite = Scope(rawValue: "agents:write")
@@ -2339,6 +2353,9 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Engines
     public static let enginesRead = Scope(rawValue: "engines:read")
     public static let enginesWrite = Scope(rawValue: "engines:write")
+    /// Action-level scopes for Remotes
+    public static let remotesRead = Scope(rawValue: "remotes:read")
+    public static let remotesWrite = Scope(rawValue: "remotes:write")
     /// Action-level scopes for API Keys
     public static let apiKeysRead = Scope(rawValue: "apikeys:read")
     public static let apiKeysWrite = Scope(rawValue: "apikeys:write")
@@ -2346,7 +2363,6 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     public static let knowledgeRead = Scope(rawValue: "knowledge:read")
     public static let knowledgeWrite = Scope(rawValue: "knowledge:write")
     /// Action-level scopes for Artifacts (published HTML/Markdown pages)
-    public static let artifacts = Scope(rawValue: "artifacts")
     public static let artifactsRead = Scope(rawValue: "artifacts:read")
     public static let artifactsWrite = Scope(rawValue: "artifacts:write")
     /// Action-level scopes for User profile
@@ -2374,6 +2390,7 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let secrets = ScopeGroup(rawValue: "secrets")
     public static let credentials = ScopeGroup(rawValue: "credentials")
     public static let engines = ScopeGroup(rawValue: "engines")
+    public static let remotes = ScopeGroup(rawValue: "remotes")
     public static let apiKeys = ScopeGroup(rawValue: "apikeys")
     public static let knowledge = ScopeGroup(rawValue: "knowledge")
     public static let artifacts = ScopeGroup(rawValue: "artifacts")
@@ -5734,6 +5751,103 @@ public struct EntitlementErrorMeta: Codable {
     }
 }
 
+/// ErrorCode is the machine-readable error code of an API error: the last
+/// segment of the problem+json type URI (https://api.inference.sh/errors/<code>)
+/// and APIError.Code on the legacy envelope. Clients branch on these, so a
+/// code is a named const here, where it generates into models and the SDKs.
+public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let invalidRequest = ErrorCode(rawValue: "invalid_request")
+    public static let validationError = ErrorCode(rawValue: "validation_error")
+    public static let unauthorized = ErrorCode(rawValue: "unauthorized")
+    public static let forbidden = ErrorCode(rawValue: "forbidden")
+    public static let notFound = ErrorCode(rawValue: "not_found")
+    public static let conflict = ErrorCode(rawValue: "conflict")
+    public static let nameConflict = ErrorCode(rawValue: "name_conflict")
+    public static let alreadyExists = ErrorCode(rawValue: "already_exists")
+    public static let notConfigured = ErrorCode(rawValue: "not_configured")
+    public static let methodNotAllowed = ErrorCode(rawValue: "method_not_allowed")
+    public static let rateLimited = ErrorCode(rawValue: "rate_limited")
+    public static let internalError = ErrorCode(rawValue: "internal_error")
+    /// ErrorCodeTeamRoleRequired: the caller's team role or org-admin status
+    /// does not allow the action. Meta is TeamRoleRequiredMeta when a
+    /// capability gate refused it.
+    public static let teamRoleRequired = ErrorCode(rawValue: "team_role_required")
+    /// ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
+    /// usage policy. The message names who to ask.
+    public static let blockedByUsagePolicy = ErrorCode(rawValue: "blocked_by_usage_policy")
+    public static let otpRequired = ErrorCode(rawValue: "otp_required")
+    public static let mcpAuthExpired = ErrorCode(rawValue: "mcp_auth_expired")
+    /// Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
+    /// EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
+    /// not be checked and the request is retriable.
+    public static let limitExceeded = ErrorCode(rawValue: "limit_exceeded")
+    public static let featureNotAvailable = ErrorCode(rawValue: "feature_not_available")
+    public static let entitlementUnavailable = ErrorCode(rawValue: "entitlement_unavailable")
+    public static let paymentRequired = ErrorCode(rawValue: "payment_required")
+    /// ErrorCodePaymentMethodRequired (402): a bounty program requires a saved
+    /// payment method and the caller's team has none. Meta is
+    /// PaymentMethodRequiredMeta; clients send the user to BillingPage.
+    public static let paymentMethodRequired = ErrorCode(rawValue: "payment_method_required")
+    /// Remote harness refusals.
+    public static let agentsDisabled = ErrorCode(rawValue: "agents_disabled")
+    public static let remoteOffline = ErrorCode(rawValue: "remote_offline")
+    public static let remoteTimeout = ErrorCode(rawValue: "remote_timeout")
+    public static let harnessNotDrivable = ErrorCode(rawValue: "harness_not_drivable")
+    public static let harnessTooOld = ErrorCode(rawValue: "harness_too_old")
+}
+
+/// TeamRoleRequiredMeta is the meta of a team_role_required error from a
+/// capability gate. Only Capability is always set: a team that does not
+/// resolve answers with the capability alone, so clients must not assume
+/// RequiredRole is present.
+public struct TeamRoleRequiredMeta: Codable {
+    public var capability: TeamCapability
+    public var actualRole: TeamRole?
+    public var requiredRole: TeamRole?
+    public var requiresOrgAdmin: Bool?
+
+    public init(
+        capability: TeamCapability,
+        actualRole: TeamRole? = nil,
+        requiredRole: TeamRole? = nil,
+        requiresOrgAdmin: Bool? = nil
+    ) {
+        self.capability = capability
+        self.actualRole = actualRole
+        self.requiredRole = requiredRole
+        self.requiresOrgAdmin = requiresOrgAdmin
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case capability = "capability"
+        case actualRole = "actual_role"
+        case requiredRole = "required_role"
+        case requiresOrgAdmin = "requires_org_admin"
+    }
+}
+
+/// PaymentMethodRequiredMeta is the meta of a payment_method_required error.
+public struct PaymentMethodRequiredMeta: Codable {
+    public var bountyId: String
+    public var billingPage: String
+
+    public init(
+        bountyId: String = "",
+        billingPage: String = ""
+    ) {
+        self.bountyId = bountyId
+        self.billingPage = billingPage
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case bountyId = "bounty_id"
+        case billingPage = "billing_page"
+    }
+}
+
 /// FileMetadata holds probed media metadata cached on File records.
 public struct FileMetadata: Codable {
     public var type: String?
@@ -8208,6 +8322,9 @@ public struct MCPServerDTO: Codable {
     public var defaultScopes: StringSlice?
     public var documentationUrl: String
     public var connectionStatus: String?
+    /// ConnectionScope is who the caller's connection to this server belongs
+    /// to (user, team, org, platform); empty when not connected.
+    public var connectionScope: CredentialScope?
 
     public init(
         id: String = "",
@@ -8226,7 +8343,8 @@ public struct MCPServerDTO: Codable {
         oauthClientId: String? = nil,
         defaultScopes: StringSlice? = nil,
         documentationUrl: String = "",
-        connectionStatus: String? = nil
+        connectionStatus: String? = nil,
+        connectionScope: CredentialScope? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -8245,6 +8363,7 @@ public struct MCPServerDTO: Codable {
         self.defaultScopes = defaultScopes
         self.documentationUrl = documentationUrl
         self.connectionStatus = connectionStatus
+        self.connectionScope = connectionScope
     }
 
     enum CodingKeys: String, CodingKey {
@@ -8265,6 +8384,7 @@ public struct MCPServerDTO: Codable {
         case defaultScopes = "default_scopes"
         case documentationUrl = "documentation_url"
         case connectionStatus = "connection_status"
+        case connectionScope = "connection_scope"
     }
 }
 
@@ -12605,7 +12725,8 @@ public struct ChatMessageRole: RawRepresentable, Codable, Hashable, Sendable {
     public static let assistant = ChatMessageRole(rawValue: "assistant")
     public static let tool = ChatMessageRole(rawValue: "tool")
     /// Internal bookkeeping roles — never sent to the LLM provider.
-    /// BuildContext converts these to system messages or skips them.
+    /// BuildContext folds injections into the user turn and replaces
+    /// compaction markers with their summary.
     public static let injection = ChatMessageRole(rawValue: "injection")
     public static let compaction = ChatMessageRole(rawValue: "compaction")
 }
@@ -14209,6 +14330,32 @@ public struct TeamRole: RawRepresentable, Codable, Hashable, Sendable {
     public static let member = TeamRole(rawValue: "member")
 }
 
+/// TeamCapability is one thing a caller may do to a team's settings. The set is
+/// closed; team.Subject.Can is the only place that grants them.
+public struct TeamCapability: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let editProfile = TeamCapability(rawValue: "edit_profile")
+    public static let manageMembers = TeamCapability(rawValue: "manage_members")
+    public static let viewMembers = TeamCapability(rawValue: "view_members")
+    public static let manageKeys = TeamCapability(rawValue: "manage_keys")
+    public static let manageVault = TeamCapability(rawValue: "manage_vault")
+    public static let viewBilling = TeamCapability(rawValue: "view_billing")
+    public static let manageBilling = TeamCapability(rawValue: "manage_billing")
+    public static let viewPolicy = TeamCapability(rawValue: "view_policy")
+    public static let managePolicy = TeamCapability(rawValue: "manage_policy")
+    public static let manageOrg = TeamCapability(rawValue: "manage_org")
+    public static let manageSSO = TeamCapability(rawValue: "manage_sso")
+    public static let archive = TeamCapability(rawValue: "archive")
+    public static let createTeam = TeamCapability(rawValue: "create_team")
+    public static let createOrg = TeamCapability(rawValue: "create_org")
+    /// Connecting a credential the whole org, or the whole platform, resolves.
+    /// The workspace level is manage_vault.
+    public static let connectOrgCredential = TeamCapability(rawValue: "connect_org_credential")
+    public static let connectPlatformCredential = TeamCapability(rawValue: "connect_platform_credential")
+}
+
 public struct Role: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
@@ -14785,6 +14932,49 @@ public struct HookHandlerType: RawRepresentable, Codable, Hashable, Sendable {
     public static let hookHandlerWebhook = HookHandlerType(rawValue: "webhook")
     public static let hookHandlerTask = HookHandlerType(rawValue: "task")
     public static let hookHandlerGate = HookHandlerType(rawValue: "gate")
+    public static let hookHandlerBuiltin = HookHandlerType(rawValue: "builtin")
+}
+
+/// BuiltinHook names a hook handler the platform implements itself. A builtin
+/// runs in-process on the turn that fired it: no URL to host, no round trip, no
+/// agent spawn. That is what lets it return an injection at all — a task hook
+/// spawns an agent and discards its answer, so only webhook, gate and builtin
+/// can put anything into context.
+/// 
+/// This registry is the single source of truth. The runtime dispatches from it,
+/// agent config is validated against it, and clients enumerate it to show what
+/// an agent can switch on without hosting anything.
+public struct BuiltinHook: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let beltSuggest = BuiltinHook(rawValue: "belt:suggest")
+}
+
+/// BuiltinHookDefinition describes a builtin hook and where it may be used.
+public struct BuiltinHookDefinition: Codable {
+    public var name: BuiltinHook
+    public var description: String
+    /// Events the builtin may be attached to. A builtin that reads the turn's
+    /// prompt is meaningless on agent.complete, so the set is part of its
+    /// definition rather than a convention.
+    public var events: [HookEvent]?
+
+    public init(
+        name: BuiltinHook,
+        description: String = "",
+        events: [HookEvent]? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.events = events
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case description = "description"
+        case events = "events"
+    }
 }
 
 /// LifecycleHookConfig registers a handler for an agent lifecycle event.
@@ -14906,17 +15096,25 @@ public struct ContextInjection: Codable {
     public var ttlTurns: Int?
     /// new injection with same key supersedes prior
     public var dedupKey: String?
+    /// Items names what this injection put in front of the model — resource
+    /// refs, file paths, whatever the producer deals in. A hook that offers the
+    /// same things every turn reads its own past Items back to see what it has
+    /// already offered, instead of keeping a ledger somewhere else and hoping
+    /// the two stay in step.
+    public var items: [String]?
 
     public init(
         content: String = "",
         role: String? = nil,
         ttlTurns: Int? = nil,
-        dedupKey: String? = nil
+        dedupKey: String? = nil,
+        items: [String]? = nil
     ) {
         self.content = content
         self.role = role
         self.ttlTurns = ttlTurns
         self.dedupKey = dedupKey
+        self.items = items
     }
 
     enum CodingKeys: String, CodingKey {
@@ -14924,6 +15122,7 @@ public struct ContextInjection: Codable {
         case role = "role"
         case ttlTurns = "ttl_turns"
         case dedupKey = "dedup_key"
+        case items = "items"
     }
 }
 
@@ -15011,6 +15210,7 @@ public struct ToolType: RawRepresentable, Codable, Hashable, Sendable {
     public static let mcp = ToolType(rawValue: "mcp")
     public static let client = ToolType(rawValue: "client")
     public static let `internal` = ToolType(rawValue: "internal")
+    public static let harness = ToolType(rawValue: "harness")
 }
 
 /// ToolCallType represents the type field on a tool call (wire format).
