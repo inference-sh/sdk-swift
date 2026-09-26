@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+Breaking:
+- The top-level `InferenceClient` methods `getApp`, `runApp`, `uploadFile` and `stopChat` are removed. Use the namespaces: `client.apps.get`, `client.tasks.run`, `client.files.upload`, `client.chats.stop`.
+
+Changes:
+- Request and response bodies are the generated types (hand-written copies removed).
+- Types regenerated from the api: `ErrorCode` on API errors, `channel_context` on agent run requests, `remotes:*` and `artifacts` scopes, credential OAuth callback `params`, builtin hooks.
+
 ## 0.1.2
 
 - Types regenerated from the api: `agents.harness`, `chats.work_dir`, settings v2, `RemoteStatus`, credential types.
