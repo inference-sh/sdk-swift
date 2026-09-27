@@ -328,6 +328,11 @@ public struct AppToolConfig: Codable {
     public var sessionEnabled: Bool?
     public var setup: JSONValue?
     public var input: JSONValue?
+    /// FixedInput pins arguments: they are merged over whatever the model sent,
+    /// and removed from the tool schema the model is shown, so it neither sees
+    /// nor controls them. Input only supplies defaults the model may override;
+    /// this is for values an operator decides, not the model.
+    public var fixedInput: JSONValue?
 
     public init(
         ref: String = "",
@@ -336,7 +341,8 @@ public struct AppToolConfig: Codable {
         function: String? = nil,
         sessionEnabled: Bool? = nil,
         setup: JSONValue? = nil,
-        input: JSONValue? = nil
+        input: JSONValue? = nil,
+        fixedInput: JSONValue? = nil
     ) {
         self.ref = ref
         self.id = id
@@ -345,6 +351,7 @@ public struct AppToolConfig: Codable {
         self.sessionEnabled = sessionEnabled
         self.setup = setup
         self.input = input
+        self.fixedInput = fixedInput
     }
 
     enum CodingKeys: String, CodingKey {
@@ -355,6 +362,7 @@ public struct AppToolConfig: Codable {
         case sessionEnabled = "session_enabled"
         case setup = "setup"
         case input = "input"
+        case fixedInput = "fixed_input"
     }
 }
 
@@ -531,6 +539,7 @@ public struct AppToolConfigDTO: Codable {
     public var sessionEnabled: Bool?
     public var setup: JSONValue?
     public var input: JSONValue?
+    public var fixedInput: JSONValue?
 
     public init(
         ref: String = "",
@@ -540,7 +549,8 @@ public struct AppToolConfigDTO: Codable {
         function: String? = nil,
         sessionEnabled: Bool? = nil,
         setup: JSONValue? = nil,
-        input: JSONValue? = nil
+        input: JSONValue? = nil,
+        fixedInput: JSONValue? = nil
     ) {
         self.ref = ref
         self.id = id
@@ -550,6 +560,7 @@ public struct AppToolConfigDTO: Codable {
         self.sessionEnabled = sessionEnabled
         self.setup = setup
         self.input = input
+        self.fixedInput = fixedInput
     }
 
     enum CodingKeys: String, CodingKey {
@@ -561,6 +572,7 @@ public struct AppToolConfigDTO: Codable {
         case sessionEnabled = "session_enabled"
         case setup = "setup"
         case input = "input"
+        case fixedInput = "fixed_input"
     }
 }
 
