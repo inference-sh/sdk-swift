@@ -15438,7 +15438,19 @@ public struct ToolParameters: Codable {
 public typealias ToolParameterProperties = [String: ToolParameterProperty]
 
 public final class ToolParameterProperty: Codable {
-    public var type: ToolParamType
+    /// Type is the JSON Schema type of the value. Empty when AnyOf is set: the
+    /// value then has one of several shapes, and naming a single type would be
+    /// telling the model something untrue about what it may send.
+    public var type: ToolParamType?
+    /// AnyOf lists the shapes a value may take, each described as a property of
+    /// its own. Anthropic and OpenAI both accept anyOf in tool schemas. Before
+    /// this field existed the converter picked one branch and dropped the rest,
+    /// so an app that accepted "401" or 401 could only tell the model about one.
+    public var anyOf: [ToolParameterProperty]?
+    /// Enum is the closed set of values a scalar may take, kept as data so a
+    /// consumer choosing arguments does not have to parse it back out of the
+    /// description.
+    public var `enum`: [JSONValue]?
     public var title: String
     public var description: String
     public var properties: ToolParameterProperties?
@@ -15446,7 +15458,9 @@ public final class ToolParameterProperty: Codable {
     public var required: [String]?
 
     public init(
-        type: ToolParamType,
+        type: ToolParamType? = nil,
+        anyOf: [ToolParameterProperty]? = nil,
+        `enum`: [JSONValue]? = nil,
         title: String = "",
         description: String = "",
         properties: ToolParameterProperties? = nil,
@@ -15454,6 +15468,8 @@ public final class ToolParameterProperty: Codable {
         required: [String]? = nil
     ) {
         self.type = type
+        self.anyOf = anyOf
+        self.`enum` = `enum`
         self.title = title
         self.description = description
         self.properties = properties
@@ -15463,6 +15479,8 @@ public final class ToolParameterProperty: Codable {
 
     enum CodingKeys: String, CodingKey {
         case type = "type"
+        case anyOf = "anyOf"
+        case `enum` = "enum"
         case title = "title"
         case description = "description"
         case properties = "properties"

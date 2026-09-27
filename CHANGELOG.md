@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+Breaking:
+- `ToolParameterProperty.type` is now optional. A parameter that accepts several shapes carries them in `anyOf` and has no single `type`; code that read `type` unconditionally should handle `nil` and look at `anyOf`.
+
+Changes:
+- `ToolParameterProperty.anyOf`: the shapes a union parameter may take, each a `ToolParameterProperty`.
+- `ToolParameterProperty.enum`: the closed set of values a scalar may take, as data rather than description text.
+- Types regenerated from the api (agentprotocol v0.16.0, models v0.8.60).
+
 ## 0.3.0
 
 No breaking changes. `InferenceClient(apiKey:)`, `InferenceClient(baseURL:apiKey:onMessage:)` and the `apiKey` property keep working.
