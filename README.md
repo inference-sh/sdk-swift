@@ -15,7 +15,7 @@ Swift Package Manager. In `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/inference-sh/sdk-swift", from: "0.1.0"),
+    .package(url: "https://github.com/inference-sh/sdk-swift", from: "0.3.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -32,11 +32,92 @@ Or in Xcode: **File → Add Package Dependencies…** and paste `https://github.
 - iOS 17+ / macOS 14+
 - Linux (Foundation + FoundationNetworking; no Apple-only frameworks in the library)
 
-## Getting an API Key
+## Authentication
 
-Get your API key from the [inference.sh dashboard](https://app.inference.sh/settings/keys).
+The client sends `Authorization: Bearer <token>` on every api request. The token comes from an `InferenceAuthProvider`: a fixed API key, or a user's OAuth sign-in that refreshes itself.
 
-Don't ship a raw key inside an app binary for other people to use. For a public app, call the api from your own backend (or proxy it) and hand the client a short-lived key.
+### API key
+
+Get a key from the [inference.sh dashboard](https://app.inference.sh/settings/keys):
+
+```swift
+let client = InferenceClient(apiKey: "your-api-key")
+```
+
+Don't ship a raw key inside an app binary for other people to use. For a public app, sign users in with OAuth (below), or call the api from your own backend.
+
+### Signing users in (OAuth)
+
+`InferenceOAuth` implements the authorization code flow with PKCE against the api's OAuth 2.1 server. All endpoints are on the api host; `/oauth/authorize` sends the browser on to app.inference.sh to log in and approve, then back to your redirect URI with a code.
+
+```swift
+// 1. Once per install: register a public client and store its id. Custom
+//    schemes are accepted as redirect URIs. The id does not expire.
+let registration = try await InferenceOAuth.register(
+    clientName: "My App",
+    redirectURIs: ["myapp://oauth/callback"]
+)
+let oauth = InferenceOAuth(clientId: registration.clientId)
+
+// 2. Open the authorize URL in a browser session and wait for the redirect
+//    (ASWebAuthenticationSession on Apple platforms, with request.callbackScheme).
+let request = oauth.authorizationRequest(
+    redirectURI: "myapp://oauth/callback",
+    scope: "agents:read agents:execute conversations:read conversations:write files:read files:write apps:read apps:execute apps:write"
+)
+let callbackURL = try await openInBrowser(request.url, request.callbackScheme)
+
+// 3. Check state, exchange the code.
+let tokens = try await oauth.completeAuthorization(callbackURL: callbackURL, request: request)
+
+// 4. A provider that refreshes before expiry and after a 401.
+let auth = RefreshingAuthProvider(
+    tokens: tokens,
+    oauth: oauth,
+    onTokens: { saveToKeychain($0) },        // every new pair; OAuthTokens is Codable
+    onSignedOut: { _ in showSignIn() }       // refresh token rejected (revoked, expired)
+)
+let client = InferenceClient(auth: auth)
+```
+
+Access tokens last 10 minutes and refresh tokens 30 days. Each refresh returns a new refresh token and invalidates the old one, so `RefreshingAuthProvider` runs one refresh at a time and hands the result to every waiting request; persist the pair from `onTokens` each time. On the next launch, build the provider from the stored `OAuthTokens`.
+
+A token carries the scopes approved at consent; requesting no scope grants unrestricted access. Writing knowledge needs `apps:write`.
+
+Sign out:
+
+```swift
+if let refreshToken = await auth.tokens?.refreshToken {
+    try await oauth.revoke(refreshToken)
+}
+await auth.clear()
+```
+
+#### Device flow
+
+For devices without a browser (a watch, a CLI), the user approves on another device:
+
+```swift
+let device = try await oauth.startDeviceAuthorization()
+print("Open \(device.verificationURI) and enter \(device.userCode)")
+let tokens = try await oauth.pollDeviceToken(device)   // honors interval, slow_down, expiry
+let client = InferenceClient(auth: RefreshingAuthProvider(tokens: tokens, oauth: oauth))
+```
+
+The device flow returns a session token without a refresh token (valid 7 days unless the approver picks another lifetime). The provider uses it until the server rejects it, then signs out.
+
+#### Your own provider
+
+```swift
+struct BackendTokens: InferenceAuthProvider {
+    func bearerToken(forceRefresh: Bool) async throws -> String {
+        try await fetchTokenFromMyBackend(forceRefresh: forceRefresh)
+    }
+}
+let client = InferenceClient(auth: BackendTokens())
+```
+
+`bearerToken` is called for every request and every stream (re)connect. After a 401 the client calls it once with `forceRefresh: true` and retries if the token changed. Presigned upload URLs and output file downloads never receive the token.
 
 ## Quick Start
 
@@ -257,6 +338,31 @@ for try await audio in tts.synthesize(reply) {   // long text is chunked; one Da
 }
 ```
 
+## Knowledge
+
+Knowledge entries are versioned documents in your team's namespace. Save a markdown document:
+
+```swift
+let entry = try await client.knowledge.create(KnowledgeCreateRequest(
+    name: "standup-2026-09-27",
+    description: "Standup transcript",
+    type: .observation,
+    version: KnowledgeVersionInput(
+        content: KnowledgeFile(content: markdown),
+        tags: ["transcript"]
+    )
+))
+```
+
+`version.content.content` is the document text; the server stores it and fills in its path, uri, size and hash. Creating an entry with a name that already exists adds a version to it. `update` changes the title and description.
+
+```swift
+let same = try await client.knowledge.getByName(namespace: entry.namespace, name: entry.name)
+let page = try await client.knowledge.list(CursorListRequest(limit: 20))
+let versions = try await client.knowledge.listVersions(entry.id)
+try await client.knowledge.delete(entry.id)
+```
+
 ## API Reference
 
 | Namespace | Covers |
@@ -266,8 +372,10 @@ for try await audio in tts.synthesize(reply) {   // long text is chunked; one Da
 | `client.chats` | `list`, `get`, `update`, `delete`, `getStatus`, `stop`, `cancelMessage`, `stream` |
 | `client.apps` | `list`, `get`, `getByName`, create, update, versions, visibility, licenses |
 | `client.files` | `upload`, `list`, `get`, `delete` |
+| `client.knowledge` | `list`, `get`, `getByName`, `create`, `update`, `delete`, versions, transfer, visibility |
 | `client.search` | `search`, `suggest` |
 | `AgentChatSession` | Stateful agent chat (above) |
+| `InferenceOAuth`, `RefreshingAuthProvider` | User sign-in (above) |
 
 Every request and response model (`TaskDTO`, `ChatMessageDTO`, `AgentDTO`, …) is generated from the api's own Go types, the same source the JS and Python SDKs are generated from. Enums tolerate values added to the api later: an unknown status decodes instead of failing.
 
@@ -292,7 +400,7 @@ Server warnings attached to a response arrive on `InferenceClient(apiKey:onMessa
 ```swift
 let client = InferenceClient(
     baseURL: URL(string: "https://api.inference.sh")!,  // default
-    apiKey: key,
+    apiKey: key,                                         // or auth: any InferenceAuthProvider
     onMessage: { notices in print(notices) }
 )
 ```

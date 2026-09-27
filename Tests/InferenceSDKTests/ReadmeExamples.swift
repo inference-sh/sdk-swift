@@ -115,6 +115,71 @@ private enum ReadmeExamples {
         for try await audio in tts.synthesize(reply) { _ = audio }
     }
 
+    static func authentication(
+        openInBrowser: (URL, String?) async throws -> URL,
+        saveToKeychain: @escaping @Sendable (OAuthTokens) -> Void,
+        showSignIn: @escaping @Sendable () -> Void
+    ) async throws {
+        _ = InferenceClient(apiKey: "your-api-key")
+
+        let registration = try await InferenceOAuth.register(
+            clientName: "My App",
+            redirectURIs: ["myapp://oauth/callback"]
+        )
+        let oauth = InferenceOAuth(clientId: registration.clientId)
+
+        let request = oauth.authorizationRequest(
+            redirectURI: "myapp://oauth/callback",
+            scope: "agents:read agents:execute conversations:read conversations:write files:read files:write apps:read apps:execute apps:write"
+        )
+        let callbackURL = try await openInBrowser(request.url, request.callbackScheme)
+
+        let tokens = try await oauth.completeAuthorization(callbackURL: callbackURL, request: request)
+
+        let auth = RefreshingAuthProvider(
+            tokens: tokens,
+            oauth: oauth,
+            onTokens: { saveToKeychain($0) },
+            onSignedOut: { _ in showSignIn() }
+        )
+        _ = InferenceClient(auth: auth)
+
+        if let refreshToken = await auth.tokens?.refreshToken {
+            try await oauth.revoke(refreshToken)
+        }
+        await auth.clear()
+
+        let device = try await oauth.startDeviceAuthorization()
+        print("Open \(device.verificationURI) and enter \(device.userCode)")
+        let deviceTokens = try await oauth.pollDeviceToken(device)
+        _ = InferenceClient(auth: RefreshingAuthProvider(tokens: deviceTokens, oauth: oauth))
+
+        _ = InferenceClient(auth: BackendTokens())
+    }
+
+    struct BackendTokens: InferenceAuthProvider {
+        func bearerToken(forceRefresh: Bool) async throws -> String {
+            try await fetchTokenFromMyBackend(forceRefresh: forceRefresh)
+        }
+        func fetchTokenFromMyBackend(forceRefresh: Bool) async throws -> String { "" }
+    }
+
+    static func knowledge(client: InferenceClient, markdown: String) async throws {
+        let entry = try await client.knowledge.create(KnowledgeCreateRequest(
+            name: "standup-2026-09-27",
+            description: "Standup transcript",
+            type: .observation,
+            version: KnowledgeVersionInput(
+                content: KnowledgeFile(content: markdown),
+                tags: ["transcript"]
+            )
+        ))
+        _ = try await client.knowledge.getByName(namespace: entry.namespace, name: entry.name)
+        _ = try await client.knowledge.list(CursorListRequest(limit: 20))
+        _ = try await client.knowledge.listVersions(entry.id)
+        try await client.knowledge.delete(entry.id)
+    }
+
     static func errors(client: InferenceClient, request: ApiAppRunRequest, key: String) async {
         do {
             _ = try await client.tasks.run(request)
