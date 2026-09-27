@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `client.teams`: `me()` (GET /me → generated `MeResponse`), list, get, view, create, update, delete, checkUsername, members and invites. Ports sdk-js `teams.ts` on the server's types: teams are `TeamDTO` (sdk-js says `TeamRelationDTO`).
+- Types regenerated: `MeResponse` and what it references (`TeamDTO`, `OrgDTO`, `TeamViewDTO`, `DiagnosticsConfig`, `TeamKind`, governance types), rooted in go/api `SDKTypes` (inference-sh/api#1462).
+
 ## 0.4.0
 
 Breaking:

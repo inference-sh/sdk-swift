@@ -190,4 +190,15 @@ final class DecodeTests: XCTestCase {
         XCTAssertNil(Widget.parse(string: #"{"status":"ok"}"#))
         XCTAssertEqual(Widget.parse(string: surface)?.components?.first?.text?.boundDisplay, "hi")
     }
+
+    /// GET /me — the generated MeResponse (rooted in SDKTypes). Fixture is a
+    /// real response with the personal values replaced.
+    func testMeResponseDecodes() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "me", withExtension: "json", subdirectory: "Fixtures"))
+        let me = try InferenceClient.decoder.decode(MeResponse.self, from: Data(contentsOf: url))
+        XCTAssertEqual(me.user?.email, "user@example.com")
+        XCTAssertEqual(me.team?.type.rawValue, "personal")
+        XCTAssertEqual(me.teamView?.kind.rawValue, "personal")
+        XCTAssertNil(me.org)
+    }
 }
