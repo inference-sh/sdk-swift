@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 Breaking:
 - `tasks.create` returns `TaskResultDTO`, what POST /apps/run sends (id, status, output). It was typed `TaskDTO`, so every `create`, and `tasks.run` (which starts with `create`), failed to decode: `keyNotFound(user_id)`. `tasks.run` now reads the full task with `GET /tasks/{id}` after creating it and still returns `TaskDTO`.
