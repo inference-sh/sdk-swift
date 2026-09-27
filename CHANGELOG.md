@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Breaking:
+- `tasks.create` returns `TaskResultDTO`, what POST /apps/run sends (id, status, output). It was typed `TaskDTO`, so every `create`, and `tasks.run` (which starts with `create`), failed to decode: `keyNotFound(user_id)`. `tasks.run` now reads the full task with `GET /tasks/{id}` after creating it and still returns `TaskDTO`.
+
+Changes:
 - `client.teams`: `me()` (GET /me → generated `MeResponse`), list, get, view, create, update, delete, checkUsername, members and invites. Ports sdk-js `teams.ts` on the server's types: teams are `TeamDTO` (sdk-js says `TeamRelationDTO`).
 - Types regenerated: `MeResponse` and what it references (`TeamDTO`, `OrgDTO`, `TeamViewDTO`, `DiagnosticsConfig`, `TeamKind`, governance types), rooted in go/api `SDKTypes` (inference-sh/api#1462).
 

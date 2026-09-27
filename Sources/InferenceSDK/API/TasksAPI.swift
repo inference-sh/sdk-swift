@@ -93,8 +93,10 @@ public struct TasksAPI: Sendable {
         try await client.decode(client.send(client.request("tasks/\(taskId)", method: "GET")))
     }
 
-    /// POST /apps/run: create and run a task.
-    public func create(_ data: ApiAppRunRequest) async throws -> TaskDTO {
+    /// POST /apps/run: create and run a task. Answers with the task result
+    /// (id, status, output: go/api respondWithTaskResult), not the full task;
+    /// `get(_:)` fetches that. sdk-js types this as Task.
+    public func create(_ data: ApiAppRunRequest) async throws -> TaskResultDTO {
         try await client.decode(client.send(client.request("apps/run", body: data)))
     }
 
@@ -140,7 +142,11 @@ public struct TasksAPI: Sendable {
     /// GET /tasks/{id}/stream as NDJSON; `stream: false` polls
     /// GET /tasks/{id}/status and fetches the full task on each change.
     public func run(_ params: ApiAppRunRequest, options: TaskRunOptions = TaskRunOptions()) async throws -> TaskDTO {
-        let task = try await create(params)
+        // POST /apps/run answers with a TaskResultDTO (id, status, output),
+        // not a full task; GET /tasks/{id} is the TaskDTO the updates below
+        // are applied to.
+        let created = try await create(params)
+        let task = try await get(created.id)
         if !options.wait { return task }
         if !options.stream { return try await pollUntilTerminal(task, options: options) }
         return try await streamUntilTerminal(task, options: options)

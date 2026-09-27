@@ -201,4 +201,14 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(me.teamView?.kind.rawValue, "personal")
         XCTAssertNil(me.org)
     }
+
+    /// POST /apps/run answers with a TaskResultDTO, not a TaskDTO: no
+    /// user_id, app_id, input. Decoding it as TaskDTO failed on a real watch
+    /// run ("The data couldn't be read because it is missing").
+    func testAppsRunResponseIsTaskResult() throws {
+        let json = #"{"id":"t1","short_id":"s","status":1,"status_text":"","output":null,"created_at":"2026-09-27T12:00:00Z","updated_at":"2026-09-27T12:00:00Z"}"#
+        let result = try InferenceClient.decoder.decode(TaskResultDTO.self, from: Data(json.utf8))
+        XCTAssertEqual(result.id, "t1")
+        XCTAssertThrowsError(try InferenceClient.decoder.decode(TaskDTO.self, from: Data(json.utf8)))
+    }
 }
