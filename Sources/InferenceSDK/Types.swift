@@ -1860,6 +1860,41 @@ public struct DeviceAuthPollResponse: Codable {
     }
 }
 
+public struct MeResponse: Codable {
+    public var user: UserDTO?
+    public var team: TeamDTO?
+    /// Org of the current team, when the team belongs to one. Team.Role and
+    /// Org.IsAdmin are left unset: what the caller may do is TeamView.Can
+    /// and TeamView.Org.Can.
+    public var org: OrgDTO?
+    /// TeamView is the current team as the caller sees it in settings: kind,
+    /// governance and capabilities (GET /teams/{id}/view).
+    public var teamView: TeamViewDTO?
+    public var diagnostics: DiagnosticsConfig?
+
+    public init(
+        user: UserDTO? = nil,
+        team: TeamDTO? = nil,
+        org: OrgDTO? = nil,
+        teamView: TeamViewDTO? = nil,
+        diagnostics: DiagnosticsConfig? = nil
+    ) {
+        self.user = user
+        self.team = team
+        self.org = org
+        self.teamView = teamView
+        self.diagnostics = diagnostics
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case user = "user"
+        case team = "team"
+        case org = "org"
+        case teamView = "team_view"
+        case diagnostics = "diagnostics"
+    }
+}
+
 public struct TeamCreateRequest: Codable {
     public var name: String
     public var username: String
@@ -8667,6 +8702,64 @@ public struct UpdateNotificationPreferencesRequest: Codable {
     }
 }
 
+/// OrgDTO is the API response for an org (enterprise layer above teams).
+public struct OrgDTO: Codable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var slug: String
+    public var name: String
+    public var avatarUrl: String?
+    public var defaultTeamId: String?
+    /// UsagePolicyID of the org's usage policy ('' = ungoverned, INF-808).
+    public var usagePolicyId: String?
+    /// IsAdmin: whether the CALLER is on this org's admin grant list. Set on
+    /// caller-scoped responses.
+    public var isAdmin: Bool?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        slug: String = "",
+        name: String = "",
+        avatarUrl: String? = nil,
+        defaultTeamId: String? = nil,
+        usagePolicyId: String? = nil,
+        isAdmin: Bool? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.slug = slug
+        self.name = name
+        self.avatarUrl = avatarUrl
+        self.defaultTeamId = defaultTeamId
+        self.usagePolicyId = usagePolicyId
+        self.isAdmin = isAdmin
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case slug = "slug"
+        case name = "name"
+        case avatarUrl = "avatar_url"
+        case defaultTeamId = "default_team_id"
+        case usagePolicyId = "usage_policy_id"
+        case isAdmin = "is_admin"
+    }
+}
+
 /// PageMetadata holds metadata for a page
 public struct PageMetadata: Codable {
     public var title: String
@@ -9471,6 +9564,20 @@ public final class ProjectDTO: Codable {
         case parentId = "parent_id"
         case parent = "parent"
         case children = "children"
+    }
+}
+
+public struct DiagnosticsConfig: Codable {
+    public var level: Int
+
+    public init(
+        level: Int = 0
+    ) {
+        self.level = level
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case level = "level"
     }
 }
 
@@ -11507,6 +11614,87 @@ public struct TaskTimingsDTO: Codable {
     }
 }
 
+/// TeamDTO is the API response for a full team.
+public struct TeamDTO: Codable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var type: TeamType
+    public var name: String
+    public var username: String
+    public var avatarUrl: String
+    public var email: String
+    public var setupCompleted: Bool
+    public var maxConcurrency: Int
+    public var status: TeamStatus
+    /// Role is the CALLER's role on this team (owner/admin/member), set on
+    /// caller-scoped responses (/teams, /users/me). Empty when not applicable
+    /// (public team views, platform-admin impersonation).
+    public var role: TeamRole?
+    /// OrgID of the org this team belongs to ('' = standalone team).
+    public var orgId: String?
+    /// UsagePolicyID of the team's own usage policy ('' = inherit the org's,
+    /// or ungoverned when standalone, INF-808).
+    public var usagePolicyId: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        type: TeamType,
+        name: String = "",
+        username: String = "",
+        avatarUrl: String = "",
+        email: String = "",
+        setupCompleted: Bool = false,
+        maxConcurrency: Int = 0,
+        status: TeamStatus,
+        role: TeamRole? = nil,
+        orgId: String? = nil,
+        usagePolicyId: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.type = type
+        self.name = name
+        self.username = username
+        self.avatarUrl = avatarUrl
+        self.email = email
+        self.setupCompleted = setupCompleted
+        self.maxConcurrency = maxConcurrency
+        self.status = status
+        self.role = role
+        self.orgId = orgId
+        self.usagePolicyId = usagePolicyId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case type = "type"
+        case name = "name"
+        case username = "username"
+        case avatarUrl = "avatar_url"
+        case email = "email"
+        case setupCompleted = "setup_completed"
+        case maxConcurrency = "max_concurrency"
+        case status = "status"
+        case role = "role"
+        case orgId = "org_id"
+        case usagePolicyId = "usage_policy_id"
+    }
+}
+
 /// TeamMemberDTO is the API response for a team member.
 public struct TeamMemberDTO: Codable {
     public var id: String
@@ -11683,6 +11871,112 @@ public struct TeamInviteCreateRequest: Codable {
     enum CodingKeys: String, CodingKey {
         case email = "email"
         case role = "role"
+    }
+}
+
+/// GovernanceSource says who decides one aspect of a team. By is
+/// shared.GovernedBySelf (the team itself) or shared.GovernedByOrg; TeamID is
+/// the deciding team: the team itself, or the org's workspace.
+public struct GovernanceSource: Codable {
+    public var by: String
+    public var teamId: String
+
+    public init(
+        by: String = "",
+        teamId: String = ""
+    ) {
+        self.by = by
+        self.teamId = teamId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case by = "by"
+        case teamId = "team_id"
+    }
+}
+
+/// TeamGovernance is who decides a team's billing and usage policy.
+public struct TeamGovernance: Codable {
+    public var billing: GovernanceSource
+    public var policy: GovernanceSource
+
+    public init(
+        billing: GovernanceSource,
+        policy: GovernanceSource
+    ) {
+        self.billing = billing
+        self.policy = policy
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case billing = "billing"
+        case policy = "policy"
+    }
+}
+
+/// TeamViewOrg is the org a team belongs to, as the caller sees it.
+public struct TeamViewOrg: Codable {
+    public var id: String
+    public var name: String
+    public var slug: String
+    public var avatarUrl: String
+    /// Can is what the caller may do on the org's workspace, by the same
+    /// table as TeamViewDTO.Can: the org's settings and billing live there.
+    public var can: [TeamCapability]?
+
+    public init(
+        id: String = "",
+        name: String = "",
+        slug: String = "",
+        avatarUrl: String = "",
+        can: [TeamCapability]? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.slug = slug
+        self.avatarUrl = avatarUrl
+        self.can = can
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case slug = "slug"
+        case avatarUrl = "avatar_url"
+        case can = "can"
+    }
+}
+
+/// TeamViewDTO is a team as the caller sees it in settings: what kind of
+/// workspace it is, who governs it, and what the caller may do there. Can is computed by the same table the API's route
+/// gates evaluate, so clients read permissions instead of re-deriving them.
+public struct TeamViewDTO: Codable {
+    public var teamId: String
+    public var kind: TeamKind
+    public var org: TeamViewOrg?
+    public var governance: TeamGovernance
+    public var can: [TeamCapability]?
+
+    public init(
+        teamId: String = "",
+        kind: TeamKind,
+        org: TeamViewOrg? = nil,
+        governance: TeamGovernance,
+        can: [TeamCapability]? = nil
+    ) {
+        self.teamId = teamId
+        self.kind = kind
+        self.org = org
+        self.governance = governance
+        self.can = can
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case teamId = "team_id"
+        case kind = "kind"
+        case org = "org"
+        case governance = "governance"
+        case can = "can"
     }
 }
 
@@ -14338,6 +14632,24 @@ public struct TeamRole: RawRepresentable, Codable, Hashable, Sendable {
     public static let owner = TeamRole(rawValue: "owner")
     public static let admin = TeamRole(rawValue: "admin")
     public static let member = TeamRole(rawValue: "member")
+}
+
+/// TeamKind is what a team is from the caller's side of settings: the team
+/// type plus whether it sits inside an org. Capabilities and governance key
+/// on it (see team.Subject).
+public struct TeamKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// TeamKindPersonal is an account's own workspace.
+    public static let personal = TeamKind(rawValue: "personal")
+    /// TeamKindTeam is a shared workspace outside any org.
+    public static let team = TeamKind(rawValue: "team")
+    /// TeamKindOrgMember is a shared workspace inside an org: billed by the
+    /// org and governed by the org's usage policy.
+    public static let orgMember = TeamKind(rawValue: "org_member")
+    /// TeamKindOrg is an org's own workspace (TeamTypeOrg).
+    public static let org = TeamKind(rawValue: "org")
 }
 
 /// TeamCapability is one thing a caller may do to a team's settings. The set is

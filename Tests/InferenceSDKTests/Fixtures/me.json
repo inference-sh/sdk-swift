@@ -1,0 +1,71 @@
+{
+ "user": {
+  "id": "id_id",
+  "short_id": "id_short_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "deleted_at": null,
+  "default_team_id": "id_default_team_id",
+  "role": "admin",
+  "email": "user@example.com",
+  "name": "name",
+  "full_name": "full name",
+  "avatar_url": "https://example.com/avatar.png",
+  "totp_enabled": true,
+  "metadata": {
+   "user_id": "id_user_id",
+   "completed_onboarding": true,
+   "use_case": "use case",
+   "use_case_reason": "use case reason",
+   "use_case_privacy": "private",
+   "signup_source": "cli",
+   "terms_accepted_at": "2026-01-01T00:00:00Z",
+   "terms_version": "2026-07-11"
+  }
+ },
+ "team": {
+  "id": "id_id",
+  "short_id": "id_short_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "deleted_at": null,
+  "type": "personal",
+  "name": "name",
+  "username": "username",
+  "avatar_url": "https://example.com/avatar.png",
+  "email": "user@example.com",
+  "setup_completed": true,
+  "max_concurrency": 0,
+  "status": "active"
+ },
+ "team_view": {
+  "team_id": "id_team_id",
+  "kind": "personal",
+  "governance": {
+   "billing": {
+    "by": "self",
+    "team_id": "id_team_id"
+   },
+   "policy": {
+    "by": "self",
+    "team_id": "id_team_id"
+   }
+  },
+  "can": [
+   "edit_profile",
+   "manage_members",
+   "view_members",
+   "manage_keys",
+   "manage_vault",
+   "view_billing",
+   "manage_billing",
+   "view_policy",
+   "manage_policy",
+   "manage_org",
+   "manage_sso",
+   "archive",
+   "create_team",
+   "create_org"
+  ]
+ }
+}
