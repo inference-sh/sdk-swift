@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+No breaking changes. `InferenceClient(apiKey:)`, `InferenceClient(baseURL:apiKey:onMessage:)` and the `apiKey` property keep working.
+
+Added:
+- Pluggable auth: `InferenceAuthProvider` and `InferenceClient(baseURL:auth:onMessage:)`. `StaticAuthProvider` wraps an API key. The provider is asked for a token on every request, upload, and stream connect and reconnect (chat SSE, `runAgentStream`, `tasks.run`), and the TTS/STT helpers go through the same path. A 401 is retried once with `forceRefresh: true` when that yields a different token. Presigned upload URLs and file downloads never get the token.
+- OAuth sign-in: `InferenceOAuth` (metadata discovery, dynamic client registration, PKCE S256, authorization URL, callback handling, code exchange, refresh, revoke, RFC 8628 device authorization and polling), `OAuthTokens`, `OAuthError`.
+- `RefreshingAuthProvider`: an actor that refreshes before expiry and after a 401, runs one refresh at a time for all callers (inference.sh rotates refresh tokens), reports new tokens through `onTokens`, and calls `onSignedOut` when the refresh token is rejected.
+- `client.knowledge`: `list`, `get`, `getByName`, `create`, `update`, `delete`, `listVersions`, `getVersion`, `transferOwnership`, `updateVisibility`.
+
+Changes:
+- `apiKey` is now computed from `auth`: it returns the key of a `StaticAuthProvider` (else ""), and setting it installs one.
+
 ## 0.2.0
 
 Breaking:
