@@ -1,0 +1,410 @@
+{
+ "id": "t1",
+ "short_id": "x_short_id",
+ "created_at": "2026-01-01T00:00:00Z",
+ "updated_at": "2026-01-01T00:00:00Z",
+ "deleted_at": null,
+ "user_id": "x_user_id",
+ "user": {
+  "id": "x_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "role": "admin",
+  "avatar_url": "x_avatar_url"
+ },
+ "team_id": "x_team_id",
+ "team": {
+  "id": "x_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "type": "personal",
+  "username": "x_username",
+  "avatar_url": "x_avatar_url",
+  "setup_completed": true
+ },
+ "visibility": "team",
+ "graph_id": null,
+ "user_public_key": null,
+ "engine_public_key": null,
+ "is_featured": false,
+ "status": 3,
+ "app_id": "x_app_id",
+ "app": {
+  "id": "x_id",
+  "short_id": "x_short_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "deleted_at": null,
+  "user_id": "x_user_id",
+  "user": {
+   "id": "x_id",
+   "created_at": "2026-01-01T00:00:00Z",
+   "updated_at": "2026-01-01T00:00:00Z",
+   "role": "admin",
+   "avatar_url": "x_avatar_url"
+  },
+  "team_id": "x_team_id",
+  "team": {
+   "id": "x_id",
+   "created_at": "2026-01-01T00:00:00Z",
+   "updated_at": "2026-01-01T00:00:00Z",
+   "type": "system",
+   "username": "x_username",
+   "avatar_url": "x_avatar_url",
+   "setup_completed": true
+  },
+  "visibility": "public",
+  "namespace": "xai",
+  "name": "grok-imagine-image-2-0",
+  "title": "x_title",
+  "description": "x_description",
+  "agent_description": "x_agent_description",
+  "category": "image",
+  "images": {
+   "card": "x_card",
+   "thumbnail": "x_thumbnail",
+   "banner": "x_banner"
+  },
+  "version_id": "x_version_id",
+  "version": null,
+  "status": "x_status"
+ },
+ "app_version_id": "x_app_version_id",
+ "app_version": {
+  "id": "x_id",
+  "short_id": "x_short_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "deleted_at": null,
+  "metadata": {
+   "checksum": "x_checksum",
+   "provider": "x_provider",
+   "tags": [
+    "x_tags",
+    "x_tags"
+   ]
+  },
+  "repository": "x_repository",
+  "flow_version_id": null,
+  "flow_version": null,
+  "setup_schema": null,
+  "input_schema": {
+   "description": "x_description",
+   "properties": {
+    "prompt": {
+     "description": "x_description",
+     "examples": [
+      "x_examples"
+     ],
+     "title": "x_title",
+     "type": "string"
+    },
+    "images": {
+     "description": "x_description",
+     "items": {
+      "format": "x_format",
+      "type": "string"
+     },
+     "maxItems": 5,
+     "title": "x_title",
+     "type": "array"
+    },
+    "quality": {
+     "default": "x_default",
+     "description": "x_description",
+     "enum": [
+      "x_enum",
+      "x_enum"
+     ],
+     "title": "x_title",
+     "type": "string"
+    },
+    "resolution": {
+     "default": "x_default",
+     "description": "x_description",
+     "enum": [
+      "x_enum",
+      "x_enum"
+     ],
+     "title": "x_title",
+     "type": "string"
+    },
+    "aspect_ratio": {
+     "default": "x_default",
+     "description": "x_description",
+     "enum": [
+      "x_enum",
+      "x_enum"
+     ],
+     "title": "x_title",
+     "type": "string"
+    },
+    "n": {
+     "default": 1,
+     "description": "x_description",
+     "maximum": 10,
+     "minimum": 1,
+     "title": "x_title",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "x_required"
+   ],
+   "title": "x_title",
+   "type": "object"
+  },
+  "output_schema": {
+   "description": "x_description",
+   "properties": {
+    "images": {
+     "description": "x_description",
+     "items": {
+      "format": "x_format",
+      "type": "string"
+     },
+     "title": "x_title",
+     "type": "array"
+    },
+    "moderated_count": {
+     "default": 0,
+     "description": "x_description",
+     "title": "x_title",
+     "type": "integer"
+    },
+    "notice": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "x_description",
+     "title": "x_title"
+    }
+   },
+   "required": [
+    "x_required"
+   ],
+   "title": "x_title",
+   "type": "object"
+  },
+  "functions": {
+   "run": {
+    "name": "",
+    "input_schema": {
+     "description": "x_description",
+     "properties": {
+      "prompt": {
+       "description": "x_description",
+       "examples": [
+        "x_examples"
+       ],
+       "title": "x_title",
+       "type": "string"
+      },
+      "images": {
+       "description": "x_description",
+       "items": {
+        "format": "x_format",
+        "type": "string"
+       },
+       "maxItems": 5,
+       "title": "x_title",
+       "type": "array"
+      },
+      "quality": {
+       "default": "x_default",
+       "description": "x_description",
+       "enum": [
+        "x_enum",
+        "x_enum"
+       ],
+       "title": "x_title",
+       "type": "string"
+      },
+      "resolution": {
+       "default": "x_default",
+       "description": "x_description",
+       "enum": [
+        "x_enum",
+        "x_enum"
+       ],
+       "title": "x_title",
+       "type": "string"
+      },
+      "aspect_ratio": {
+       "default": "x_default",
+       "description": "x_description",
+       "enum": [
+        "x_enum",
+        "x_enum"
+       ],
+       "title": "x_title",
+       "type": "string"
+      },
+      "n": {
+       "default": 1,
+       "description": "x_description",
+       "maximum": 10,
+       "minimum": 1,
+       "title": "x_title",
+       "type": "integer"
+      }
+     },
+     "required": [
+      "x_required"
+     ],
+     "title": "x_title",
+     "type": "object"
+    },
+    "output_schema": {
+     "description": "x_description",
+     "properties": {
+      "images": {
+       "description": "x_description",
+       "items": {
+        "format": "x_format",
+        "type": "string"
+       },
+       "title": "x_title",
+       "type": "array"
+      },
+      "moderated_count": {
+       "default": 0,
+       "description": "x_description",
+       "title": "x_title",
+       "type": "integer"
+      },
+      "notice": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null,
+       "description": "x_description",
+       "title": "x_title"
+      }
+     },
+     "required": [
+      "x_required"
+     ],
+     "title": "x_title",
+     "type": "object"
+    },
+    "kind": "run"
+   }
+  },
+  "default_function": "x_default_function",
+  "variants": null,
+  "env": null,
+  "kernel": "x_kernel",
+  "required_secrets": [
+   {
+    "key": "x_key",
+    "description": "x_description"
+   }
+  ],
+  "resources": {
+   "gpu": {
+    "count": 0,
+    "vram": 0,
+    "type": "none"
+   },
+   "ram": 4000000000
+  }
+ },
+ "app_variant": "x_app_variant",
+ "function": "x_function",
+ "infra": "cloud",
+ "workers": [],
+ "flow_run_id": null,
+ "chat_id": null,
+ "sub_flow_run_id": null,
+ "agent_id": null,
+ "agent_version_id": null,
+ "agent": null,
+ "engine_id": "x_engine_id",
+ "engine": {
+  "id": "x_id",
+  "short_id": "x_short_id",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "deleted_at": null,
+  "user_id": "x_user_id",
+  "user": null,
+  "team_id": "x_team_id",
+  "team": null,
+  "visibility": "public",
+  "instance": null,
+  "name": "leaseweb-cpu-2",
+  "status": "x_status",
+  "workers": null
+ },
+ "worker_id": "x_worker_id",
+ "worker": {
+  "id": "x_id",
+  "user_id": "x_user_id",
+  "index": 0,
+  "status": "x_status",
+  "engine_id": "x_engine_id",
+  "engine_name": "x_engine_name",
+  "task_id": null,
+  "app_id": "x_app_id",
+  "app_version_id": "x_app_version_id",
+  "active_session_id": null
+ },
+ "run_at": null,
+ "webhook": null,
+ "input": {
+  "prompt": "x_prompt"
+ },
+ "output": {},
+ "rating": "x_rating",
+ "events": [
+  {
+   "id": "x_id",
+   "created_at": "2026-01-01T00:00:00Z",
+   "event_time": "2026-01-01T00:00:00Z",
+   "task_id": "x_task_id",
+   "status": 1
+  },
+  {
+   "id": "x_id",
+   "created_at": "2026-01-01T00:00:00Z",
+   "event_time": "2026-01-01T00:00:00Z",
+   "task_id": "x_task_id",
+   "status": 2
+  }
+ ],
+ "logs": [],
+ "usage_events": [
+  {
+   "id": "x_id",
+   "short_id": "x_short_id",
+   "created_at": "2026-01-01T00:00:00Z",
+   "updated_at": "2026-01-01T00:00:00Z",
+   "deleted_at": null,
+   "user_id": "x_user_id",
+   "user": null,
+   "team_id": "x_team_id",
+   "team": null,
+   "visibility": "team",
+   "usage_billing_record_id": "x_usage_billing_record_id",
+   "reference_id": "x_reference_id",
+   "resource_id": "x_resource_id",
+   "tier": "x_tier",
+   "type": "cpu",
+   "model": "x_model",
+   "quantity": 20,
+   "unit": "x_unit"
+  }
+ ]
+}
