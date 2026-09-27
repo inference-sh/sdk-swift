@@ -166,15 +166,52 @@ public struct TasksAPI: Sendable {
     /// can't spread; the dictionary round-trip is the faithful shape.)
     private func streamUntilTerminal(_ task: TaskDTO, options: TaskRunOptions) async throws -> TaskDTO {
         var accumulated = try Self.jsonObject(task)
+        var attempts = 0
+        while true {
+            var sawLine = false
+            do {
+                if let done = try await streamOnce(task.id, &accumulated, &sawLine, options) { return done }
+                // Ended without a terminal status: reconnect like a drop.
+            } catch let error as TaskRunError {
+                throw error
+            } catch let error as InferenceError {
+                if case .http = error { throw error }  // non-2xx is not transient
+                if attempts >= options.maxReconnects { throw error }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if attempts >= options.maxReconnects { throw error }
+            }
+            attempts = sawLine ? 1 : attempts + 1  // any received line resets the budget
+            try await Task.sleep(nanoseconds: 1_000_000_000)
 
-        let (stream, status, _) = try await client.openLineStream(
-            client.request("tasks/\(task.id)/stream", method: "GET", accept: "application/x-ndjson"))
+            // Resync from the server: the task may have moved on, or finished,
+            // while the connection was down; its updates are not replayed.
+            let fresh = try await get(task.id)
+            accumulated.merge(try Self.jsonObject(fresh)) { _, new in new }
+            options.onUpdate?(fresh)
+            if let error = Self.terminalError(fresh.status, fresh.error) { throw error }
+            if fresh.status == .completed { return fresh }
+        }
+    }
+
+    /// One connection to GET /tasks/{id}/stream. Returns the task once it
+    /// completes, nil if the stream ends first; throws on transport errors
+    /// and terminal failures. The server heartbeats every 10s (go/api
+    /// base.Stream HeartbeatFreq), so 45s of silence is a dead connection:
+    /// the request's inactivity timeout surfaces it instead of a 300s hang.
+    private func streamOnce(_ taskId: String, _ accumulated: inout [String: JSONValue], _ sawLine: inout Bool,
+                            _ options: TaskRunOptions) async throws -> TaskDTO? {
+        var req = client.request("tasks/\(taskId)/stream", method: "GET", accept: "application/x-ndjson")
+        req.timeoutInterval = 45
+        let (stream, status, _) = try await client.openLineStream(req)
         defer { stream.cancel() }
         guard (200..<300).contains(status) else {
             throw InferenceError.http(status: status, body: try await stream.drain())
         }
 
         for try await line in stream.lines {
+            sawLine = true
             guard line.first == UInt8(ascii: "{"),
                   let obj = try? InferenceClient.decoder.decode([String: JSONValue].self, from: line)
             else { continue }
@@ -215,7 +252,7 @@ public struct TasksAPI: Sendable {
                 if status == .completed { return current }
             }
         }
-        throw InferenceError.transport("task stream ended before a terminal status")
+        return nil
     }
 
     /// Polls GET /tasks/{id}/status; on every status change fetches the full
