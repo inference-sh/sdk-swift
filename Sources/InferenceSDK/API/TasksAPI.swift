@@ -161,10 +161,9 @@ public struct TasksAPI: Sendable {
     private func streamUntilTerminal(_ task: TaskDTO, options: TaskRunOptions) async throws -> TaskDTO {
         var accumulated = try Self.jsonObject(task)
 
-        let stream = HTTPLineStream()
-        defer { stream.cancel() }
-        let (status, _) = try await stream.start(
+        let (stream, status, _) = try await client.openLineStream(
             client.request("tasks/\(task.id)/stream", method: "GET", accept: "application/x-ndjson"))
+        defer { stream.cancel() }
         guard (200..<300).contains(status) else {
             throw InferenceError.http(status: status, body: try await stream.drain())
         }

@@ -44,7 +44,6 @@ public extension InferenceClient {
                 // a long-lived SSE stream.
                 var req = URLRequest(url: url)
                 req.httpMethod = "GET"
-                req.setValue("Bearer \(self.apiKey)", forHTTPHeaderField: "Authorization")
                 req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
                 // For a data task this is an INACTIVITY timeout (resets on every
@@ -55,12 +54,15 @@ public extension InferenceClient {
                 // "thinking" while queued messages completed server-side unseen.
                 req.timeoutInterval = 45
 
-                let stream = HTTPLineStream()
+                // openLineStream asks `auth` for a token on every connect and
+                // retries a 401 once with a forced refresh.
+                var stream: HTTPLineStream?
                 do {
-                    let (status, _) = try await stream.start(req)
+                    let (opened, status, _) = try await self.openLineStream(req)
+                    stream = opened
                     guard (200..<300).contains(status) else {
                         // Non-2xx is not transient: surface it, do not reconnect.
-                        let body = try await stream.drain()
+                        let body = try await opened.drain()
                         throw InferenceError.http(status: status, body: String(body.prefix(2000)))
                     }
 
@@ -69,7 +71,7 @@ public extension InferenceClient {
                     var eventName = "message"
                     var dataBuffer = ""
                     var sawData = false
-                    for try await line in stream.lines {
+                    for try await line in opened.lines {
                         try Task.checkCancellation()
                         let text = String(decoding: line, as: UTF8.self)
                         if text.isEmpty {
@@ -91,16 +93,19 @@ public extension InferenceClient {
                         // id:/retry:/unknown fields ignored
                     }
                     // Stream ended without error: treat as an unexpected end and reconnect.
-                    stream.cancel()
+                    opened.cancel()
                 } catch is CancellationError {
-                    stream.cancel()
+                    stream?.cancel()
                     return
                 } catch let e as InferenceError {
-                    stream.cancel()
+                    stream?.cancel()
                     if case .http = e { throw e }  // non-2xx: no reconnect
                     lastError = e                  // transport error: reconnect
+                } catch let e as OAuthError where e.isPermanent {
+                    stream?.cancel()
+                    throw e                        // signed out: reconnecting cannot help
                 } catch {
-                    stream.cancel()
+                    stream?.cancel()
                     lastError = error              // transport error: reconnect
                 }
 

@@ -31,15 +31,32 @@ public enum InferenceError: Error, LocalizedError, Sendable {
 /// the CLIs send none either (see js/sdk-js/src/http/client.ts).
 public struct InferenceClient: Sendable {
     public var baseURL: URL
-    public var apiKey: String
+    /// Source of the bearer token for every request to `baseURL`'s host: an
+    /// API key (`StaticAuthProvider`), OAuth sign-in (`RefreshingAuthProvider`)
+    /// or your own. Asked on every request, stream connect and reconnect.
+    public var auth: any InferenceAuthProvider
     /// Called with any warnings or notices the server attached to a response.
     public var onMessage: (@Sendable ([ResponseMessage]) -> Void)?
+    /// URLSession plumbing. Internal so tests can swap in a stub.
+    var transport: HTTPTransport = .shared
 
     public init(baseURL: URL = URL(string: "https://api.inference.sh")!, apiKey: String,
                 onMessage: (@Sendable ([ResponseMessage]) -> Void)? = nil) {
+        self.init(baseURL: baseURL, auth: StaticAuthProvider(apiKey), onMessage: onMessage)
+    }
+
+    public init(baseURL: URL = URL(string: "https://api.inference.sh")!, auth: any InferenceAuthProvider,
+                onMessage: (@Sendable ([ResponseMessage]) -> Void)? = nil) {
         self.baseURL = baseURL
-        self.apiKey = apiKey
+        self.auth = auth
         self.onMessage = onMessage
+    }
+
+    /// The key when `auth` is a `StaticAuthProvider`, else "". Setting it
+    /// replaces `auth` with a `StaticAuthProvider`. Kept from 0.2.
+    public var apiKey: String {
+        get { (auth as? StaticAuthProvider)?.token ?? "" }
+        set { auth = StaticAuthProvider(newValue) }
     }
 
     // MARK: - Agents
@@ -60,9 +77,8 @@ public struct InferenceClient: Sendable {
         producerStream { continuation in
             var body = body
             body.stream = true
-            let stream = HTTPLineStream()
+            let (stream, status, contentType) = try await openLineStream(request("agents/run", accept: "application/x-ndjson", body: body))
             defer { stream.cancel() }
-            let (status, contentType) = try await stream.start(request("agents/run", accept: "application/x-ndjson", body: body))
 
             if !(200..<300).contains(status) || !contentType.contains("ndjson") {
                 let text = try await stream.drain()
@@ -115,7 +131,7 @@ public struct InferenceClient: Sendable {
     func request(_ path: String, method: String = "POST", accept: String = "application/json") -> URLRequest {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        // Authorization is added at send time (send / openLineStream), from `auth`.
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(accept, forHTTPHeaderField: "Accept")
         // One connection per call. A reused keep-alive connection that the
@@ -170,11 +186,70 @@ public struct InferenceClient: Sendable {
     /// URLs require. `retries` re-sends on transport errors only; pass it for
     /// idempotent calls (GET, presigned PUT). Linux's libcurl 7.81 resets the
     /// first connection to some hosts and succeeds on the next.
+    ///
+    /// Requests to `baseURL`'s host get `Authorization: Bearer` from `auth`;
+    /// a 401 is retried once with a forced refresh (the server rejects a bad
+    /// token in middleware, before any handler runs, so a POST is safe to
+    /// re-send). Other hosts (presigned storage PUTs, CDN downloads) never
+    /// see the token and are not retried on 401.
     func send(_ req: URLRequest, upload: Data? = nil, retries: Int = 0) async throws -> Data {
+        guard carriesAuth(req) else { return try await sendRetrying(req, upload: upload, retries: retries) }
+        var req = req
+        let token = try await auth.bearerToken(forceRefresh: false)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            return try await sendRetrying(req, upload: upload, retries: retries)
+        } catch InferenceError.http(let status, let body) where status == 401 {
+            let fresh = try await auth.bearerToken(forceRefresh: true)
+            // Same token again (API key, refresh throttled): re-sending is pointless.
+            guard fresh != token else { throw InferenceError.http(status: status, body: body) }
+            req.setValue("Bearer \(fresh)", forHTTPHeaderField: "Authorization")
+            return try await sendRetrying(req, upload: upload, retries: retries)
+        }
+    }
+
+    /// Starts `req` on a fresh HTTPLineStream with a bearer token from
+    /// `auth`. A 401 on connect is retried once with a forced refresh; if the
+    /// provider hands back the same token the 401 is thrown as
+    /// `InferenceError.http`. The caller owns and cancels the returned stream.
+    func openLineStream(_ req: URLRequest) async throws
+        -> (stream: HTTPLineStream, status: Int, contentType: String) {
+        var req = req
+        let first = try await auth.bearerToken(forceRefresh: false)
+        req.setValue("Bearer \(first)", forHTTPHeaderField: "Authorization")
+        let stream = HTTPLineStream(router: transport.lineRouter)
+        let (status, contentType) = try await startOrCancel(stream, req)
+        guard status == 401 else { return (stream, status, contentType) }
+
+        let body = (try? await stream.drain()) ?? ""
+        stream.cancel()
+        let fresh = try await auth.bearerToken(forceRefresh: true)
+        guard fresh != first else { throw InferenceError.http(status: status, body: String(body.prefix(2000))) }
+        req.setValue("Bearer \(fresh)", forHTTPHeaderField: "Authorization")
+        let retry = HTTPLineStream(router: transport.lineRouter)
+        let (retryStatus, retryType) = try await startOrCancel(retry, req)
+        return (retry, retryStatus, retryType)
+    }
+
+    private func startOrCancel(_ stream: HTTPLineStream, _ req: URLRequest) async throws -> (Int, String) {
+        do { return try await stream.start(req) } catch { stream.cancel(); throw error }
+    }
+
+    /// Same scheme, host and port as `baseURL`.
+    func carriesAuth(_ req: URLRequest) -> Bool {
+        guard let url = req.url else { return false }
+        return url.scheme == baseURL.scheme && url.host == baseURL.host && url.port == baseURL.port
+    }
+
+    private func sendRetrying(_ req: URLRequest, upload: Data?, retries: Int) async throws -> Data {
         var attempt = 0
         while true {
             do {
-                return try await sendOnce(req, upload: upload)
+                let (data, status) = try await transport.perform(req, upload: upload)
+                guard (200..<300).contains(status) else {
+                    throw InferenceError.http(status: status, body: String(decoding: data.prefix(2000), as: UTF8.self))
+                }
+                return data
             } catch InferenceError.transport(let msg) where attempt < retries && !Task.isCancelled {
                 attempt += 1
                 if ProcessInfo.processInfo.environment["INFERENCE_DEBUG"] != nil {
@@ -183,30 +258,51 @@ public struct InferenceClient: Sendable {
             }
         }
     }
+}
 
-    private func sendOnce(_ req: URLRequest, upload: Data?) async throws -> Data {
+/// The URLSessions every request goes through: `session` for one-shot calls,
+/// `lineRouter` for streams. `.shared` in production; tests build one with
+/// stub URLProtocol classes (URLProtocol.registerClass only reaches
+/// URLSession.shared on Apple platforms, not the delegate session streams use).
+final class HTTPTransport: @unchecked Sendable {
+    static let shared = HTTPTransport(session: .shared, lineRouter: .shared)
+
+    let session: URLSession
+    let lineRouter: LineSessionRouter
+
+    init(session: URLSession, lineRouter: LineSessionRouter) {
+        self.session = session
+        self.lineRouter = lineRouter
+    }
+
+    convenience init(protocolClasses: [AnyClass]) {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = protocolClasses
+        self.init(session: URLSession(configuration: config), lineRouter: LineSessionRouter(configuration: config))
+    }
+
+    /// One request, any status. Throws `InferenceError.transport` on
+    /// connection failure; cancels the URL task on Swift task cancellation.
+    func perform(_ req: URLRequest, upload: Data?) async throws -> (Data, Int) {
         if ProcessInfo.processInfo.environment["INFERENCE_DEBUG"] != nil {
             FileHandle.standardError.write(Data("→ \(req.httpMethod ?? "") \(req.url?.absoluteString ?? "") \(upload?.count ?? req.httpBody?.count ?? 0)B\n".utf8))
         }
         let box = TaskBox()
-        let (data, status): (Data, Int) = try await withTaskCancellationHandler {
+        let session = self.session
+        return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { c in
                 let handler: @Sendable (Data?, URLResponse?, Error?) -> Void = { data, resp, err in
                     if let err { c.resume(throwing: InferenceError.transport(err.localizedDescription)); return }
                     c.resume(returning: (data ?? Data(), (resp as? HTTPURLResponse)?.statusCode ?? 0))
                 }
-                let task: URLSessionTask = upload.map { URLSession.shared.uploadTask(with: req, from: $0, completionHandler: handler) }
-                    ?? URLSession.shared.dataTask(with: req, completionHandler: handler)
+                let task: URLSessionTask = upload.map { session.uploadTask(with: req, from: $0, completionHandler: handler) }
+                    ?? session.dataTask(with: req, completionHandler: handler)
                 box.task = task
                 task.resume()
             }
         } onCancel: {
             box.task?.cancel()
         }
-        guard (200..<300).contains(status) else {
-            throw InferenceError.http(status: status, body: String(decoding: data.prefix(2000), as: UTF8.self))
-        }
-        return data
     }
 }
 
@@ -499,14 +595,15 @@ final class HTTPLineStream: @unchecked Sendable {
     private var buffer = Data()
     private var headerContinuation: CheckedContinuation<(Int, String), Error>?
     private var task: URLSessionDataTask?
+    private let router: LineSessionRouter
 
-    init() {
+    init(router: LineSessionRouter = .shared) {
+        self.router = router
         (lines, lineContinuation) = AsyncThrowingStream.makeStream(of: Data.self)
     }
 
     /// Starts the request and resolves with (status, content-type) once headers arrive.
     func start(_ request: URLRequest) async throws -> (Int, String) {
-        let router = LineSessionRouter.shared
         let task = router.session.dataTask(with: request)
         self.task = task
         router.register(self, for: task)
@@ -560,7 +657,12 @@ final class HTTPLineStream: @unchecked Sendable {
 final class LineSessionRouter: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     static let shared = LineSessionRouter()
 
-    private(set) lazy var session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+    private let configuration: URLSessionConfiguration
+    private(set) lazy var session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+
+    init(configuration: URLSessionConfiguration = .default) {
+        self.configuration = configuration
+    }
     private let lock = NSLock()
     private var sinks: [Int: HTTPLineStream] = [:]
 
