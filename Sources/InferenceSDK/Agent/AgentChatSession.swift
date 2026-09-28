@@ -293,7 +293,7 @@ public final class AgentChatSession {
     /// Fetch the chat and, since Chat.Get no longer preloads messages, its
     /// first message page. Shared by the stream and poll paths.
     private func loadChat(_ id: String) async throws -> (chat: ChatDTO, cursor: String?, hasOlder: Bool?)? {
-        let chat = try await client.chats.get(id)
+        var chat = try await client.chats.get(id)
         var cursor: String?
         var hasOlder: Bool?
         if chat.chatMessages?.isEmpty ?? true {
