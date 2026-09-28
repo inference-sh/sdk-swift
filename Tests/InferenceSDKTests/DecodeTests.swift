@@ -211,4 +211,13 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(result.id, "t1")
         XCTAssertThrowsError(try InferenceClient.decoder.decode(TaskDTO.self, from: Data(json.utf8)))
     }
+
+    /// Generated DTOs box their nested structs (gotypegen @Indirect), so they
+    /// stay small. Stored inline, ChatDTO was 7.7 KB and the chat reducer
+    /// overflowed the Apple Watch main thread's stack.
+    func testGeneratedTypesStaySmall() {
+        XCTAssertLessThan(MemoryLayout<ChatDTO>.size, 1024)
+        XCTAssertLessThan(MemoryLayout<ChatMessageDTO>.size, 1024)
+        XCTAssertLessThan(MemoryLayout<AgentChatState>.size, 1024)
+    }
 }

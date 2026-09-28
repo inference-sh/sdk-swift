@@ -8,7 +8,7 @@
 //   busy/idle/awaiting_input/completed status).
 // - SET_CHAT: js reads pagination bookkeeping off hidden fields the client
 //   stuffs onto the DTO (`(chat as any)._messageCursor` /
-//   `._hasOlderMessages`). ChatDTO is a fixed class with no expando props,
+//   `._hasOlderMessages`). ChatDTO is a fixed type with no expando props,
 //   so setChat clears the cursor state (as js does when the hidden fields
 //   are absent) and the caller follows up with a prependMessages carrying
 //   no messages to seed cursor/hasMore (see AgentChatSession.setChat).
@@ -16,10 +16,6 @@
 //   (`{ ...existing, ...message }`). The Swift stream layer decodes partials
 //   into whole `ChatMessageDTO`s, so the faithful port is replace-if-exists /
 //   drop-if-new (a partial for an unknown id is dropped, as in js).
-// - UPDATE_ACTIVE_RUN: js builds a new chat object (`{ ...state.chat, ... }`).
-//   ChatDTO is a class (reference semantics), so the shared instance is
-//   mutated in place and the returned state holds the same reference —
-//   observers comparing object identity will not see a new chat.
 // - DELTA_TOKEN: js spreads the target's `content` and would throw if it were
 //   undefined; here nil content is treated as an empty array.
 
@@ -126,9 +122,7 @@ func deriveChatStatus(_ run: AgentRunDTO?) -> ChatStatus {
     return .idle
 }
 
-/// js reducer.ts chatReducer(). Pure function: returns a new state value
-/// (but see the UPDATE_ACTIVE_RUN divergence in the header — ChatDTO is a
-/// class and is mutated in place there).
+/// js reducer.ts chatReducer(). Pure function: returns a new state value.
 public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentChatState {
     switch action {
     case .setChatId(let chatId):
@@ -162,9 +156,8 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         return next
 
     case .updateActiveRun(let run):
-        guard let chat = state.chat else { return state }
-        // js: { ...state.chat, active_run, status } — here the shared ChatDTO
-        // instance is mutated (reference semantics, see header).
+        guard var chat = state.chat else { return state }
+        // js: { ...state.chat, active_run, status } (ChatDTO is a value type)
         chat.activeRun = run
         chat.status = deriveChatStatus(run)
         var next = state
