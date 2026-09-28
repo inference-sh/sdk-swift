@@ -9,7 +9,10 @@ import FoundationNetworking
 #endif
 
 /// One decoded event off the chat stream.
-public enum ChatStreamEvent: Sendable {
+/// Not Sendable: it carries generated DTOs, and ChatDTO is a class (the
+/// generator emits recursive types as classes with mutable properties), so
+/// the claim would be false. Sendable DTOs belong in gotypegen.
+public enum ChatStreamEvent {
     case chat(ChatDTO)
     case message(ChatMessageDTO, fields: [String]?)   // fields != nil => partial update
     case run(AgentRunDTO)
