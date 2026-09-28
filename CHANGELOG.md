@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- `ChatStreamEvent` no longer declares `Sendable`. It carries generated DTOs, and `ChatDTO` is a class with mutable properties, so the conformance was false and warned in every consumer build (an error in Swift 6 mode).
+
 ## 0.5.1
 
 - `tasks.run` survives a dropped task stream: it reconnects (up to `maxReconnects`, the budget resets whenever a line arrives), resyncs the task with `GET /tasks/{id}` after each drop and returns if it finished meanwhile. The stream request times out after 45s of silence (the server heartbeats every 10s) instead of the default 300s, so a dead connection no longer leaves a run looking stuck.
