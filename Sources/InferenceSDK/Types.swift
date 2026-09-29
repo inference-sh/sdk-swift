@@ -116,8 +116,9 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var hostContext: Bool?
     public var meta: Bool?
     public var artifact: Bool?
-    public var spawn: Bool?
+    public var agent: Bool?
     public var remote: Bool?
+    public var knowledge: Bool?
 
     public init(
         plan: Bool? = nil,
@@ -128,8 +129,9 @@ public struct InternalToolsConfig: Codable, Sendable {
         hostContext: Bool? = nil,
         meta: Bool? = nil,
         artifact: Bool? = nil,
-        spawn: Bool? = nil,
-        remote: Bool? = nil
+        agent: Bool? = nil,
+        remote: Bool? = nil,
+        knowledge: Bool? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -139,8 +141,9 @@ public struct InternalToolsConfig: Codable, Sendable {
         self.hostContext = hostContext
         self.meta = meta
         self.artifact = artifact
-        self.spawn = spawn
+        self.agent = agent
         self.remote = remote
+        self.knowledge = knowledge
     }
 
     enum CodingKeys: String, CodingKey {
@@ -152,8 +155,9 @@ public struct InternalToolsConfig: Codable, Sendable {
         case hostContext = "host_context"
         case meta = "meta"
         case artifact = "artifact"
-        case spawn = "spawn"
+        case agent = "agent"
         case remote = "remote"
+        case knowledge = "knowledge"
     }
 }
 
