@@ -8769,8 +8769,6 @@ public struct OrgDTO: Codable, Sendable {
     public var name: String
     public var avatarUrl: String?
     public var defaultTeamId: String?
-    /// UsagePolicyID of the org's usage policy ('' = ungoverned, INF-808).
-    public var usagePolicyId: String?
     /// IsAdmin: whether the CALLER is on this org's admin grant list. Set on
     /// caller-scoped responses.
     public var isAdmin: Bool?
@@ -8785,7 +8783,6 @@ public struct OrgDTO: Codable, Sendable {
         name: String = "",
         avatarUrl: String? = nil,
         defaultTeamId: String? = nil,
-        usagePolicyId: String? = nil,
         isAdmin: Bool? = nil
     ) {
         self.id = id
@@ -8797,7 +8794,6 @@ public struct OrgDTO: Codable, Sendable {
         self.name = name
         self.avatarUrl = avatarUrl
         self.defaultTeamId = defaultTeamId
-        self.usagePolicyId = usagePolicyId
         self.isAdmin = isAdmin
     }
 
@@ -8811,7 +8807,6 @@ public struct OrgDTO: Codable, Sendable {
         case name = "name"
         case avatarUrl = "avatar_url"
         case defaultTeamId = "default_team_id"
-        case usagePolicyId = "usage_policy_id"
         case isAdmin = "is_admin"
     }
 }
