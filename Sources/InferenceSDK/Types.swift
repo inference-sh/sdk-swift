@@ -13081,9 +13081,11 @@ public struct ChatMessageRole: RawRepresentable, Codable, Hashable, Sendable {
     public static let tool = ChatMessageRole(rawValue: "tool")
     /// Internal bookkeeping roles — never sent to the LLM provider.
     /// BuildContext folds injections into the user turn and replaces
-    /// compaction markers with their summary.
+    /// compaction markers with their summary. Event messages are display-only
+    /// system info (a hook ran, ...) and BuildContext skips them.
     public static let injection = ChatMessageRole(rawValue: "injection")
     public static let compaction = ChatMessageRole(rawValue: "compaction")
+    public static let event = ChatMessageRole(rawValue: "event")
 }
 
 public struct ChatMessageStatus: RawRepresentable, Codable, Hashable, Sendable {
@@ -13106,6 +13108,7 @@ public struct ChatMessageContentType: RawRepresentable, Codable, Hashable, Senda
     public static let image = ChatMessageContentType(rawValue: "image")
     public static let file = ChatMessageContentType(rawValue: "file")
     public static let tool = ChatMessageContentType(rawValue: "tool")
+    public static let event = ChatMessageContentType(rawValue: "event")
 }
 
 public struct ChannelType: RawRepresentable, Codable, Hashable, Sendable {
@@ -13180,6 +13183,7 @@ public struct ChatMessageContent: Codable, Sendable {
     public var image: String?
     public var file: String?
     public var toolCalls: [ToolCall]?
+    @Indirect public var event: ChatEvent?
 
     public init(
         type: ChatMessageContentType,
@@ -13187,7 +13191,8 @@ public struct ChatMessageContent: Codable, Sendable {
         text: String? = nil,
         image: String? = nil,
         file: String? = nil,
-        toolCalls: [ToolCall]? = nil
+        toolCalls: [ToolCall]? = nil,
+        event: ChatEvent? = nil
     ) {
         self.type = type
         self.error = error
@@ -13195,6 +13200,7 @@ public struct ChatMessageContent: Codable, Sendable {
         self.image = image
         self.file = file
         self.toolCalls = toolCalls
+        self.event = event
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13204,6 +13210,79 @@ public struct ChatMessageContent: Codable, Sendable {
         case image = "image"
         case file = "file"
         case toolCalls = "tool_calls"
+        case event = "event"
+    }
+}
+
+public struct ChatEventType: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let hook = ChatEventType(rawValue: "hook")
+}
+
+/// ChatEvent is the payload of an event-role message: system info shown in the
+/// chat but never sent to the model.
+public struct ChatEvent: Codable, Sendable {
+    public var type: ChatEventType
+    @Indirect public var hook: ChatHookEvent?
+
+    public init(
+        type: ChatEventType,
+        hook: ChatHookEvent? = nil
+    ) {
+        self.type = type
+        self.hook = hook
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case hook = "hook"
+    }
+}
+
+/// ChatHookEvent records one lifecycle hook handler run.
+public struct ChatHookEvent: Codable, Sendable {
+    public var event: HookEvent
+    public var handlerType: HookHandlerType
+    /// Handler names what ran: the builtin or agent ref, or a webhook's host
+    /// (never its full URL, which can carry credentials).
+    public var handler: String
+    public var decision: HookDecision?
+    public var reason: String?
+    public var injected: Bool?
+    public var error: String?
+    public var durationMs: Int
+
+    public init(
+        event: HookEvent,
+        handlerType: HookHandlerType,
+        handler: String = "",
+        decision: HookDecision? = nil,
+        reason: String? = nil,
+        injected: Bool? = nil,
+        error: String? = nil,
+        durationMs: Int = 0
+    ) {
+        self.event = event
+        self.handlerType = handlerType
+        self.handler = handler
+        self.decision = decision
+        self.reason = reason
+        self.injected = injected
+        self.error = error
+        self.durationMs = durationMs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case event = "event"
+        case handlerType = "handler_type"
+        case handler = "handler"
+        case decision = "decision"
+        case reason = "reason"
+        case injected = "injected"
+        case error = "error"
+        case durationMs = "duration_ms"
     }
 }
 
