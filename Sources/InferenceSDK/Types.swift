@@ -15435,7 +15435,16 @@ public struct BuiltinHook: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
+    /// BuiltinHookBeltSuggest searches the team's skills, knowledge and apps
+    /// for what the turn is about and injects the matches, so an agent picks up
+    /// procedural knowledge it was never prompted with.
     public static let beltSuggest = BuiltinHook(rawValue: "belt:suggest")
+    /// BuiltinHookBeltExtract reviews the conversation for reusable knowledge
+    /// and saves it to the team's registry, deduplicated against what is
+    /// there, so belt:suggest can hand it back later. It runs in the
+    /// background: on agent.complete every tenth user turn, and before
+    /// compaction drops the turns it would have learned from.
+    public static let beltExtract = BuiltinHook(rawValue: "belt:extract")
 }
 
 /// BuiltinHookDefinition describes a builtin hook and where it may be used.
