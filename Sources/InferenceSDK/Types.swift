@@ -2641,7 +2641,8 @@ public struct ApiKeyDTO: Codable, Sendable {
     public var visibility: Visibility
     public var name: String
     public var key: String
-    public var lastUsedAt: String
+    /// LastUsedAt is absent for a key that has never been used.
+    public var lastUsedAt: String?
     public var expiresAt: String?
     public var scopes: [Scope]?
     public var source: String?
@@ -2666,7 +2667,7 @@ public struct ApiKeyDTO: Codable, Sendable {
         visibility: Visibility,
         name: String = "",
         key: String = "",
-        lastUsedAt: String = "",
+        lastUsedAt: String? = nil,
         expiresAt: String? = nil,
         scopes: [Scope]? = nil,
         source: String? = nil,
