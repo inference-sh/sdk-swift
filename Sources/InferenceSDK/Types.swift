@@ -113,6 +113,8 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var widget: Bool?
     public var finish: Bool?
     public var skills: Bool?
+    /// Deprecated: ignored. Host context is disabled until embed context has a
+    /// replacement; agents are never offered get_host_context or send_to_host.
     public var hostContext: Bool?
     public var meta: Bool?
     public var artifact: Bool?
@@ -7060,6 +7062,7 @@ public struct InstanceDTO: Codable, Sendable {
     public var status: InstanceStatus
     public var costEstimate: String
     public var hourlyPrice: Int
+    public var rentalType: InstanceRentalType?
     public var templateId: String?
     public var volumeIds: [String]?
     public var tags: [String]?
@@ -7096,6 +7099,7 @@ public struct InstanceDTO: Codable, Sendable {
         status: InstanceStatus,
         costEstimate: String = "",
         hourlyPrice: Int = 0,
+        rentalType: InstanceRentalType? = nil,
         templateId: String? = nil,
         volumeIds: [String]? = nil,
         tags: [String]? = nil,
@@ -7131,6 +7135,7 @@ public struct InstanceDTO: Codable, Sendable {
         self.status = status
         self.costEstimate = costEstimate
         self.hourlyPrice = hourlyPrice
+        self.rentalType = rentalType
         self.templateId = templateId
         self.volumeIds = volumeIds
         self.tags = tags
@@ -7168,6 +7173,7 @@ public struct InstanceDTO: Codable, Sendable {
         case status = "status"
         case costEstimate = "cost_estimate"
         case hourlyPrice = "hourly_price"
+        case rentalType = "rental_type"
         case templateId = "template_id"
         case volumeIds = "volume_ids"
         case tags = "tags"
@@ -7199,6 +7205,9 @@ public struct InstanceTypeDTO: Codable, Sendable {
     public var cloudInstanceType: String
     public var deploymentType: InstanceTypeDeploymentType
     public var hourlyPrice: Int
+    /// RentalType is set on engine-picker offers: Region and HourlyPrice are
+    /// for this rental type. Empty on the raw catalog.
+    public var rentalType: InstanceRentalType?
     @Indirect public var configuration: InstanceTypeConfiguration?
     public var availability: [InstanceTypeAvailability]?
     @Indirect public var bootTime: InstanceTypeBootTime?
@@ -7221,6 +7230,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         cloudInstanceType: String = "",
         deploymentType: InstanceTypeDeploymentType,
         hourlyPrice: Int = 0,
+        rentalType: InstanceRentalType? = nil,
         configuration: InstanceTypeConfiguration? = nil,
         availability: [InstanceTypeAvailability]? = nil,
         bootTime: InstanceTypeBootTime? = nil
@@ -7242,6 +7252,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         self.cloudInstanceType = cloudInstanceType
         self.deploymentType = deploymentType
         self.hourlyPrice = hourlyPrice
+        self.rentalType = rentalType
         self.configuration = configuration
         self.availability = availability
         self.bootTime = bootTime
@@ -7265,6 +7276,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         case cloudInstanceType = "cloud_instance_type"
         case deploymentType = "deployment_type"
         case hourlyPrice = "hourly_price"
+        case rentalType = "rental_type"
         case configuration = "configuration"
         case availability = "availability"
         case bootTime = "boot_time"
@@ -7324,18 +7336,27 @@ public struct InstanceTypeConfiguration: Codable, Sendable {
 public struct InstanceTypeAvailability: Codable, Sendable {
     public var available: Bool
     public var region: String
+    public var rentalType: InstanceRentalType?
+    /// HourlyPrice is the spot price in cents, set on spot entries only.
+    public var hourlyPrice: Int?
 
     public init(
         available: Bool = false,
-        region: String = ""
+        region: String = "",
+        rentalType: InstanceRentalType? = nil,
+        hourlyPrice: Int? = nil
     ) {
         self.available = available
         self.region = region
+        self.rentalType = rentalType
+        self.hourlyPrice = hourlyPrice
     }
 
     enum CodingKeys: String, CodingKey {
         case available = "available"
         case region = "region"
+        case rentalType = "rental_type"
+        case hourlyPrice = "hourly_price"
     }
 }
 
@@ -14189,6 +14210,16 @@ public struct InstanceTypeDeploymentType: RawRepresentable, Codable, Hashable, S
     public static let vm = InstanceTypeDeploymentType(rawValue: "vm")
     public static let container = InstanceTypeDeploymentType(rawValue: "container")
     public static let baremetal = InstanceTypeDeploymentType(rawValue: "baremetal")
+}
+
+/// InstanceRentalType is how a Shadeform instance is rented. Spot is discounted
+/// but can be reclaimed at any time.
+public struct InstanceRentalType: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let onDemand = InstanceRentalType(rawValue: "on_demand")
+    public static let spot = InstanceRentalType(rawValue: "spot")
 }
 
 public struct AppSessionStatus: RawRepresentable, Codable, Hashable, Sendable {
