@@ -7208,6 +7208,9 @@ public struct InstanceTypeDTO: Codable, Sendable {
     /// RentalType is set on engine-picker offers: Region and HourlyPrice are
     /// for this rental type. Empty on the raw catalog.
     public var rentalType: InstanceRentalType?
+    /// Options lists every in-stock provider for an engine-picker offer,
+    /// cheapest first; the offer itself is the first one. Empty on the raw catalog.
+    public var options: [InstanceTypeOptionDTO]?
     @Indirect public var configuration: InstanceTypeConfiguration?
     public var availability: [InstanceTypeAvailability]?
     @Indirect public var bootTime: InstanceTypeBootTime?
@@ -7231,6 +7234,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         deploymentType: InstanceTypeDeploymentType,
         hourlyPrice: Int = 0,
         rentalType: InstanceRentalType? = nil,
+        options: [InstanceTypeOptionDTO]? = nil,
         configuration: InstanceTypeConfiguration? = nil,
         availability: [InstanceTypeAvailability]? = nil,
         bootTime: InstanceTypeBootTime? = nil
@@ -7253,6 +7257,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         self.deploymentType = deploymentType
         self.hourlyPrice = hourlyPrice
         self.rentalType = rentalType
+        self.options = options
         self.configuration = configuration
         self.availability = availability
         self.bootTime = bootTime
@@ -7277,6 +7282,7 @@ public struct InstanceTypeDTO: Codable, Sendable {
         case deploymentType = "deployment_type"
         case hourlyPrice = "hourly_price"
         case rentalType = "rental_type"
+        case options = "options"
         case configuration = "configuration"
         case availability = "availability"
         case bootTime = "boot_time"
@@ -7356,6 +7362,68 @@ public struct InstanceTypeAvailability: Codable, Sendable {
         case available = "available"
         case region = "region"
         case rentalType = "rental_type"
+        case hourlyPrice = "hourly_price"
+    }
+}
+
+/// InstanceTypeOptionDTO is one launchable provider behind an engine-picker
+/// offer. Launch with its cloud and shade_instance_type, one of its regions and
+/// the offer's rental_type.
+public struct InstanceTypeOptionDTO: Codable, Sendable {
+    public var cloud: InstanceCloudProvider
+    public var cloudLogoUrl: String?
+    public var shadeInstanceType: String
+    public var cloudInstanceType: String
+    /// cents, cheapest region
+    public var hourlyPrice: Int
+    @Indirect public var configuration: InstanceTypeConfiguration?
+    public var regions: [InstanceTypeOptionRegion]?
+
+    public init(
+        cloud: InstanceCloudProvider,
+        cloudLogoUrl: String? = nil,
+        shadeInstanceType: String = "",
+        cloudInstanceType: String = "",
+        hourlyPrice: Int = 0,
+        configuration: InstanceTypeConfiguration? = nil,
+        regions: [InstanceTypeOptionRegion]? = nil
+    ) {
+        self.cloud = cloud
+        self.cloudLogoUrl = cloudLogoUrl
+        self.shadeInstanceType = shadeInstanceType
+        self.cloudInstanceType = cloudInstanceType
+        self.hourlyPrice = hourlyPrice
+        self.configuration = configuration
+        self.regions = regions
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case cloud = "cloud"
+        case cloudLogoUrl = "cloud_logo_url"
+        case shadeInstanceType = "shade_instance_type"
+        case cloudInstanceType = "cloud_instance_type"
+        case hourlyPrice = "hourly_price"
+        case configuration = "configuration"
+        case regions = "regions"
+    }
+}
+
+/// InstanceTypeOptionRegion is an in-stock region and its hourly price in
+/// cents. Spot prices can differ by region.
+public struct InstanceTypeOptionRegion: Codable, Sendable {
+    public var region: String
+    public var hourlyPrice: Int
+
+    public init(
+        region: String = "",
+        hourlyPrice: Int = 0
+    ) {
+        self.region = region
+        self.hourlyPrice = hourlyPrice
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case region = "region"
         case hourlyPrice = "hourly_price"
     }
 }
