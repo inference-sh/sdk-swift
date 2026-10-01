@@ -1933,19 +1933,31 @@ public struct MeResponse: Codable, Sendable {
     /// governance and capabilities (GET /teams/{id}/view).
     @Indirect public var teamView: TeamViewDTO?
     @Indirect public var diagnostics: DiagnosticsConfig?
+    /// PersonalTeamID is the caller's personal workspace, empty for a managed
+    /// account, which has none.
+    public var personalTeamId: String?
+    /// NeedsUsername: the caller has not chosen a username yet (their
+    /// personal workspace's setup is incomplete). Every new account picks one
+    /// before landing, whichever team it lands in (an invite's included), via
+    /// POST /teams/{personal_team_id}/complete-setup.
+    public var needsUsername: Bool
 
     public init(
         user: UserDTO? = nil,
         team: TeamDTO? = nil,
         org: OrgDTO? = nil,
         teamView: TeamViewDTO? = nil,
-        diagnostics: DiagnosticsConfig? = nil
+        diagnostics: DiagnosticsConfig? = nil,
+        personalTeamId: String? = nil,
+        needsUsername: Bool = false
     ) {
         self.user = user
         self.team = team
         self.org = org
         self.teamView = teamView
         self.diagnostics = diagnostics
+        self.personalTeamId = personalTeamId
+        self.needsUsername = needsUsername
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1954,6 +1966,8 @@ public struct MeResponse: Codable, Sendable {
         case org = "org"
         case teamView = "team_view"
         case diagnostics = "diagnostics"
+        case personalTeamId = "personal_team_id"
+        case needsUsername = "needs_username"
     }
 }
 
@@ -2309,21 +2323,27 @@ public struct CreateApiKeyRequest: Codable, Sendable {
     public var name: String
     public var expiresAt: String?
     public var scopes: [String]?
+    /// Scope is who the key acts as. Empty means user (a personal key);
+    /// workspace requires manage_keys.
+    public var scope: ApiKeyScope?
 
     public init(
         name: String = "",
         expiresAt: String? = nil,
-        scopes: [String]? = nil
+        scopes: [String]? = nil,
+        scope: ApiKeyScope? = nil
     ) {
         self.name = name
         self.expiresAt = expiresAt
         self.scopes = scopes
+        self.scope = scope
     }
 
     enum CodingKeys: String, CodingKey {
         case name = "name"
         case expiresAt = "expires_at"
         case scopes = "scopes"
+        case scope = "scope"
     }
 }
 
@@ -2625,6 +2645,13 @@ public struct ApiKeyDTO: Codable, Sendable {
     public var expiresAt: String?
     public var scopes: [Scope]?
     public var source: String?
+    /// Scope is who the key acts as: its creator (user) or the workspace.
+    public var scope: ApiKeyScope
+    /// CreatedBy is the person who created the key; Creator is that person,
+    /// set on lists. On a workspace key user_id is the workspace's service
+    /// account, so these are what show who made it.
+    public var createdBy: String
+    @Indirect public var creator: TeamMemberUserDTO?
 
     public init(
         id: String = "",
@@ -2642,7 +2669,10 @@ public struct ApiKeyDTO: Codable, Sendable {
         lastUsedAt: String = "",
         expiresAt: String? = nil,
         scopes: [Scope]? = nil,
-        source: String? = nil
+        source: String? = nil,
+        scope: ApiKeyScope,
+        createdBy: String = "",
+        creator: TeamMemberUserDTO? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -2660,6 +2690,9 @@ public struct ApiKeyDTO: Codable, Sendable {
         self.expiresAt = expiresAt
         self.scopes = scopes
         self.source = source
+        self.scope = scope
+        self.createdBy = createdBy
+        self.creator = creator
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2679,6 +2712,9 @@ public struct ApiKeyDTO: Codable, Sendable {
         case expiresAt = "expires_at"
         case scopes = "scopes"
         case source = "source"
+        case scope = "scope"
+        case createdBy = "created_by"
+        case creator = "creator"
     }
 }
 
@@ -5875,6 +5911,19 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
     /// usage policy. The message names who to ask.
     public static let blockedByUsagePolicy = ErrorCode(rawValue: "blocked_by_usage_policy")
+    /// ErrorCodeLastOwner (400): the change would leave a team (or an org's
+    /// workspace) without an owner.
+    public static let lastOwner = ErrorCode(rawValue: "last_owner")
+    /// ErrorCodeAccountDeactivated (403): an org deactivated this managed
+    /// account; sign-in and every request are refused until an org admin
+    /// reactivates it. ErrorCodeAccountBanned (403): the platform suspended
+    /// the account.
+    public static let accountDeactivated = ErrorCode(rawValue: "account_deactivated")
+    public static let accountBanned = ErrorCode(rawValue: "account_banned")
+    /// ErrorCodePersonRequired (403): only a person may do this, and the
+    /// caller is a workspace's service account (a workspace API key), or the
+    /// account is one and cannot sign in.
+    public static let personRequired = ErrorCode(rawValue: "person_required")
     public static let otpRequired = ErrorCode(rawValue: "otp_required")
     public static let mcpAuthExpired = ErrorCode(rawValue: "mcp_auth_expired")
     /// Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
@@ -11779,6 +11828,10 @@ public struct TeamDTO: Codable, Sendable {
     public var role: TeamRole?
     /// OrgID of the org this team belongs to ('' = standalone team).
     public var orgId: String?
+    /// OrgName is that org's display name (its workspace's name), set on the
+    /// caller's team list (/teams) so a member of one of its teams sees whose
+    /// org it is without belonging to the org workspace.
+    public var orgName: String?
     /// UsagePolicyID of the team's own usage policy ('' = inherit the org's,
     /// or ungoverned when standalone, INF-808).
     public var usagePolicyId: String?
@@ -11799,6 +11852,7 @@ public struct TeamDTO: Codable, Sendable {
         status: TeamStatus,
         role: TeamRole? = nil,
         orgId: String? = nil,
+        orgName: String? = nil,
         usagePolicyId: String? = nil
     ) {
         self.id = id
@@ -11816,6 +11870,7 @@ public struct TeamDTO: Codable, Sendable {
         self.status = status
         self.role = role
         self.orgId = orgId
+        self.orgName = orgName
         self.usagePolicyId = usagePolicyId
     }
 
@@ -11835,6 +11890,7 @@ public struct TeamDTO: Codable, Sendable {
         case status = "status"
         case role = "role"
         case orgId = "org_id"
+        case orgName = "org_name"
         case usagePolicyId = "usage_policy_id"
     }
 }
@@ -12487,6 +12543,9 @@ public struct UserDTO: Codable, Sendable {
     /// ManagedByOrgID: set for enterprise-managed accounts (no personal team,
     /// cannot create teams/orgs).
     public var managedByOrgId: String?
+    /// ServiceTeamID: set on a workspace's service account, the principal its
+    /// workspace API keys act as.
+    public var serviceTeamId: String?
     public var email: String
     public var name: String
     public var fullName: String
@@ -12505,6 +12564,7 @@ public struct UserDTO: Codable, Sendable {
         defaultTeamId: String = "",
         role: Role,
         managedByOrgId: String? = nil,
+        serviceTeamId: String? = nil,
         email: String = "",
         name: String = "",
         fullName: String = "",
@@ -12522,6 +12582,7 @@ public struct UserDTO: Codable, Sendable {
         self.defaultTeamId = defaultTeamId
         self.role = role
         self.managedByOrgId = managedByOrgId
+        self.serviceTeamId = serviceTeamId
         self.email = email
         self.name = name
         self.fullName = fullName
@@ -12541,6 +12602,7 @@ public struct UserDTO: Codable, Sendable {
         case defaultTeamId = "default_team_id"
         case role = "role"
         case managedByOrgId = "managed_by_org_id"
+        case serviceTeamId = "service_team_id"
         case email = "email"
         case name = "name"
         case fullName = "full_name"
@@ -13010,6 +13072,22 @@ public struct A2UISurface: Codable, Sendable {
         case components = "components"
         case dataModel = "dataModel"
     }
+}
+
+/// ApiKeyScope is who an API key acts as, chosen when it is created, the way a
+/// credential's scope says who owns it.
+public struct ApiKeyScope: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// ApiKeyScopeUser is a personal key: it acts as the person who created it,
+    /// in the workspace it was created in, and ends when they can no longer
+    /// act there. Device-auth, `belt auth token`, OAuth and engine keys are
+    /// always personal.
+    public static let user = ApiKeyScope(rawValue: "user")
+    /// ApiKeyScopeWorkspace is a workspace key: it acts as the workspace's
+    /// service account, not a person, and outlives the admin who created it.
+    public static let workspace = ApiKeyScope(rawValue: "workspace")
 }
 
 public struct AppCategory: RawRepresentable, Codable, Hashable, Sendable {
@@ -14893,8 +14971,15 @@ public struct TeamCapability: RawRepresentable, Codable, Hashable, Sendable {
 
     public static let editProfile = TeamCapability(rawValue: "edit_profile")
     public static let manageMembers = TeamCapability(rawValue: "manage_members")
+    /// ManageAdmins: granting, changing and removing the admin and owner
+    /// roles. Owners only; admins manage plain members.
+    public static let manageAdmins = TeamCapability(rawValue: "manage_admins")
     public static let viewMembers = TeamCapability(rawValue: "view_members")
+    /// ManageKeys: the workspace's keys. Creating workspace keys, and listing
+    /// and revoking every key of the workspace, whoever created it.
     public static let manageKeys = TeamCapability(rawValue: "manage_keys")
+    /// CreateKeys: creating, listing and revoking your own personal keys.
+    public static let createKeys = TeamCapability(rawValue: "create_keys")
     public static let manageVault = TeamCapability(rawValue: "manage_vault")
     public static let viewBilling = TeamCapability(rawValue: "view_billing")
     public static let manageBilling = TeamCapability(rawValue: "manage_billing")
