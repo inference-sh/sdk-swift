@@ -4614,17 +4614,22 @@ public struct ChatSettingsRequest: Codable, Sendable {
     /// DisableHooks stops the agent's lifecycle hooks (suggest, learn,
     /// webhooks, gates) firing in this chat.
     public var disableHooks: Bool?
+    /// ForgetMemory removes these keys from the chat's memory, the notes the
+    /// agent keeps for this conversation. A key that is not there is ignored.
+    public var forgetMemory: [String]?
 
     public init(
         name: String? = nil,
         visibility: Visibility? = nil,
         allowAllTools: Bool? = nil,
-        disableHooks: Bool? = nil
+        disableHooks: Bool? = nil,
+        forgetMemory: [String]? = nil
     ) {
         self.name = name
         self.visibility = visibility
         self.allowAllTools = allowAllTools
         self.disableHooks = disableHooks
+        self.forgetMemory = forgetMemory
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4632,6 +4637,7 @@ public struct ChatSettingsRequest: Codable, Sendable {
         case visibility = "visibility"
         case allowAllTools = "allow_all_tools"
         case disableHooks = "disable_hooks"
+        case forgetMemory = "forget_memory"
     }
 }
 
