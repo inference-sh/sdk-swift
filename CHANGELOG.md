@@ -8,6 +8,10 @@ Breaking:
 Fixes:
 - `ChatStreamEvent: Sendable` no longer warns in consumer builds.
 
+## 0.7.1
+
+- Types: `ChatSettingsRequest` (name, visibility, `allowAllTools`, `disableHooks`, `forgetMemory`) and `ChatData.allowAllTools` / `disableHooks` for `POST /chats/{id}/settings`; per-server MCP headers and setup; API key scope; `MeResponse.needsUsername`.
+
 ## 0.5.1
 
 - `tasks.run` survives a dropped task stream: it reconnects (up to `maxReconnects`, the budget resets whenever a line arrives), resyncs the task with `GET /tasks/{id}` after each drop and returns if it finished meanwhile. The stream request times out after 45s of silence (the server heartbeats every 10s) instead of the default 300s, so a dead connection no longer leaves a run looking stuck.

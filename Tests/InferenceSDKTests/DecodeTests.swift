@@ -175,7 +175,7 @@ final class DecodeTests: XCTestCase {
     /// generated field is Optional since gotypegen treats named maps as nullable.
     func testNullMemoryDecodes() throws {
         let data = try InferenceClient.decoder.decode(
-            ChatData.self, from: Data(#"{"plan_steps":null,"memory":null,"always_allowed_tools":null}"#.utf8))
+            ChatData.self, from: Data(#"{"plan_steps":null,"memory":null,"always_allowed_tools":null,"allow_all_tools":false,"disable_hooks":false}"#.utf8))
         XCTAssertNil(data.memory)
     }
 
