@@ -4641,6 +4641,78 @@ public struct ChatSettingsRequest: Codable, Sendable {
     }
 }
 
+/// ChatSettingsDTO is what POST /chats/{id}/settings answers with: the chat's
+/// settings after the change, every field the endpoint writes and nothing
+/// else. A client merges it into the chat it holds.
+public struct ChatSettingsDTO: Codable, Sendable {
+    public var chatId: String
+    public var name: String
+    public var visibility: Visibility
+    /// AllowAllTools and DisableHooks are agent_data.allow_all_tools and
+    /// agent_data.disable_hooks on the chat.
+    public var allowAllTools: Bool
+    public var disableHooks: Bool
+    /// Memory is agent_data.memory after forget_memory removed its keys.
+    public var memory: StringEncodedMap?
+
+    public init(
+        chatId: String = "",
+        name: String = "",
+        visibility: Visibility,
+        allowAllTools: Bool = false,
+        disableHooks: Bool = false,
+        memory: StringEncodedMap? = nil
+    ) {
+        self.chatId = chatId
+        self.name = name
+        self.visibility = visibility
+        self.allowAllTools = allowAllTools
+        self.disableHooks = disableHooks
+        self.memory = memory
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case name = "name"
+        case visibility = "visibility"
+        case allowAllTools = "allow_all_tools"
+        case disableHooks = "disable_hooks"
+        case memory = "memory"
+    }
+}
+
+/// ChatAgentDTO is what POST /chats/{id}/agent answers with: the agent the
+/// chat now runs on. A client merges it into the chat it holds.
+public struct ChatAgentDTO: Codable, Sendable {
+    public var chatId: String
+    public var agentId: String
+    @Indirect public var agent: AgentDTO?
+    public var agentVersionId: String
+    @Indirect public var agentVersion: AgentVersionDTO?
+
+    public init(
+        chatId: String = "",
+        agentId: String = "",
+        agent: AgentDTO? = nil,
+        agentVersionId: String = "",
+        agentVersion: AgentVersionDTO? = nil
+    ) {
+        self.chatId = chatId
+        self.agentId = agentId
+        self.agent = agent
+        self.agentVersionId = agentVersionId
+        self.agentVersion = agentVersion
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case agentId = "agent_id"
+        case agent = "agent"
+        case agentVersionId = "agent_version_id"
+        case agentVersion = "agent_version"
+    }
+}
+
 /// ChatDTO for API responses
 public struct ChatDTO: Codable, Sendable {
     public var id: String
@@ -4668,6 +4740,9 @@ public struct ChatDTO: Codable, Sendable {
     @Indirect public var agentVersion: AgentVersionDTO?
     public var name: String
     public var description: String
+    /// ChatMessages is left out when the messages were not loaded. The chat
+    /// endpoints do not load them; read them from GET /chats/{id}/messages.
+    /// An absent field says nothing about whether the chat has messages.
     public var chatMessages: [ChatMessageDTO]?
     @Indirect public var agentData: ChatData
     @Indirect public var activeRun: AgentRunDTO?
@@ -4870,6 +4945,252 @@ public struct ChatMessageDTO: Codable, Sendable {
         case tools = "tools"
         case toolCallId = "tool_call_id"
         case toolInvocations = "tool_invocations"
+    }
+}
+
+/// PolicyEffect is a rule's outcome: allow, ask or deny.
+public struct PolicyEffect: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let allow = PolicyEffect(rawValue: "allow")
+    public static let ask = PolicyEffect(rawValue: "ask")
+    public static let deny = PolicyEffect(rawValue: "deny")
+}
+
+/// PolicyRuleDTO is one rule, typed form Kind[selector](specifier).
+public struct PolicyRuleDTO: Codable, Sendable {
+    public var id: String
+    public var effect: PolicyEffect
+    /// Kind: RemoteExec, Workspace, Harness, Tool (and, from phase 3, App,
+    /// Agent, Knowledge, Mcp, Flow, WebFetch).
+    public var kind: String
+    /// Selector narrows the rule to one remote (its id) or a tag (tag:<name>);
+    /// empty applies everywhere.
+    public var selector: String
+    /// Specifier is the kind's pattern: a command (`npm test`, `git push:*`),
+    /// a folder (`~/proj/**`), a harness tool with its pattern
+    /// (`Bash(git status:*)`, `Edit`), or a loop tool's name. Empty is the
+    /// whole kind.
+    public var specifier: String
+    /// Label is the rule in words, e.g. "git commit commands on Laptop", the
+    /// same words an approval prompt's "always allow" options use.
+    public var label: String
+    /// CreatedAt is null for a rule that is not a stored row yet: an entry of
+    /// the chat's always-allow list from before rules existed, or the chat's
+    /// "allow every tool" setting.
+    public var createdAt: String?
+    /// CreatedBy is the user who wrote the rule; empty for those above.
+    public var createdBy: String
+
+    public init(
+        id: String = "",
+        effect: PolicyEffect,
+        kind: String = "",
+        selector: String = "",
+        specifier: String = "",
+        label: String = "",
+        createdAt: String? = nil,
+        createdBy: String = ""
+    ) {
+        self.id = id
+        self.effect = effect
+        self.kind = kind
+        self.selector = selector
+        self.specifier = specifier
+        self.label = label
+        self.createdAt = createdAt
+        self.createdBy = createdBy
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case effect = "effect"
+        case kind = "kind"
+        case selector = "selector"
+        case specifier = "specifier"
+        case label = "label"
+        case createdAt = "created_at"
+        case createdBy = "created_by"
+    }
+}
+
+/// AlwaysAllowScope is how far an "always allow" option reaches, narrowest
+/// first.
+public struct AlwaysAllowScope: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AlwaysAllowScopeExact: this call exactly (each piece of the command,
+    /// the file, the domain).
+    public static let exact = AlwaysAllowScope(rawValue: "exact")
+    /// AlwaysAllowScopePrefix: commands that start the same way, per piece
+    /// (git commit:*, npm run:*).
+    public static let prefix = AlwaysAllowScope(rawValue: "prefix")
+    /// AlwaysAllowScopeFolder: files in the same folder.
+    public static let folder = AlwaysAllowScope(rawValue: "folder")
+    /// AlwaysAllowScopeRemote: every command on the machine.
+    public static let remote = AlwaysAllowScope(rawValue: "remote")
+    /// AlwaysAllowScopeTool: every call of the tool.
+    public static let tool = AlwaysAllowScope(rawValue: "tool")
+}
+
+/// AlwaysAllowOptionDTO is one "always allow" choice on an approval prompt:
+/// the chat rules it saves.
+public struct AlwaysAllowOptionDTO: Codable, Sendable {
+    /// Key names the option in POST .../always-allow. It changes when the
+    /// rules it stands for change.
+    public var key: String
+    public var scope: AlwaysAllowScope
+    /// Label is the option in words, e.g. "git clone commands on Laptop".
+    public var label: String
+    /// Description adds why a broad option is the narrowest offered, e.g.
+    /// the command uses shell syntax no narrower rule can match.
+    public var description: String?
+    /// Rules are the chat rules the option saves (not stored yet: no id).
+    public var rules: [PolicyRuleDTO]?
+
+    public init(
+        key: String = "",
+        scope: AlwaysAllowScope,
+        label: String = "",
+        description: String? = nil,
+        rules: [PolicyRuleDTO]? = nil
+    ) {
+        self.key = key
+        self.scope = scope
+        self.label = label
+        self.description = description
+        self.rules = rules
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case scope = "scope"
+        case label = "label"
+        case description = "description"
+        case rules = "rules"
+    }
+}
+
+/// AlwaysAllowOptionsDTO is GET /chats/{id}/tools/{toolId}/always-allow/options:
+/// the options for a call awaiting approval, narrowest first. Each one,
+/// saved, answers this call again. Computed by the api from the call; the
+/// client never builds rules.
+public struct AlwaysAllowOptionsDTO: Codable, Sendable {
+    public var options: [AlwaysAllowOptionDTO]?
+    /// Default is the key of the narrowest option, "" when there is none.
+    public var `default`: String?
+    /// Unavailable says why there are no options: a policy allows only its
+    /// own rules, or no chat rule could allow this call.
+    public var unavailable: String?
+
+    public init(
+        options: [AlwaysAllowOptionDTO]? = nil,
+        `default`: String? = nil,
+        unavailable: String? = nil
+    ) {
+        self.options = options
+        self.`default` = `default`
+        self.unavailable = unavailable
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case options = "options"
+        case `default` = "default"
+        case unavailable = "unavailable"
+    }
+}
+
+/// AlwaysAllowRequest is POST /chats/{id}/tools/{toolId}/always-allow. The
+/// api saves the option's rules to the chat and approves the call once.
+public struct AlwaysAllowRequest: Codable, Sendable {
+    /// Option is an option key from the options endpoint. A key that no
+    /// longer names a current option is refused (409). Without one, the
+    /// call saves what "always allow" saved before options existed: the
+    /// command's pieces exactly for remote_exec, the whole tool otherwise.
+    public var option: String?
+    /// ToolName is accepted from older clients and ignored: the call names
+    /// its own tool.
+    public var toolName: String?
+
+    public init(
+        option: String? = nil,
+        toolName: String? = nil
+    ) {
+        self.option = option
+        self.toolName = toolName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case option = "option"
+        case toolName = "tool_name"
+    }
+}
+
+/// AlwaysAllowResultDTO is what an always-allow saved.
+public struct AlwaysAllowResultDTO: Codable, Sendable {
+    /// Option is the option chosen; null for a call without one.
+    @Indirect public var option: AlwaysAllowOptionDTO?
+    /// Rules are the chat rules now in place for it.
+    public var rules: [PolicyRuleDTO]?
+
+    public init(
+        option: AlwaysAllowOptionDTO? = nil,
+        rules: [PolicyRuleDTO]? = nil
+    ) {
+        self.option = option
+        self.rules = rules
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case option = "option"
+        case rules = "rules"
+    }
+}
+
+/// ToolRiskLevel is how risky an explained call is.
+public struct ToolRiskLevel: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// ToolRiskLow: safe development workflows (reads, builds, tests).
+    public static let toolRiskLow = ToolRiskLevel(rawValue: "low")
+    /// ToolRiskMedium: changes that can be undone.
+    public static let toolRiskMedium = ToolRiskLevel(rawValue: "medium")
+    /// ToolRiskHigh: dangerous or irreversible changes.
+    public static let toolRiskHigh = ToolRiskLevel(rawValue: "high")
+}
+
+/// ToolExplanationDTO is POST /chats/{id}/tools/{toolId}/explain: a model's
+/// plain-words reading of a call awaiting approval (Claude Code's permission
+/// explainer). Generated once, when the person asks, and kept for the call.
+public struct ToolExplanationDTO: Codable, Sendable {
+    public var riskLevel: ToolRiskLevel
+    /// Explanation is what the call does, in one or two sentences.
+    public var explanation: String
+    /// Reasoning is why the agent appears to be making it.
+    public var reasoning: String
+    /// Risk is what could go wrong, in a few words.
+    public var risk: String
+
+    public init(
+        riskLevel: ToolRiskLevel,
+        explanation: String = "",
+        reasoning: String = "",
+        risk: String = ""
+    ) {
+        self.riskLevel = riskLevel
+        self.explanation = explanation
+        self.reasoning = reasoning
+        self.risk = risk
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case riskLevel = "risk_level"
+        case explanation = "explanation"
+        case reasoning = "reasoning"
+        case risk = "risk"
     }
 }
 
