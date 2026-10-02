@@ -4600,6 +4600,41 @@ public struct SubmitBountyResponse: Codable, Sendable {
     }
 }
 
+/// ChatSettingsRequest changes a chat's settings. A field left out is left as
+/// it is.
+public struct ChatSettingsRequest: Codable, Sendable {
+    /// Name renames the chat. It cannot be empty.
+    public var name: String?
+    /// Visibility is who can open the chat: private (only you), team (your
+    /// workspace) or public (anyone with the link).
+    public var visibility: Visibility?
+    /// AllowAllTools runs every tool call without asking. Switching it on also
+    /// approves the calls already waiting.
+    public var allowAllTools: Bool?
+    /// DisableHooks stops the agent's lifecycle hooks (suggest, learn,
+    /// webhooks, gates) firing in this chat.
+    public var disableHooks: Bool?
+
+    public init(
+        name: String? = nil,
+        visibility: Visibility? = nil,
+        allowAllTools: Bool? = nil,
+        disableHooks: Bool? = nil
+    ) {
+        self.name = name
+        self.visibility = visibility
+        self.allowAllTools = allowAllTools
+        self.disableHooks = disableHooks
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case visibility = "visibility"
+        case allowAllTools = "allow_all_tools"
+        case disableHooks = "disable_hooks"
+    }
+}
+
 /// ChatDTO for API responses
 public struct ChatDTO: Codable, Sendable {
     public var id: String
@@ -8564,6 +8599,11 @@ public struct MCPServerDTO: Codable, Sendable {
     public var authType: MCPServerAuthType
     public var oauthClientId: String?
     public var defaultScopes: StringSlice?
+    /// Headers are static HTTP headers sent on every request to the server,
+    /// set by the team's admins (e.g. X-MCP-Toolsets, X-MCP-Readonly).
+    public var headers: [String: String]?
+    /// Setup is what the server's directory entry knows about setting it up.
+    @Indirect public var setup: MCPServerSetup?
     public var documentationUrl: String
     public var connectionStatus: String?
     /// ConnectionScope is who the caller's connection to this server belongs
@@ -8586,6 +8626,8 @@ public struct MCPServerDTO: Codable, Sendable {
         authType: MCPServerAuthType,
         oauthClientId: String? = nil,
         defaultScopes: StringSlice? = nil,
+        headers: [String: String]? = nil,
+        setup: MCPServerSetup? = nil,
         documentationUrl: String = "",
         connectionStatus: String? = nil,
         connectionScope: CredentialScope? = nil
@@ -8605,6 +8647,8 @@ public struct MCPServerDTO: Codable, Sendable {
         self.authType = authType
         self.oauthClientId = oauthClientId
         self.defaultScopes = defaultScopes
+        self.headers = headers
+        self.setup = setup
         self.documentationUrl = documentationUrl
         self.connectionStatus = connectionStatus
         self.connectionScope = connectionScope
@@ -8626,9 +8670,38 @@ public struct MCPServerDTO: Codable, Sendable {
         case authType = "auth_type"
         case oauthClientId = "oauth_client_id"
         case defaultScopes = "default_scopes"
+        case headers = "headers"
+        case setup = "setup"
         case documentationUrl = "documentation_url"
         case connectionStatus = "connection_status"
         case connectionScope = "connection_scope"
+    }
+}
+
+/// MCPServerSetup is what a server's directory entry knows about setting the
+/// server up, as data: shown to whoever connects a server on the same host,
+/// so no server's specifics live in code.
+public struct MCPServerSetup: Codable, Sendable {
+    /// ResourceAppID is the id the server's API has at its authorization
+    /// server, which an organization must know before it can approve access
+    /// (for a Microsoft Entra resource: the application id a tenant needs a
+    /// service principal for).
+    public var resourceAppId: String?
+    /// RecommendedHeaders are the least-privilege static headers the server
+    /// documents (e.g. X-MCP-Toolsets), offered by the headers editor.
+    public var recommendedHeaders: [String: String]?
+
+    public init(
+        resourceAppId: String? = nil,
+        recommendedHeaders: [String: String]? = nil
+    ) {
+        self.resourceAppId = resourceAppId
+        self.recommendedHeaders = recommendedHeaders
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resourceAppId = "resource_app_id"
+        case recommendedHeaders = "recommended_headers"
     }
 }
 
@@ -13298,21 +13371,34 @@ public struct ChatData: Codable, Sendable {
     public var planSteps: [PlanStep]?
     public var memory: StringEncodedMap?
     public var alwaysAllowedTools: [String]?
+    /// AllowAllTools runs every tool call in this chat without asking. The
+    /// person switches it in the chat's settings, and off again at any time.
+    public var allowAllTools: Bool
+    /// DisableHooks stops the agent's lifecycle hooks firing in this chat. A
+    /// review branch is opened with it set, so a review cannot fire the hook
+    /// that reviews it.
+    public var disableHooks: Bool?
 
     public init(
         planSteps: [PlanStep]? = nil,
         memory: StringEncodedMap? = nil,
-        alwaysAllowedTools: [String]? = nil
+        alwaysAllowedTools: [String]? = nil,
+        allowAllTools: Bool = false,
+        disableHooks: Bool? = nil
     ) {
         self.planSteps = planSteps
         self.memory = memory
         self.alwaysAllowedTools = alwaysAllowedTools
+        self.allowAllTools = allowAllTools
+        self.disableHooks = disableHooks
     }
 
     enum CodingKeys: String, CodingKey {
         case planSteps = "plan_steps"
         case memory = "memory"
         case alwaysAllowedTools = "always_allowed_tools"
+        case allowAllTools = "allow_all_tools"
+        case disableHooks = "disable_hooks"
     }
 }
 
