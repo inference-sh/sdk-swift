@@ -29,8 +29,9 @@ public extension InferenceClient {
         return try await decode(send(request("chats/\(chatId)/messages", method: "GET", query: query)))
     }
 
-    /// POST /chats/{id}/agent: switch the chat's agent. Returns the updated chat.
-    func setAgent(chatId: String, agent: String) async throws -> ChatDTO {
+    /// POST /chats/{id}/agent: switch the chat's agent. Returns the agent the
+    /// chat now runs on, not the chat.
+    func setAgent(chatId: String, agent: String) async throws -> ChatAgentDTO {
         try await decode(send(request("chats/\(chatId)/agent", body: AgentBody(agent: agent))))
     }
 
