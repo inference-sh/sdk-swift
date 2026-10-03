@@ -163,6 +163,29 @@ public struct InternalToolsConfig: Codable, Sendable {
     }
 }
 
+/// AgentPermissions is what an agent's new chats in its own workspace may do
+/// without asking (INF-906). Each is copied into such a chat when it is
+/// created; the chat owns it from then on. Chats other workspaces start with
+/// the agent get none of it: they run on their own remotes and tools. A team
+/// or org policy still asks or denies over it.
+public struct AgentPermissions: Codable, Sendable {
+    /// AllowAllTools starts each new chat with "allow every tool" on: loop
+    /// tools, harness tools and remote_exec commands run without asking. For
+    /// agents nobody watches (webhook and cron runs), where an approval would
+    /// stall the run.
+    public var allowAllTools: Bool?
+
+    public init(
+        allowAllTools: Bool? = nil
+    ) {
+        self.allowAllTools = allowAllTools
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case allowAllTools = "allow_all_tools"
+    }
+}
+
 /// AgentTool represents a unified tool that can be used by an agent
 public struct AgentTool: Codable, Sendable {
     public var name: String
@@ -927,6 +950,7 @@ public struct AgentVersionDTO: Codable, Sendable {
     public var skills: [SkillConfig]?
     public var context: [ContextField]?
     @Indirect public var internalTools: InternalToolsConfig?
+    @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
 
@@ -949,6 +973,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         skills: [SkillConfig]? = nil,
         context: [ContextField]? = nil,
         internalTools: InternalToolsConfig? = nil,
+        permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil
     ) {
@@ -970,6 +995,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.skills = skills
         self.context = context
         self.internalTools = internalTools
+        self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
     }
@@ -993,6 +1019,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         case skills = "skills"
         case context = "context"
         case internalTools = "internal_tools"
+        case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
     }
@@ -1048,6 +1075,7 @@ public struct AgentConfigInput: Codable, Sendable {
     public var skills: [SkillConfig]?
     public var context: [ContextField]?
     @Indirect public var internalTools: InternalToolsConfig?
+    @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
 
@@ -1061,6 +1089,7 @@ public struct AgentConfigInput: Codable, Sendable {
         skills: [SkillConfig]? = nil,
         context: [ContextField]? = nil,
         internalTools: InternalToolsConfig? = nil,
+        permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil
     ) {
@@ -1073,6 +1102,7 @@ public struct AgentConfigInput: Codable, Sendable {
         self.skills = skills
         self.context = context
         self.internalTools = internalTools
+        self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
     }
@@ -1087,6 +1117,7 @@ public struct AgentConfigInput: Codable, Sendable {
         case skills = "skills"
         case context = "context"
         case internalTools = "internal_tools"
+        case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
     }
@@ -4948,23 +4979,13 @@ public struct ChatMessageDTO: Codable, Sendable {
     }
 }
 
-/// PolicyEffect is a rule's outcome: allow, ask or deny.
-public struct PolicyEffect: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let allow = PolicyEffect(rawValue: "allow")
-    public static let ask = PolicyEffect(rawValue: "ask")
-    public static let deny = PolicyEffect(rawValue: "deny")
-}
-
 /// PolicyRuleDTO is one rule, typed form Kind[selector](specifier).
 public struct PolicyRuleDTO: Codable, Sendable {
     public var id: String
     public var effect: PolicyEffect
-    /// Kind: RemoteExec, Workspace, Harness, Tool (and, from phase 3, App,
-    /// Agent, Knowledge, Mcp, Flow, WebFetch).
-    public var kind: String
+    /// Kind: what the rule governs (RemoteExec, Workspace, Harness, Tool,
+    /// and the usage kinds App, Agent, Knowledge, Mcp, Flow).
+    public var kind: PolicyKind
     /// Selector narrows the rule to one remote (its id) or a tag (tag:<name>);
     /// empty applies everywhere.
     public var selector: String
@@ -4986,7 +5007,7 @@ public struct PolicyRuleDTO: Codable, Sendable {
     public init(
         id: String = "",
         effect: PolicyEffect,
-        kind: String = "",
+        kind: PolicyKind,
         selector: String = "",
         specifier: String = "",
         label: String = "",
@@ -12233,9 +12254,6 @@ public struct TeamDTO: Codable, Sendable {
     /// caller's team list (/teams) so a member of one of its teams sees whose
     /// org it is without belonging to the org workspace.
     public var orgName: String?
-    /// UsagePolicyID of the team's own usage policy ('' = inherit the org's,
-    /// or ungoverned when standalone, INF-808).
-    public var usagePolicyId: String?
 
     public init(
         id: String = "",
@@ -12253,8 +12271,7 @@ public struct TeamDTO: Codable, Sendable {
         status: TeamStatus,
         role: TeamRole? = nil,
         orgId: String? = nil,
-        orgName: String? = nil,
-        usagePolicyId: String? = nil
+        orgName: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -12272,7 +12289,6 @@ public struct TeamDTO: Codable, Sendable {
         self.role = role
         self.orgId = orgId
         self.orgName = orgName
-        self.usagePolicyId = usagePolicyId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -12292,7 +12308,6 @@ public struct TeamDTO: Codable, Sendable {
         case role = "role"
         case orgId = "org_id"
         case orgName = "org_name"
-        case usagePolicyId = "usage_policy_id"
     }
 }
 
@@ -13697,7 +13712,6 @@ public struct ChannelType: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatData: Codable, Sendable {
     public var planSteps: [PlanStep]?
     public var memory: StringEncodedMap?
-    public var alwaysAllowedTools: [String]?
     /// AllowAllTools runs every tool call in this chat without asking. The
     /// person switches it in the chat's settings, and off again at any time.
     public var allowAllTools: Bool
@@ -13709,13 +13723,11 @@ public struct ChatData: Codable, Sendable {
     public init(
         planSteps: [PlanStep]? = nil,
         memory: StringEncodedMap? = nil,
-        alwaysAllowedTools: [String]? = nil,
         allowAllTools: Bool = false,
         disableHooks: Bool? = nil
     ) {
         self.planSteps = planSteps
         self.memory = memory
-        self.alwaysAllowedTools = alwaysAllowedTools
         self.allowAllTools = allowAllTools
         self.disableHooks = disableHooks
     }
@@ -13723,7 +13735,6 @@ public struct ChatData: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case planSteps = "plan_steps"
         case memory = "memory"
-        case alwaysAllowedTools = "always_allowed_tools"
         case allowAllTools = "allow_all_tools"
         case disableHooks = "disable_hooks"
     }
@@ -15149,6 +15160,40 @@ public struct NotificationStatus: RawRepresentable, Codable, Hashable, Sendable 
     public static let failed = NotificationStatus(rawValue: "failed")
     public static let bounced = NotificationStatus(rawValue: "bounced")
     public static let cancelled = NotificationStatus(rawValue: "cancelled")
+}
+
+/// PolicyEffect is a rule's outcome and a decision's verdict.
+public struct PolicyEffect: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let allow = PolicyEffect(rawValue: "allow")
+    public static let ask = PolicyEffect(rawValue: "ask")
+    public static let deny = PolicyEffect(rawValue: "deny")
+}
+
+/// PolicyKind names what a rule governs; each kind has one matcher.
+public struct PolicyKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// PolicyKindRemoteExec: shell commands run on a remote.
+    public static let remoteExec = PolicyKind(rawValue: "RemoteExec")
+    /// PolicyKindWorkspace: folders on a remote.
+    public static let workspace = PolicyKind(rawValue: "Workspace")
+    /// PolicyKindHarness: a harness's own tool approvals, e.g.
+    /// Harness(Bash(git status:*)).
+    public static let harness = PolicyKind(rawValue: "Harness")
+    /// PolicyKindTool: a tool call our own agent loop makes, by tool name.
+    public static let tool = PolicyKind(rawValue: "Tool")
+    /// Usage kinds (UsageCategory.PolicyKind): rules name resolved ids.
+    public static let app = PolicyKind(rawValue: "App")
+    public static let agent = PolicyKind(rawValue: "Agent")
+    public static let knowledge = PolicyKind(rawValue: "Knowledge")
+    public static let mcp = PolicyKind(rawValue: "Mcp")
+    public static let flow = PolicyKind(rawValue: "Flow")
+    /// PolicyKindWebFetch: fetched domains.
+    public static let webFetch = PolicyKind(rawValue: "WebFetch")
 }
 
 /// FunctionKind is how an app function talks to its caller.
