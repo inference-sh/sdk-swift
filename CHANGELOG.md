@@ -17,6 +17,7 @@ Breaking:
 
 Fixes:
 - `ChatStreamEvent: Sendable` no longer warns in consumer builds.
+- `apps.getByName("ns/app@version")` returns that version. It used to strip the suffix and return the current version, so `live-run` against a staged version read the wrong functions ("no stream function").
 
 ## 0.7.1
 
