@@ -69,11 +69,11 @@ public struct AppsAPI: Sendable {
     }
 
     /// GET /apps/{name}: look up an app by qualified name (e.g.
-    /// "inference/claude-haiku"). An "@version" suffix is stripped; includes
-    /// the active version with its schemas. Retries once on transport errors.
+    /// "inference/claude-haiku"), with the current version and its schemas;
+    /// "name@version" returns that version (as sdk-js passes it through).
+    /// Retries once on transport errors.
     public func getByName(_ name: String) async throws -> AppDTO {
-        let bare = name.split(separator: "@").first.map(String.init) ?? name
-        return try await client.decode(client.send(client.request("apps/\(bare)", method: "GET"), retries: 1))
+        try await client.decode(client.send(client.request("apps/\(name)", method: "GET"), retries: 1))
     }
 
     /// GET /apps/{id}/license: the app's license record.
