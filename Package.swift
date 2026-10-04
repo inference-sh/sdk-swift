@@ -9,9 +9,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "InferenceSDK"),
-        // Example CLI and live end-to-end check (see Makefile `e2e`). Not a
-        // product, so depending on the library never builds it.
+        // Example CLIs and live end-to-end checks (see Makefile `e2e`, `live`).
+        // Not products, so depending on the library never builds them.
         .executableTarget(name: "agent-run", dependencies: ["InferenceSDK"], path: "Examples/agent-run"),
+        .executableTarget(name: "live-run", dependencies: ["InferenceSDK"], path: "Examples/live-run"),
         .testTarget(name: "InferenceSDKTests", dependencies: ["InferenceSDK"], resources: [.copy("Fixtures")]),
     ]
 )

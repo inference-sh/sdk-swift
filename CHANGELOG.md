@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+Added:
+- Live (stream) functions, a port of sdk-js `live/` and `api/sockets.ts`. `client.live(_:)` starts a stream function and dials the socket its run response carries; `client.sockets` has `open` (a run response or a task id), `get`, `list`, `forTask`, `access` and `delete`.
+- `LiveSession`: `events` is an `AsyncStream<LiveEvent>` (state changes, binary frames, JSON patches, `$clear`, `$error`, plain text); `sendBinary`, `sendPatch`, `sendField`, `sendText`, `close`, `ended`. It waits for the app's first frame, ends if the task ends first, and redials with a fresh credential on relay close codes 1012 and 1013 while waiting (up to five times). The socket is `URLSessionWebSocketTask` with the credential as a bearer header; `OpenSocketOptions(dial:)` takes another WebSocket (`LiveSocket`).
+- Live schema helpers: `splitLiveSchema`, `binaryLiveField`, `isLiveField`, `parseMediaType`, `pcmFormat`, `alternativeTag`, `alternativeLabel`, and `LiveProtocol` for the wire constants.
+- `tasks.watch(_:options:)`: follows a task that is already running until it ends, with `run`'s outcomes.
+- `Examples/live-run` and `make live APP=...`: a live end-to-end check for stream functions.
+
+Changes:
+- `tasks.run` no longer opens the task stream for a task that has already ended when it is first read: it reports the task through `onUpdate` and settles.
+
 Breaking:
 - `ChatDTO`, `ProjectDTO` and `ToolParameterProperty` are structs, no longer classes. Every generated type is a `Sendable` value type (gotypegen v0.8.2, inference-sh/api#1468): struct-typed fields are `@Indirect`, stored in an immutable box, so values stay small (`ChatDTO` 392 bytes) and cycles like `ChatDTO.parent` still work. Code that mutated a `let` DTO needs `var`.
 

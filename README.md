@@ -214,6 +214,63 @@ let task = try await client.tasks.run(ApiAppRunRequest(
 
 App outputs that are files come back as urls. `TaskResultDTO.fileURL(_:)` reads either shape apps use (a bare url or `{"uri": ...}`), and `client.download(_:)` fetches the bytes.
 
+## Live Functions
+
+A stream function keeps a socket open with its caller for the life of the task: audio and messages go both ways until the caller closes or the app returns. `client.live` starts the task and dials its socket.
+
+```swift
+let (task, session) = try await client.live(ApiAppRunRequest(
+    app: "xai/grok-voice",
+    input: ["voice": "eve"],
+    function: "talk"
+))
+
+Task {
+    for await event in session.events {
+        switch event {
+        case .state(.live): microphone.start()                 // connecting → waiting → live → ended
+        case .state(let state): print(state)
+        case .binary(let pcm): player.play(pcm)                // an item of the output's binary live field
+        case .patch(let patch): print(patch)                   // ["user_text": "..."]
+        case .clear: player.flush()                            // the app cut an answer short
+        case .error(let field, let message): print(field ?? "-", message)
+        case .text(let text): print(text)                      // text the app sent as text, not a patch
+        }
+    }
+}
+
+session.sendBinary(micFrame)                                   // an item of the input's binary live field
+session.sendPatch(["events": ["type": "text", "text": "hi"]])  // a JSON frame
+session.close()                                                // the function returns; the task completes
+let result = try await client.tasks.watch(task.id)             // what it returned
+```
+
+The session is `waiting` until the app's first frame (a cold start can take a minute). Frames sent before the relay accepts the connection are dropped (`sendBinary` returns `false`), and the relay holds only 64 while the app is not there, so start the microphone on `.state(.live)`. The session gives up if the task ends before the app connects (`LiveEnd.taskEnded`), and dials again with a fresh credential when the relay restarts under it while it waits. `client.sockets.open(taskId)` reconnects to a running task's socket, e.g. after the app relaunches. Releasing the session closes its socket.
+
+What a function's socket carries is in its schemas: a live field is `{"type": "array", "format": "stream", "items": ...}`. `splitLiveSchema` separates the ordinary fields (the request body) from the live ones, and `pcmFormat` reads the format of a PCM audio field:
+
+```swift
+let function = try await client.apps.getByName("xai/grok-voice").version?.functions?["talk"]
+let (form, live) = splitLiveSchema(function?.inputSchema)
+let microphone = pcmFormat(binaryLiveField(live)?.media)       // PCMFormat(sampleRate: 24000, channels: 1)
+```
+
+Given the schemas, the session routes by field name:
+
+```swift
+let (_, session) = try await client.live(request, options: OpenSocketOptions(
+    inputSchema: function?.inputSchema,
+    outputSchema: function?.outputSchema
+))
+try session.sendField("audio", .binary(micFrame))              // binary: the input's binary live field
+try session.sendField("voice", .json("ara"))                   // JSON: an ordinary field
+for await event in session.events {
+    for update in session.updates(for: event) { show(update.field, update.value) }
+}
+```
+
+The SDK moves frames; recording and playing 16-bit PCM is the app's (`AVAudioEngine` on Apple platforms). The socket is a `URLSessionWebSocketTask` with the credential in an `Authorization` header. On Linux that needs a libcurl built with WebSockets (see `LiveSocket.swift`); pass `OpenSocketOptions(dial:)` to use another WebSocket client.
+
 ## Agents
 
 ### Chat sessions
@@ -367,11 +424,13 @@ try await client.knowledge.delete(entry.id)
 
 | Namespace | Covers |
 | --- | --- |
-| `client.tasks` | `run`, `create`, `get`, `list`, `cancel`, `delete`, logs, timings, telemetry, visibility |
+| `client.tasks` | `run`, `watch`, `create`, `get`, `list`, `cancel`, `delete`, logs, timings, telemetry, visibility |
 | `client.agents` | `list`, `get`, `getByName`, create, update, versions, duplicate, visibility, A2A card, run interrupts |
 | `client.chats` | `list`, `get`, `update`, `delete`, `getStatus`, `stop`, `cancelMessage`, `stream` |
 | `client.apps` | `list`, `get`, `getByName`, create, update, versions, visibility, licenses |
 | `client.files` | `upload`, `list`, `get`, `delete` |
+| `client.sockets` | `open`, `get`, `list`, `forTask`, `access`, `delete` |
+| `client.live`, `LiveSession` | Stream functions (above) |
 | `client.knowledge` | `list`, `get`, `getByName`, `create`, `update`, `delete`, versions, transfer, visibility |
 | `client.search` | `search`, `suggest` |
 | `AgentChatSession` | Stateful agent chat (above) |
@@ -410,14 +469,15 @@ let client = InferenceClient(
 ## Development
 
 ```bash
-make test                                  # unit tests (Codable, stream parsing, deltas)
+make test                                  # unit tests (Codable, stream parsing, deltas, live sessions)
 make e2e AGENT=my-team/my-agent            # live: streams a real agent run
+make live APP=infsh/voice-loop             # live: runs a stream function over its socket
 make test-linux                            # same tests in the swift:5.10 docker image
 ```
 
 `Sources/InferenceSDK/Types.swift` is generated by [gotypegen](https://github.com/inference-sh/gotypegen) from the api's types. Don't edit it by hand; regenerate it with the api's `make types`.
 
-`Examples/agent-run` is a small CLI on top of the SDK and doubles as the live end-to-end check.
+`Examples/agent-run` and `Examples/live-run` are small CLIs on top of the SDK and double as the live end-to-end checks.
 
 ## License
 

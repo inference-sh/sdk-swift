@@ -17,6 +17,9 @@
 // - In polling mode maxReconnects is honored as documented ("maximum retry
 //   attempts"); the JS pollUntilTerminal rejects on the first poll error,
 //   which makes its maxRetries dead code.
+// - `watch` takes a task id and is an async function: it reads the task
+//   first (and settles at once when it has already ended), and cancelling the
+//   Swift task is the JS `stop()`.
 
 import Foundation
 #if canImport(FoundationNetworking)
@@ -143,11 +146,25 @@ public struct TasksAPI: Sendable {
     /// GET /tasks/{id}/status and fetches the full task on each change.
     public func run(_ params: ApiAppRunRequest, options: TaskRunOptions = TaskRunOptions()) async throws -> TaskDTO {
         // POST /apps/run answers with a TaskResultDTO (id, status, output),
-        // not a full task; GET /tasks/{id} is the TaskDTO the updates below
-        // are applied to.
+        // not a full task; GET /tasks/{id} is the TaskDTO.
         let created = try await create(params)
-        let task = try await get(created.id)
-        if !options.wait { return task }
+        if !options.wait { return try await get(created.id) }
+        return try await watch(created.id, options: options)
+    }
+
+    /// Follows a task that is already running until it reaches a terminal
+    /// status, with `run`'s outcomes: completed returns the task, failed and
+    /// cancelled throw. A task that has already ended is reported once through
+    /// `onUpdate` and settles at once. `options.wait` is not read. Cancel the
+    /// Swift task to stop watching (js: `watch(task).stop()`).
+    public func watch(_ taskId: String, options: TaskRunOptions = TaskRunOptions()) async throws -> TaskDTO {
+        // GET /tasks/{id} is the TaskDTO the updates are applied to.
+        let task = try await get(taskId)
+        if task.status.isTerminal {
+            options.onUpdate?(task)
+            if let error = Self.terminalError(task.status, task.error) { throw error }
+            return task
+        }
         if !options.stream { return try await pollUntilTerminal(task, options: options) }
         return try await streamUntilTerminal(task, options: options)
     }
