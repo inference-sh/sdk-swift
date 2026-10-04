@@ -1612,7 +1612,6 @@ public struct AppVersionInput: Codable, Sendable {
     public var outputSchema: JSONValue?
     public var functions: [String: AppFunction]?
     public var defaultFunction: String?
-    public var variants: [String: AppVariant]?
     public var env: [String: String]?
     public var kernel: String?
     public var requiredSecrets: [SecretRequirement]?
@@ -1627,7 +1626,6 @@ public struct AppVersionInput: Codable, Sendable {
         outputSchema: JSONValue? = nil,
         functions: [String: AppFunction]? = nil,
         defaultFunction: String? = nil,
-        variants: [String: AppVariant]? = nil,
         env: [String: String]? = nil,
         kernel: String? = nil,
         requiredSecrets: [SecretRequirement]? = nil,
@@ -1641,7 +1639,6 @@ public struct AppVersionInput: Codable, Sendable {
         self.outputSchema = outputSchema
         self.functions = functions
         self.defaultFunction = defaultFunction
-        self.variants = variants
         self.env = env
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
@@ -1657,7 +1654,6 @@ public struct AppVersionInput: Codable, Sendable {
         case outputSchema = "output_schema"
         case functions = "functions"
         case defaultFunction = "default_function"
-        case variants = "variants"
         case env = "env"
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
@@ -2919,37 +2915,6 @@ public struct AppResources: Codable, Sendable {
     }
 }
 
-/// AppVariant is a named resource/env configuration variant.
-public struct AppVariant: Codable, Sendable {
-    public var name: String
-    public var order: Int
-    @Indirect public var resources: AppResources
-    public var env: [String: String]?
-    public var python: String
-
-    public init(
-        name: String = "",
-        order: Int = 0,
-        resources: AppResources,
-        env: [String: String]? = nil,
-        python: String = ""
-    ) {
-        self.name = name
-        self.order = order
-        self.resources = resources
-        self.env = env
-        self.python = python
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case name = "name"
-        case order = "order"
-        case resources = "resources"
-        case env = "env"
-        case python = "python"
-    }
-}
-
 /// SecretRequirement defines a secret that an app requires to run.
 public struct SecretRequirement: Codable, Sendable {
     public var key: String
@@ -3150,7 +3115,6 @@ public struct AppVersionDTO: Codable, Sendable {
     public var outputSchema: JSONValue
     public var functions: [String: AppFunction]?
     public var defaultFunction: String?
-    public var variants: [String: AppVariant]?
     public var env: [String: String]?
     public var kernel: String
     public var requiredSecrets: [SecretRequirement]?
@@ -3173,7 +3137,6 @@ public struct AppVersionDTO: Codable, Sendable {
         outputSchema: JSONValue = .null,
         functions: [String: AppFunction]? = nil,
         defaultFunction: String? = nil,
-        variants: [String: AppVariant]? = nil,
         env: [String: String]? = nil,
         kernel: String = "",
         requiredSecrets: [SecretRequirement]? = nil,
@@ -3195,7 +3158,6 @@ public struct AppVersionDTO: Codable, Sendable {
         self.outputSchema = outputSchema
         self.functions = functions
         self.defaultFunction = defaultFunction
-        self.variants = variants
         self.env = env
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
@@ -3219,7 +3181,6 @@ public struct AppVersionDTO: Codable, Sendable {
         case outputSchema = "output_schema"
         case functions = "functions"
         case defaultFunction = "default_function"
-        case variants = "variants"
         case env = "env"
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
@@ -11878,7 +11839,6 @@ public struct TaskDTO: Codable, Sendable {
     @Indirect public var app: AppDTO?
     public var appVersionId: String
     @Indirect public var appVersion: AppVersionDTO?
-    public var appVariant: String
     public var function: String
     public var infra: Infra
     public var workers: [String]?
@@ -11925,7 +11885,6 @@ public struct TaskDTO: Codable, Sendable {
         app: AppDTO? = nil,
         appVersionId: String = "",
         appVersion: AppVersionDTO? = nil,
-        appVariant: String = "",
         function: String = "",
         infra: Infra,
         workers: [String]? = nil,
@@ -11971,7 +11930,6 @@ public struct TaskDTO: Codable, Sendable {
         self.app = app
         self.appVersionId = appVersionId
         self.appVersion = appVersion
-        self.appVariant = appVariant
         self.function = function
         self.infra = infra
         self.workers = workers
@@ -12019,7 +11977,6 @@ public struct TaskDTO: Codable, Sendable {
         case app = "app"
         case appVersionId = "app_version_id"
         case appVersion = "app_version"
-        case appVariant = "app_variant"
         case function = "function"
         case infra = "infra"
         case workers = "workers"
@@ -14988,6 +14945,8 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     /// Feature gates — only what has real cost/complexity
     public static let resourceFeatureBYOK = EntitlementResource(rawValue: "feature:byok")
     public static let resourceFeatureSeedance = EntitlementResource(rawValue: "feature:seedance")
+    /// Granted per team: the marketplace takes submissions by invitation.
+    public static let resourceFeatureMarketplacePublish = EntitlementResource(rawValue: "feature:marketplace_publish")
     /// Legacy feature gates — kept for DB compatibility, no longer gated
     public static let resourceFeatureScopes = EntitlementResource(rawValue: "feature:scopes")
     public static let resourceFeatureWebhooks = EntitlementResource(rawValue: "feature:webhooks")
