@@ -186,9 +186,9 @@ final class LiveSpeechStream: @unchecked Sendable {
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in audioQueue.async { done.resume() } }
         let (session, taskId, last, failed, sent): (LiveSession?, String?, LiveTranscript, Bool, (frames: Int, bytes: Int)) = lock.locked {
             stopped = true
-            var failed = false
-            if case .failed = phase { failed = true } else { phase = .finishing }
-            return (self.session, self.taskId, transcript, failed, self.sent)
+            var isFailed = false
+            if case .failed = phase { isFailed = true } else { phase = .finishing }
+            return (self.session, self.taskId, self.transcript, isFailed, self.sent)
         }
         if failed { return nil }
         notify()

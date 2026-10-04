@@ -43,7 +43,7 @@ public enum AudioEncoder {
             buffer.frameLength = AVAudioFrameCount(frames)
             try file.write(from: buffer)
         }
-        if #available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) { file.close() }
+        if #available(macOS 15.0, iOS 18.0, watchOS 11.0, *) { file.close() }
     }
 
     /// Seconds of audio in a file AVAudioFile can read.
