@@ -15,10 +15,11 @@ let package = Package(
     targets: [
         .target(name: "InferenceSDK"),
         .target(name: "InferenceAudio", dependencies: ["InferenceSDK"]),
-        // Example CLIs and live end-to-end checks (see Makefile `e2e`, `live`).
+        // Example CLIs and live end-to-end checks (see Makefile `e2e`, `live`, `dictate`).
         // Not products, so depending on the library never builds them.
         .executableTarget(name: "agent-run", dependencies: ["InferenceSDK"], path: "Examples/agent-run"),
         .executableTarget(name: "live-run", dependencies: ["InferenceSDK"], path: "Examples/live-run"),
+        .executableTarget(name: "live-dictate", dependencies: ["InferenceSDK", "InferenceAudio"], path: "Examples/live-dictate"),
         .testTarget(name: "InferenceSDKTests", dependencies: ["InferenceSDK"], resources: [.copy("Fixtures")]),
         .testTarget(name: "InferenceAudioTests", dependencies: ["InferenceAudio", "InferenceSDK"]),
     ]

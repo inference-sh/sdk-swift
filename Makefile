@@ -1,4 +1,4 @@
-# InferenceSDK — make test | make e2e | make live | make test-linux
+# InferenceSDK — make test | make e2e | make live | make dictate | make audio-e2e | make test-linux
 
 SWIFT_IMAGE ?= swift:5.10-jammy
 
@@ -22,7 +22,7 @@ AUDIO_FILE ?=
 SEND ?=
 STAY ?= 5
 
-.PHONY: build test test-linux e2e live clean
+.PHONY: build test test-linux e2e live dictate audio-e2e clean
 
 build:
 	swift build
@@ -42,6 +42,22 @@ e2e:
 live:
 	@test -n "$$INFERENCE_API_KEY" || { echo "set INFERENCE_API_KEY"; exit 2; }
 	AUDIO_FILE=$(AUDIO_FILE) SEND='$(SEND)' STAY=$(STAY) swift run live-run $(APP)
+
+# Live dictation (InferenceAudio): make dictate APP=xai/grok-stt
+#   AUDIO_FILE=speech.wav   feed a WAV in real time instead of the microphone
+#   STOP_AFTER=10           stop the microphone after this long (default: Enter)
+#   BACKEND=recorder        the microphone backend (engine, recorder; default automatic)
+#   BATCH=1                 no streaming: record, transcribe on release
+dictate: APP = xai/grok-stt
+dictate:
+	@test -n "$$INFERENCE_API_KEY" || { echo "set INFERENCE_API_KEY"; exit 2; }
+	AUDIO_FILE=$(AUDIO_FILE) swift run live-dictate $(APP)
+
+# Voice call round trip through LiveVoiceCall: a file stands in for the
+# microphone, infsh/voice-loop echoes it. LIVE_E2E_WAV=speech.wav, LIVE_E2E_PLAY=1.
+audio-e2e:
+	@test -n "$$INFERENCE_API_KEY" || { echo "set INFERENCE_API_KEY"; exit 2; }
+	LIVE_E2E=1 swift test --filter LiveE2ETests
 
 clean:
 	rm -rf .build
