@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+Added:
+- `InferenceAudio`, a second library product: audio for apps on top of the SDK (live dictation, push-to-talk to an agent, voice calls with stream apps, crash-safe long recordings), extracted from the inference.sh Apple app and the web app's live audio. `InferenceSDK` stays Foundation-only.
+- Pure parts, on every platform including Linux: `PCM16` (PCM ↔ Float, peak, RMS, meter, up/downmix), `PCMFramer` (20 ms frames), `SilenceGate` (web app's gate: -66 dBFS, 6 s tail), `PCMResampler` with `LinearResampler` and `makeResampler`, `WAV` (header, decode), `WAVStreamParser` (reads Apple's `FLLR`/`JUNK` headers and files still being written), `WAVWriter`, `WAVFileTailer`, `LiveTranscript` (transcript from `text` patches: grow, full line, revised tail, `$clear`; final text from the result's `text`, `utterances`, `turns` or `segments`), `LiveSpeechPlan`/`LiveSpeechPlans`.
+- `AudioSource` and `AudioSink` protocols, and `WAVFileSource`: a WAV file as a microphone, in real time.
+- `LiveTranscriber`: an STT app's stream function fed from any source (captured at 16 kHz, resampled to the function's rate), the transcript, level and elapsed time on `updates`, the final text from `finish()`. Without a stream function, or when the session fails, the audio is transcribed with `SpeechToText` on `finish()`. Drops takes too short or silent to transcribe (`minimumDuration`, `minimumPeak`).
+- `LiveVoiceCall`: a source and a sink wired to a `LiveSession` by the function's schemas: the microphone starts on `.state(.live)` through a `SilenceGate`, `.binary` plays, `.clear` flushes, `.ended` stops both; mute, levels, counts.
+- `RecordingStore`, `RecordingManifest`, `SegmentWriter`, `CrashSafeRecorder`: headerless PCM segments synced every second, an atomic manifest, recovery after a crash (`recoverInterrupted`), interruptions as gaps, clips by sample range, joining to WAV, transcription in parts (`store.transcribe(_:with:)`).
+- Apple (`#if canImport(AVFoundation)`): `Microphone` with two backends behind one API: an AVAudioEngine tap (optional voice processing, shareable engine) and AVAudioRecorder tailed as it writes, for Bluetooth HFP under PushToTalk, where an engine tap never fires; `.automatic` picks by route. `PCMPlayer` (60 ms jitter lead, restart from now after a gap, `flush` for `$clear`). `AudioSessionConfigurator` (voice chat, push-to-talk, record and playback presets; interruptions, route changes and media resets as async streams). `ConverterResampler` (AVAudioConverter). `AudioEncoder.encodeAAC`.
+- `Examples/live-dictate` and `make dictate APP=xai/grok-stt` (`AUDIO_FILE=speech.wav` to feed a file, `BATCH=1` for the fallback); `make audio-e2e`: a voice call round trip with infsh/voice-loop.
+- `Package.swift` declares watchOS 10.
+
 ## 0.9.0
 
 Added:
