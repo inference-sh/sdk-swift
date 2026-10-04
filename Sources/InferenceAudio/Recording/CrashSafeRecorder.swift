@@ -218,13 +218,13 @@ public final class CrashSafeRecorder: @unchecked Sendable {
 
     /// Changes the manifest and saves it.
     private func update(_ change: (inout RecordingManifest, Int64) -> Void) {
-        let m: RecordingManifest? = lock.locked {
-            guard var m = manifest else { return nil }
-            change(&m, samples)
-            manifest = m
-            return m
+        let changed: RecordingManifest? = lock.locked {
+            guard var current = self.manifest else { return nil }
+            change(&current, self.samples)
+            self.manifest = current
+            return current
         }
-        if let m { try? store.save(m) }
+        if let changed { try? store.save(changed) }
     }
 
     private func publish() {

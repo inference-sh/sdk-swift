@@ -58,7 +58,7 @@ public final class PCMPlayer: AudioSink, @unchecked Sendable {
                                              channels: AVAudioChannelCount(format.channels)) else {
             throw AudioError.unsupportedFormat("\(format.sampleRate) Hz × \(format.channels)")
         }
-        if lock.locked({ pcmFormat == format && node != nil }) { return }
+        if lock.locked({ self.pcmFormat == format && self.node != nil }) { return }
         stop()
         let engine = sharedEngine ?? AVAudioEngine()
         let node = AVAudioPlayerNode()
@@ -90,10 +90,11 @@ public final class PCMPlayer: AudioSink, @unchecked Sendable {
 
     /// Queues one frame right after the previous one.
     public func play(_ pcm: Data) {
-        guard let (engine, node, playFormat, format) = lock.locked({ () -> (AVAudioEngine, AVAudioPlayerNode, AVAudioFormat, PCMFormat)? in
-            guard let engine, let node, let playFormat, let pcmFormat else { return nil }
-            return (engine, node, playFormat, pcmFormat)
-        }) else { return }
+        let current: (AVAudioEngine, AVAudioPlayerNode, AVAudioFormat, PCMFormat)? = lock.locked {
+            guard let e = self.engine, let n = self.node, let p = self.playFormat, let f = self.pcmFormat else { return nil }
+            return (e, n, p, f)
+        }
+        guard let (engine, node, playFormat, format) = current else { return }
         let frames = pcm.count / format.bytesPerFrame
         guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: AVAudioFrameCount(frames)),
               let channels = buffer.floatChannelData else { return }

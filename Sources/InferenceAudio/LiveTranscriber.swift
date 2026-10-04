@@ -277,7 +277,7 @@ public final class LiveTranscriber: @unchecked Sendable {
         }
         let (stream, kept, rate, seconds, peak): (LiveSpeechStream?, Data, Int, TimeInterval, Float) = lock.locked {
             done = true
-            return (self.stream, self.kept, self.rate, rate > 0 ? Double(samples) / Double(rate) : 0, self.peak)
+            return (self.stream, self.kept, self.rate, self.rate > 0 ? Double(self.samples) / Double(self.rate) : 0, self.peak)
         }
         defer { sink.finish() }
 
