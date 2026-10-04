@@ -2,13 +2,7 @@
 
 ## Unreleased
 
-Added:
-- Chat settings: `client.updateChatSettings(chatId:_:)` (`POST /chats/{id}/settings`, answers `ChatSettingsDTO`) and `AgentChatSession.updateChatSettings(_:)`, which merges the answer into `state.chat` (reducer action `mergeChatSettings`, sdk-js `MERGE_CHAT_SETTINGS`).
-- Always-allow options: `client.getAlwaysAllowOptions(chatId:toolInvocationId:)`, `client.alwaysAllowTool(chatId:toolInvocationId:option:)` (answers `AlwaysAllowResultDTO`) and the session's `getAlwaysAllowOptions(_:)` / `alwaysAllowTool(_:option:)`. A 409 (stale option) or 400 is thrown without marking the connection failed.
-- `client.explainTool(chatId:toolInvocationId:)` and `AgentChatSession.explainTool(_:)`: a call awaiting approval in plain words, with its risk.
-
-Deprecated:
-- `alwaysAllowTool(…, toolName:)`: the api ignores `tool_name`; it saves the default option.
+## 0.10.0
 
 Added:
 - `InferenceAudio`, a second library product: audio for apps on top of the SDK (live dictation, push-to-talk to an agent, voice calls with stream apps, crash-safe long recordings), extracted from the inference.sh Apple app and the web app's live audio. `InferenceSDK` stays Foundation-only.
@@ -20,6 +14,12 @@ Added:
 - Apple (`#if canImport(AVFoundation)`): `Microphone` with two backends behind one API: an AVAudioEngine tap (optional voice processing, shareable engine) and AVAudioRecorder tailed as it writes, for Bluetooth HFP under PushToTalk, where an engine tap never fires; `.automatic` picks by route. `PCMPlayer` (60 ms jitter lead, restart from now after a gap, `flush` for `$clear`). `AudioSessionConfigurator` (voice chat, push-to-talk, record and playback presets; interruptions, route changes and media resets as async streams). `ConverterResampler` (AVAudioConverter). `AudioEncoder.encodeAAC`.
 - `Examples/live-dictate` and `make dictate APP=xai/grok-stt` (`AUDIO_FILE=speech.wav` to feed a file, `BATCH=1` for the fallback); `make audio-e2e`: a voice call round trip with infsh/voice-loop.
 - `Package.swift` declares watchOS 10.
+- Chat settings: `client.updateChatSettings(chatId:_:)` (`POST /chats/{id}/settings`, answers `ChatSettingsDTO`) and `AgentChatSession.updateChatSettings(_:)`, which merges the answer into `state.chat` (reducer action `mergeChatSettings`, sdk-js `MERGE_CHAT_SETTINGS`).
+- Always-allow options: `client.getAlwaysAllowOptions(chatId:toolInvocationId:)`, `client.alwaysAllowTool(chatId:toolInvocationId:option:)` (answers `AlwaysAllowResultDTO`) and the session's `getAlwaysAllowOptions(_:)` / `alwaysAllowTool(_:option:)`. A 409 (stale option) or 400 is thrown without marking the connection failed.
+- `client.explainTool(chatId:toolInvocationId:)` and `AgentChatSession.explainTool(_:)`: a call awaiting approval in plain words, with its risk.
+
+Deprecated:
+- `alwaysAllowTool(…, toolName:)`: the api ignores `tool_name`; it saves the default option.
 
 ## 0.9.0
 
