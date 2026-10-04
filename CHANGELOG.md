@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.10.1
+
+Fixes:
+- Types regenerated from the api: tasks no longer carry `app_variant` (api 880a9f23, e10803a9). 0.10.0 required it, so every `tasks.get`, `tasks.watch` and `tasks.run` against the current api failed to decode (`keyNotFound(app_variant)`).
+
 ## 0.10.0
 
 Added:
