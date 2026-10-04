@@ -247,6 +247,8 @@ let result = try await client.tasks.watch(task.id)             // what it return
 
 The session is `waiting` until the app's first frame (a cold start can take a minute). Frames sent before the relay accepts the connection are dropped (`sendBinary` returns `false`), and the relay holds only 64 while the app is not there, so start the microphone on `.state(.live)`. The session gives up if the task ends before the app connects (`LiveEnd.taskEnded`), and dials again with a fresh credential when the relay restarts under it while it waits. `client.sockets.open(taskId)` reconnects to a running task's socket, e.g. after the app relaunches. Releasing the session closes its socket.
 
+A task whose caller never connects keeps waiting for it, up to 15 minutes. When a session ends before it reached the app (`LiveEnd.code` 1006: the dial failed, the network dropped), dial again with `client.sockets.open(task.id)` or call `client.tasks.cancel(task.id)`.
+
 What a function's socket carries is in its schemas: a live field is `{"type": "array", "format": "stream", "items": ...}`. `splitLiveSchema` separates the ordinary fields (the request body) from the live ones, and `pcmFormat` reads the format of a PCM audio field:
 
 ```swift
