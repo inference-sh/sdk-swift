@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.0
+
 Added:
 - Live (stream) functions, a port of sdk-js `live/` and `api/sockets.ts`. `client.live(_:)` starts a stream function and dials the socket its run response carries; `client.sockets` has `open` (a run response or a task id), `get`, `list`, `forTask`, `access` and `delete`.
 - `LiveSession`: `events` is an `AsyncStream<LiveEvent>` (state changes, binary frames, JSON patches, `$clear`, `$error`, plain text); `sendBinary`, `sendPatch`, `sendField`, `sendText`, `close`, `ended`. It waits for the app's first frame, ends if the task ends first, and redials with a fresh credential on relay close codes 1012 and 1013 while waiting (up to five times). The socket is `URLSessionWebSocketTask` with the credential as a bearer header; `OpenSocketOptions(dial:)` takes another WebSocket (`LiveSocket`).
@@ -12,12 +14,19 @@ Added:
 Changes:
 - `tasks.run` no longer opens the task stream for a task that has already ended when it is first read: it reports the task through `onUpdate` and settles.
 
+Fixes:
+- `apps.getByName("ns/app@version")` returns that version. It used to strip the suffix and return the current version, so `live-run` against a staged version read the wrong functions ("no stream function").
+
+Verified on macOS against production: the four realtime STT apps (xai/grok-stt, openai/gpt-transcribe at 24 kHz, elevenlabs/stt, inworld/speech-to-text) stream a live transcript and complete; infsh/voice-loop echoes every binary frame back (476 sent, 476 received) and closes 1000 "done".
+
+## 0.8.0
+
 Breaking:
-- `ChatDTO`, `ProjectDTO` and `ToolParameterProperty` are structs, no longer classes. Every generated type is a `Sendable` value type (gotypegen v0.8.2, inference-sh/api#1468): struct-typed fields are `@Indirect`, stored in an immutable box, so values stay small (`ChatDTO` 392 bytes) and cycles like `ChatDTO.parent` still work. Code that mutated a `let` DTO needs `var`.
+- `ChatDTO`, `ProjectDTO` and `ToolParameterProperty` are structs, no longer classes. Every generated type is a `Sendable` value type (gotypegen v0.8.2+, inference-sh/api#1468): struct-typed fields are `@Indirect`, stored in an immutable box, so values stay small (`ChatDTO` 392 bytes) and cycles like `ChatDTO.parent` still work. Code that mutated a `let` DTO needs `var`.
+- Types regenerated from the api (AgentPermissions, policy kinds); `always_allowed_tools` and `usage_policy_id` removed.
 
 Fixes:
 - `ChatStreamEvent: Sendable` no longer warns in consumer builds.
-- `apps.getByName("ns/app@version")` returns that version. It used to strip the suffix and return the current version, so `live-run` against a staged version read the wrong functions ("no stream function").
 
 ## 0.7.1
 
