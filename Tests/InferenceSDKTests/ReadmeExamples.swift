@@ -108,6 +108,56 @@ private enum ReadmeExamples {
         }
     }
 
+    final class Audio: Sendable {
+        func start() {}
+        func play(_ pcm: Data) {}
+        func flush() {}
+    }
+
+    static func live(client: InferenceClient, microphone: Audio, player: Audio, micFrame: Data,
+                     show: (String, LiveValue) -> Void) async throws {
+        let (task, session) = try await client.live(ApiAppRunRequest(
+            app: "xai/grok-voice",
+            input: ["voice": "eve"],
+            function: "talk"
+        ))
+
+        Task {
+            for await event in session.events {
+                switch event {
+                case .state(.live): microphone.start()
+                case .state(let state): print(state)
+                case .binary(let pcm): player.play(pcm)
+                case .patch(let patch): print(patch)
+                case .clear: player.flush()
+                case .error(let field, let message): print(field ?? "-", message)
+                case .text(let text): print(text)
+                }
+            }
+        }
+
+        session.sendBinary(micFrame)
+        session.sendPatch(["events": ["type": "text", "text": "hi"]])
+        session.close()
+        _ = try await client.tasks.watch(task.id)
+        _ = try await client.sockets.open(task.id)
+
+        let function = try await client.apps.getByName("xai/grok-voice").version?.functions?["talk"]
+        let (form, live) = splitLiveSchema(function?.inputSchema)
+        _ = (form, pcmFormat(binaryLiveField(live)?.media))
+
+        let request = ApiAppRunRequest(app: "xai/grok-voice", input: [:], function: "talk")
+        let (_, mapped) = try await client.live(request, options: OpenSocketOptions(
+            inputSchema: function?.inputSchema,
+            outputSchema: function?.outputSchema
+        ))
+        try mapped.sendField("audio", .binary(micFrame))
+        try mapped.sendField("voice", .json("ara"))
+        for await event in mapped.events {
+            for update in mapped.updates(for: event) { show(update.field, update.value) }
+        }
+    }
+
     static func speech(client: InferenceClient, wavData: Data, reply: String) async throws {
         let stt = SpeechToText(client: client, app: "elevenlabs/stt")
         _ = try await stt.transcribe(wavData)
