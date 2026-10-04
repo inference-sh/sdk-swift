@@ -12,6 +12,9 @@
 //    expando props on a DTO like the js does.
 //  - Polling mode (`streamEnabled: false`) polls /status like pollChat does,
 //    at a fixed 3s.
+//  - alwaysAllowTool takes the option key (`option: String?`) where js takes
+//    `AlwaysAllowChoice | string`; the old `toolName:` form is kept,
+//    deprecated, and saves the default option like the js string form.
 
 import Foundation
 #if canImport(FoundationNetworking)
@@ -145,11 +148,55 @@ public final class AgentChatSession {
         try await surfacing { try await self.client.rejectTool(toolInvocationId, reason: reason) }
     }
 
-    /// Whitelists AND approves server-side in one call.
+    /// What "always allow" can save for this call, narrowest first; nil
+    /// before the chat exists. Errors are thrown, not surfaced in `state`.
+    public func getAlwaysAllowOptions(_ toolInvocationId: String) async throws -> AlwaysAllowOptionsDTO? {
+        guard let chatId = state.chatId else { return nil }
+        return try await client.getAlwaysAllowOptions(chatId: chatId, toolInvocationId: toolInvocationId)
+    }
+
+    /// Save an option (a key from `getAlwaysAllowOptions`; nil for the api's
+    /// default) as chat rules and approve the call once. A 409 (the option is
+    /// stale: read the options again) or 400 (nothing can be always-allowed
+    /// here) is thrown without touching `state`: the call is still waiting
+    /// and the connection is fine.
+    @discardableResult
+    public func alwaysAllowTool(_ toolInvocationId: String, option: String?) async throws -> AlwaysAllowResultDTO? {
+        guard let chatId = state.chatId else { return nil }
+        do {
+            return try await client.alwaysAllowTool(chatId: chatId, toolInvocationId: toolInvocationId, option: option)
+        } catch {
+            if case InferenceError.http(let status, _) = error, status == 409 || status == 400 { throw error }
+            dispatch(.setConnectionStatus(.error))
+            dispatch(.setError(error.localizedDescription))
+            callbacks.onError?(error)
+            throw error
+        }
+    }
+
+    /// The api reads the tool from the call; this saves the default option.
+    @available(*, deprecated, message: "use alwaysAllowTool(_:option:) with a key from getAlwaysAllowOptions")
     public func alwaysAllowTool(_ toolInvocationId: String, toolName: String) async throws {
+        try await alwaysAllowTool(toolInvocationId, option: nil)
+    }
+
+    /// Explain a call awaiting approval in plain words. Throws without a chat.
+    public func explainTool(_ toolInvocationId: String) async throws -> ToolExplanationDTO {
+        guard let chatId = state.chatId else { throw InferenceError.http(status: 400, body: "no chat to explain a tool call in") }
+        return try await client.explainTool(chatId: chatId, toolInvocationId: toolInvocationId)
+    }
+
+    /// Change this chat's settings and merge the answer into `state.chat`
+    /// (e.g. `allowAllTools: true`, which also approves the calls waiting).
+    /// A no-op before the chat exists. Errors set `state.error` and throw.
+    public func updateChatSettings(_ settings: ChatSettingsRequest) async throws {
         guard let chatId = state.chatId else { return }
-        try await surfacing {
-            try await self.client.alwaysAllowTool(chatId: chatId, toolInvocationId: toolInvocationId, toolName: toolName)
+        do {
+            dispatch(.mergeChatSettings(try await client.updateChatSettings(chatId: chatId, settings)))
+        } catch {
+            dispatch(.setError(error.localizedDescription))
+            callbacks.onError?(error)
+            throw error
         }
     }
 

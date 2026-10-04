@@ -91,6 +91,9 @@ public enum ChatAction {
     case updateChat(ChatDTO?)
     /// js UPDATE_ACTIVE_RUN.
     case updateActiveRun(AgentRunDTO)
+    /// js MERGE_CHAT_SETTINGS: what POST /chats/{id}/settings answered,
+    /// merged into the chat held (ignored for another chat).
+    case mergeChatSettings(ChatSettingsDTO)
     /// js SET_MESSAGES.
     case setMessages([ChatMessageDTO])
     /// js PREPEND_MESSAGES.
@@ -160,6 +163,19 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         // js: { ...state.chat, active_run, status } (ChatDTO is a value type)
         chat.activeRun = run
         chat.status = deriveChatStatus(run)
+        var next = state
+        next.chat = chat
+        return next
+
+    case .mergeChatSettings(let settings):
+        guard var chat = state.chat, chat.id == settings.chatId else { return state }
+        chat.name = settings.name
+        chat.visibility = settings.visibility
+        var data = chat.agentData
+        data.allowAllTools = settings.allowAllTools
+        data.disableHooks = settings.disableHooks
+        data.memory = settings.memory
+        chat.agentData = data
         var next = state
         next.chat = chat
         return next

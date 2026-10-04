@@ -335,7 +335,15 @@ When a tool call needs the user, its invocation (`message.toolInvocations`) wait
 ```swift
 try await session.approveTool(invocation.id)
 try await session.rejectTool(invocation.id, reason: "not now")
-try await session.alwaysAllowTool(invocation.id, toolName: invocation.function.name)
+
+// "always allow": the api offers rules for this call, narrowest first; saving
+// one also approves the call. A stale key throws 409: read the options again.
+if let options = try await session.getAlwaysAllowOptions(invocation.id),
+   let narrowest = options.options?.first(where: { $0.key == options.default }) {
+    print(narrowest.label)   // "npm test commands on laptop"
+    try await session.alwaysAllowTool(invocation.id, option: narrowest.key)
+}
+let explanation = try await session.explainTool(invocation.id)   // what it does, its risk
 
 // client-side tools and widget forms
 try await session.submitToolResult(invocation.id, result: #"{"form_data":{"size":"large"}}"#)
@@ -345,6 +353,16 @@ try await session.resolveInterrupt(interruptId, decision: "allow")   // or "deny
 ```
 
 Tools that render UI (A2UI widgets) carry it on `invocation.widget`, or in the result; `Widget.parse(string:)` reads every format the web app accepts.
+
+### Chat settings
+
+```swift
+try await session.updateChatSettings(ChatSettingsRequest(allowAllTools: true))   // also approves the calls waiting
+try await session.updateChatSettings(ChatSettingsRequest(disableHooks: true))    // the agent's lifecycle hooks stay out of this chat
+session.state.chat?.agentData.allowAllTools                                     // merged from the answer
+```
+
+`ChatSettingsRequest` also renames (`name`), sets `visibility` and forgets memory keys (`forgetMemory`). Without a session: `client.updateChatSettings(chatId:_:)`.
 
 ### Resuming a chat
 
