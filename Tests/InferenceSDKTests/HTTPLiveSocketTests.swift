@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 @testable import InferenceSDK
 
 /// The relay's HTTP framing (relay README, "Client end over HTTP").
