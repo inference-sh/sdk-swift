@@ -76,7 +76,16 @@ private enum ReadmeExamples {
     static func tools(session: AgentChatSession, invocation: ToolInvocationDTO, existingChatId: String, interruptId: String) async throws {
         try await session.approveTool(invocation.id)
         try await session.rejectTool(invocation.id, reason: "not now")
-        try await session.alwaysAllowTool(invocation.id, toolName: invocation.function.name)
+        if let options = try await session.getAlwaysAllowOptions(invocation.id),
+           let narrowest = options.options?.first(where: { $0.key == options.default }) {
+            print(narrowest.label)   // "npm test commands on laptop"
+            try await session.alwaysAllowTool(invocation.id, option: narrowest.key)
+        }
+        let explanation = try await session.explainTool(invocation.id)
+        print(explanation.riskLevel.rawValue, explanation.explanation)
+        try await session.updateChatSettings(ChatSettingsRequest(allowAllTools: true))
+        try await session.updateChatSettings(ChatSettingsRequest(disableHooks: true))
+        _ = session.state.chat?.agentData.allowAllTools
         try await session.submitToolResult(invocation.id, result: #"{"form_data":{"size":"large"}}"#)
         try await session.resolveInterrupt(interruptId, decision: "allow")
         _ = invocation.widget

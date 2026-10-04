@@ -3,6 +3,14 @@
 ## Unreleased
 
 Added:
+- Chat settings: `client.updateChatSettings(chatId:_:)` (`POST /chats/{id}/settings`, answers `ChatSettingsDTO`) and `AgentChatSession.updateChatSettings(_:)`, which merges the answer into `state.chat` (reducer action `mergeChatSettings`, sdk-js `MERGE_CHAT_SETTINGS`).
+- Always-allow options: `client.getAlwaysAllowOptions(chatId:toolInvocationId:)`, `client.alwaysAllowTool(chatId:toolInvocationId:option:)` (answers `AlwaysAllowResultDTO`) and the session's `getAlwaysAllowOptions(_:)` / `alwaysAllowTool(_:option:)`. A 409 (stale option) or 400 is thrown without marking the connection failed.
+- `client.explainTool(chatId:toolInvocationId:)` and `AgentChatSession.explainTool(_:)`: a call awaiting approval in plain words, with its risk.
+
+Deprecated:
+- `alwaysAllowTool(…, toolName:)`: the api ignores `tool_name`; it saves the default option.
+
+Added:
 - `InferenceAudio`, a second library product: audio for apps on top of the SDK (live dictation, push-to-talk to an agent, voice calls with stream apps, crash-safe long recordings), extracted from the inference.sh Apple app and the web app's live audio. `InferenceSDK` stays Foundation-only.
 - Pure parts, on every platform including Linux: `PCM16` (PCM ↔ Float, peak, RMS, meter, up/downmix), `PCMFramer` (20 ms frames), `SilenceGate` (web app's gate: -66 dBFS, 6 s tail), `PCMResampler` with `LinearResampler` and `makeResampler`, `WAV` (header, decode), `WAVStreamParser` (reads Apple's `FLLR`/`JUNK` headers and files still being written), `WAVWriter`, `WAVFileTailer`, `LiveTranscript` (transcript from `text` patches: grow, full line, revised tail, `$clear`; final text from the result's `text`, `utterances`, `turns` or `segments`), `LiveSpeechPlan`/`LiveSpeechPlans`.
 - `AudioSource` and `AudioSink` protocols, and `WAVFileSource`: a WAV file as a microphone, in real time.
