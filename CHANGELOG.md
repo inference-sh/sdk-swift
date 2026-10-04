@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+Added:
+- `LiveTransport.http`: a `LiveDialer` that holds the client end of a socket over plain HTTP (`GET {socket}/stream` for the worker's frames, `POST {socket}/frames` for ours, one request at a time) instead of a WebSocket. For watchOS, which allows `URLSessionWebSocketTask` only while streaming audio or in a call (TN3135), and networks that drop the upgrade. Pass it as `OpenSocketOptions(dial: LiveTransport.http)`. Needs a relay with the HTTP client end (inference-sh/relay#4). `LiveTransport.webSocket` is the default.
+
 ## 0.10.1
 
 Fixes:
