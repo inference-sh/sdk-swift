@@ -29,8 +29,8 @@ Or in Xcode: **File → Add Package Dependencies…** and paste `https://github.
 ## Requirements
 
 - Swift 5.9+
-- iOS 17+ / macOS 14+
-- Linux (Foundation + FoundationNetworking; no Apple-only frameworks in the library)
+- iOS 17+ / macOS 14+ / watchOS 10+
+- Linux (Foundation + FoundationNetworking; no Apple-only frameworks in `InferenceSDK`, and `InferenceAudio` without capture and playback)
 
 ## Authentication
 
@@ -271,7 +271,7 @@ for await event in session.events {
 }
 ```
 
-The SDK moves frames; recording and playing 16-bit PCM is the app's (`AVAudioEngine` on Apple platforms). The socket is a `URLSessionWebSocketTask` with the credential in an `Authorization` header. On Linux that needs a libcurl built with WebSockets (see `LiveSocket.swift`); pass `OpenSocketOptions(dial:)` to use another WebSocket client.
+The SDK moves frames. To record and play them, `InferenceAudio` has a microphone, a player and a voice call that wires both to a session (see [InferenceAudio](#inferenceaudio)). The socket is a `URLSessionWebSocketTask` with the credential in an `Authorization` header. On Linux that needs a libcurl built with WebSockets (see `LiveSocket.swift`); pass `OpenSocketOptions(dial:)` to use another WebSocket client.
 
 ## Agents
 
@@ -397,6 +397,108 @@ for try await audio in tts.synthesize(reply) {   // long text is chunked; one Da
 }
 ```
 
+## InferenceAudio
+
+`InferenceAudio` is a second library in this package, for apps that talk and listen: live dictation with the transcript on screen while you speak, push-to-talk to an agent (Bluetooth speaker mics included), voice calls with stream apps, and long recordings that survive a crash and get transcribed. It is built on `InferenceSDK` and is what the inference.sh voice app runs on.
+
+```swift
+.target(name: "MyApp", dependencies: [
+    .product(name: "InferenceSDK", package: "sdk-swift"),
+    .product(name: "InferenceAudio", package: "sdk-swift"),
+]),
+```
+
+Capture and playback (`Microphone`, `PCMPlayer`, `AudioSessionConfigurator`, AAC) need AVFoundation: iOS 17, macOS 14, watchOS 10. Everything else builds on Linux too: PCM conversion and levels (`PCM16`), 20 ms framing (`PCMFramer`), `SilenceGate`, resampling (`makeResampler`, `LinearResampler`), WAV reading and writing (`WAV`, `WAVStreamParser`, `WAVWriter`, `WAVFileTailer`), transcript assembly (`LiveTranscript`), `LiveTranscriber`, `LiveVoiceCall` and the recording store. Sources and sinks are protocols (`AudioSource`, `AudioSink`), so a WAV file (`WAVFileSource`) can stand in for the microphone.
+
+### Bluetooth speaker mics: AVAudioRecorder, not an engine tap
+
+On iOS over a Bluetooth HFP route (a speaker mic like the WM500) while Apple's PushToTalk framework owns the audio session (`.playAndRecord`/`.voiceChat`), an `AVAudioEngine` input tap never fires: zero callbacks, though the engine says it is running and the route says `BluetoothHFP`. An `AVAudioRecorder` does record there. So `Microphone` has two backends behind one API:
+
+- `.engine`: an input tap, with optional voice processing (echo cancellation and gain control) for calls on the built-in route.
+- `.recorder`: `AVAudioRecorder` writing a 16 kHz mono 16-bit WAV; the file is tailed as it grows (the header is walked chunk by chunk: Apple's writers put a `FLLR` filler before the audio, so it is not 44 bytes) and cut into 20 ms frames.
+
+`.automatic` (the default) takes the recorder when the session's input is Bluetooth HFP and the engine otherwise. Under PushToTalk pass `.recorder` whatever the route. The HFP voice channel also takes ¼ to ½ second to carry audio after key-down: play a go-ahead tone, and drop takes that are too short or near silent (`LiveTranscriber` does: `minimumDuration`, `minimumPeak`).
+
+### Live dictation
+
+`LiveTranscriber` finds the STT app's stream function, starts it, streams the audio at the rate its schema asks for and publishes the transcript so far. `finish()` returns the final text: the task's result when it lands in time, else the last patch. An app without a stream function (or a session that fails) is transcribed on release with `SpeechToText` instead.
+
+```swift
+let transcriber = LiveTranscriber(client: client, app: "xai/grok-stt")
+try await transcriber.start(source: Microphone())
+
+Task { @MainActor in
+    for await snapshot in transcriber.updates {
+        strip.settled = snapshot.transcript.settled   // words that stopped changing
+        strip.tail = snapshot.transcript.tail         // still moving: show them lighter
+        strip.level = snapshot.level                  // 0...1, for a meter
+        strip.elapsed = snapshot.elapsed
+    }
+}
+
+// release
+let text = try await transcriber.finish()             // "" when nothing was said
+```
+
+`LiveTranscriber.prepare(client:app:)` looks the app up ahead of the first press. Apps differ in how the transcript grows (xAI and OpenAI word by word, ElevenLabs a line at a time, Inworld revises its last words); `LiveTranscript` turns each patch into the settled part and the moving tail.
+
+### Push-to-talk to an agent
+
+```swift
+try AudioSessionConfigurator.shared.apply(.pushToTalk)   // once; PushToTalk activates the session itself
+
+// key down (under PushToTalk: once the channel manager has activated the session)
+let transcriber = LiveTranscriber(client: client, app: "xai/grok-stt")
+try await transcriber.start(source: Microphone(backend: .recorder))
+
+// key up
+let text = try await transcriber.finish()
+if !text.isEmpty { await chat.sendMessage(text) }        // an AgentChatSession
+```
+
+### A voice call with a stream app
+
+`LiveVoiceCall` wires a source and a sink to a `LiveSession` by the function's schemas: the microphone starts at the input's PCM format once the app is there, its frames go out through a `SilenceGate` (quiet frames keep going for 6 s after the last sound, so the app hears the pause that ends a turn), the output's audio plays with a 60 ms jitter lead, and `$clear` flushes it.
+
+```swift
+try AudioSessionConfigurator.shared.apply(.voiceChat)
+try await AudioSessionConfigurator.shared.activate()
+
+let engine = AVAudioEngine()   // shared: voice processing cancels what the call plays
+let call = try await LiveVoiceCall.start(
+    client: client,
+    request: ApiAppRunRequest(app: "xai/grok-voice", input: ["voice": "eve"], function: "talk"),
+    input: Microphone(backend: .engine, voiceProcessing: true, engine: engine),
+    output: PCMPlayer(engine: engine)
+)
+for await event in call.events {                         // the session's events, after the call acted on them
+    if case .patch(let patch) = event { print(patch) }
+}
+// call.isMuted = true; call.hangUp()
+```
+
+### A crash-safe long recording, transcribed
+
+`CrashSafeRecorder` writes headerless PCM segments synced to disk every second and replaces the recording's manifest atomically on every change, so a crash loses about a second. Interruptions (a call, Siri) become gaps on the timeline; on iOS the recorder follows the session's interruptions itself.
+
+```swift
+let store = RecordingStore(root: RecordingStore.defaultRoot())
+let recovered = store.recoverInterrupted()                // at launch: what a crash cut short, finished
+
+try AudioSessionConfigurator.shared.apply(.record)
+try await AudioSessionConfigurator.shared.activate()
+let recorder = CrashSafeRecorder(store: store, source: Microphone())
+try await recorder.start(metadata: ["title": "standup"])
+// …
+if let recording = await recorder.stop() {
+    let stt = SpeechToText(client: client, app: "elevenlabs/stt", extraInput: ["language_code": "eng"])
+    let text = try await store.transcribe(recording, with: stt, encoding: .aac(bitRate: 32_000))   // in 10-minute parts
+    let clip = try store.clipWAV(recording, from: 0, to: 16_000 * 30)                           // the first 30 s
+}
+```
+
+`store.joinWAV` writes one WAV of the whole recording, `AudioEncoder.encodeAAC` an .m4a.
+
 ## Knowledge
 
 Knowledge entries are versioned documents in your team's namespace. Save a markdown document:
@@ -433,6 +535,7 @@ try await client.knowledge.delete(entry.id)
 | `client.files` | `upload`, `list`, `get`, `delete` |
 | `client.sockets` | `open`, `get`, `list`, `forTask`, `access`, `delete` |
 | `client.live`, `LiveSession` | Stream functions (above) |
+| `InferenceAudio` | `Microphone`, `PCMPlayer`, `LiveTranscriber`, `LiveVoiceCall`, `CrashSafeRecorder` (above) |
 | `client.knowledge` | `list`, `get`, `getByName`, `create`, `update`, `delete`, versions, transfer, visibility |
 | `client.search` | `search`, `suggest` |
 | `AgentChatSession` | Stateful agent chat (above) |
@@ -474,12 +577,14 @@ let client = InferenceClient(
 make test                                  # unit tests (Codable, stream parsing, deltas, live sessions)
 make e2e AGENT=my-team/my-agent            # live: streams a real agent run
 make live APP=infsh/voice-loop             # live: runs a stream function over its socket
+make dictate APP=xai/grok-stt              # live: dictation from the mic (AUDIO_FILE=speech.wav to feed a file)
+make audio-e2e                             # live: a voice call round trip with infsh/voice-loop
 make test-linux                            # same tests in the swift:5.10 docker image
 ```
 
 `Sources/InferenceSDK/Types.swift` is generated by [gotypegen](https://github.com/inference-sh/gotypegen) from the api's types. Don't edit it by hand; regenerate it with the api's `make types`.
 
-`Examples/agent-run` and `Examples/live-run` are small CLIs on top of the SDK and double as the live end-to-end checks.
+`Examples/agent-run`, `Examples/live-run` and `Examples/live-dictate` are small CLIs on top of the SDK and double as the live end-to-end checks.
 
 ## License
 
