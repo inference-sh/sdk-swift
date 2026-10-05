@@ -10586,6 +10586,7 @@ public struct SuggestRequest: Codable, Sendable {
     public var context: String?
     public var limit: Int?
     public var category: String?
+    /// Deprecated: accepted and ignored. Descriptions are always clipped to shared.DescriptionLimitListing.
     public var agent: Bool?
     /// environment signals for overlap ranking (e.g. "git:user/repo", "lang:go")
     public var scope: [String]?
@@ -13858,6 +13859,22 @@ public struct ChannelContext: Codable, Sendable {
         case channelType = "channel_type"
         case channelMetadata = "channel_metadata"
     }
+}
+
+/// DescriptionLimit is the most characters a resource's description may have.
+public struct DescriptionLimit: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    /// DescriptionLimitListing bounds the description of an app, agent, flow,
+    /// MCP server or knowledge entry. A description is shown in listings and
+    /// handed to agents as a suggestion, so it is a sentence or two; anything
+    /// longer belongs in the resource itself.
+    public static let listing = DescriptionLimit(rawValue: 200)
+    /// DescriptionLimitSkill bounds a skill's description. It is the skill's
+    /// SKILL.md frontmatter, so it follows the Agent Skills specification
+    /// (https://agentskills.io/specification) rather than the listing limit.
+    public static let skill = DescriptionLimit(rawValue: 1024)
 }
 
 /// EngineStatus represents the status of an engine.
