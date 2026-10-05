@@ -10,6 +10,19 @@
 // A record is kind (1 byte), length (4 bytes, big endian), payload. Kinds: 1
 // text, 2 binary, 8 close (code, 2 bytes big endian, then the reason), 9
 // keepalive. Frames queued while a POST is out go together in the next one.
+//
+// The relay treats this end as it treats a WebSocket, and three things a
+// WebSocket's connection does are done here:
+//
+//   - Pongs. Each keepalive on the stream is answered with a POST: the frames
+//     that are queued, or one keepalive record. The relay drops an end that
+//     posts nothing for three keepalives.
+//   - Backpressure. The relay holds 64 frames for a worker that is not there
+//     yet or reads slowly. A POST that finds them taken is held for one
+//     keepalive interval, then answered 429 with how many records it took;
+//     the rest are sent again, in order.
+//   - The close. When the relay refuses frames the socket has ended there,
+//     and the stream's last record says how; that is what the caller is told.
 
 @preconcurrency import Foundation
 #if canImport(FoundationNetworking)
@@ -34,6 +47,33 @@ enum RelayRecord: Equatable {
     case unknown(UInt8)
 
     static let headerSize = 5
+    /// What fits a close frame next to its code (RFC 6455 5.5).
+    static let maxCloseReasonBytes = 123
+
+    /// A close the relay can pass to the worker's WebSocket: a code a
+    /// WebSocket may send (1000 otherwise, as URLSessionLiveSocket does for a
+    /// code it has no name for) and the reason cut to what a close frame
+    /// holds. The relay ends the socket as broken on anything else.
+    static func close(sending code: Int, reason: String) -> RelayRecord {
+        let sendable = (1000...1003).contains(code) || (1007...1013).contains(code) || (3000...4999).contains(code)
+        // A character is at least a byte, so the prefix bounds the loop.
+        var reason = String(reason.prefix(maxCloseReasonBytes))
+        while reason.utf8.count > maxCloseReasonBytes { reason.removeLast() }
+        return .close(code: sendable ? code : 1000, reason: reason)
+    }
+
+    /// Takes the records of the next POST off the front of `queue`: as many
+    /// as fit `maxBytes`, and always one.
+    static func batch(from queue: inout [Data], maxBytes: Int) -> [Data] {
+        var count = 0, size = 0
+        while count < queue.count, count == 0 || size + queue[count].count <= maxBytes {
+            size += queue[count].count
+            count += 1
+        }
+        let batch = Array(queue[..<count])
+        queue.removeFirst(count)
+        return batch
+    }
 
     var encoded: Data {
         let (kind, payload): (UInt8, Data) = switch self {
@@ -79,9 +119,18 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
     /// The relay sends a keepalive every 25s; this long without a record means
     /// the stream died without ending.
     static let silenceLimit: Duration = .seconds(80)
-    /// How long queued frames and the close get to leave once the caller closes.
+    /// How long queued frames and the close get to leave once the caller
+    /// closes, and how long the stream gets to bring the close once the relay
+    /// refuses frames.
     static let flushTimeout: Duration = .seconds(5)
-    static let postTimeout: TimeInterval = 15
+    /// The relay holds a POST for one keepalive interval (25s) when its
+    /// buffer is full; giving up sooner would end a socket that is only
+    /// waiting for its worker.
+    static let postTimeout: TimeInterval = 40
+    /// One POST's worth of records: small enough to leave a slow link soon,
+    /// large enough that audio queued behind a slow POST catches up.
+    static let maxBatchBytes = 256 * 1024
+    static let acceptedHeader = "X-Accepted-Records"
 
     let events: AsyncStream<LiveSocketEvent>
     private let sink: AsyncStream<LiveSocketEvent>.Continuation
@@ -97,8 +146,12 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
     private var opened = false
     private var finished = false
     private var closing = false
-    /// Encoded records waiting for the next POST.
-    private var pending = Data()
+    /// The relay refused frames; no more are sent.
+    private var sendingOver = false
+    /// Encoded records waiting for a POST, oldest first.
+    private var pending: [Data] = []
+    /// A keepalive from the relay is waiting for its answer.
+    private var keepaliveDue = false
     /// The relay's close record, reported once the stream ends.
     private var closeRecord: (code: Int, reason: String)?
     private var lastHeard = ContinuousClock.now
@@ -160,7 +213,7 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
         case .binary(let d): .binary(d)
         }
         lock.lock()
-        let accepted = !closing && !finished
+        let accepted = !closing && !finished && !sendingOver
         if accepted { pending.append(record.encoded) }
         lock.unlock()
         if accepted { wake.yield() }
@@ -171,7 +224,7 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
         let already = closing || finished
         if !already {
             closing = true
-            pending.append(RelayRecord.close(code: code, reason: reason).encoded)
+            pending.append(RelayRecord.close(sending: code, reason: reason).encoded)
         }
         lock.unlock()
         guard !already else { return }
@@ -187,37 +240,67 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
 
     // MARK: - Loops
 
-    /// One POST at a time, carrying everything queued since the last one.
+    /// One POST at a time, carrying what was queued since the last one.
     private func sendLoop(_ wakes: AsyncStream<Void>) async {
         guard let frames = endpoints?.frames else { return }
+        var post = URLRequest(url: frames)
+        post.httpMethod = "POST"
+        post.setValue(authorization, forHTTPHeaderField: "Authorization")
+        post.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        post.timeoutInterval = Self.postTimeout
         for await _ in wakes {
-            while let body = takePending() {
-                var post = URLRequest(url: frames)
-                post.httpMethod = "POST"
-                post.setValue(authorization, forHTTPHeaderField: "Authorization")
-                post.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-                post.timeoutInterval = Self.postTimeout
-                let status = await Self.upload(post, body)
-                switch status {
-                case 204:
-                    continue
-                case 410:
-                    return  // the socket ended; the stream brings the close
-                default:
-                    cancelStream()
-                    finish(reason: status.map { "the relay refused frames: HTTP \($0)" } ?? "couldn't reach the relay")
-                    return
+            while var batch = takeBatch() {
+                // Until the relay has taken every record of the batch.
+                while !batch.isEmpty {
+                    guard let answer = await Self.upload(post, Data(batch.joined())) else {
+                        cancelStream()
+                        finish(reason: "couldn't reach the relay")
+                        return
+                    }
+                    switch (answer.status, answer.accepted) {
+                    case (204, _):
+                        batch = []
+                    case (429, let accepted?) where (0...batch.count).contains(accepted):
+                        // The relay's buffer stayed full: it kept the first
+                        // records and has already made us wait.
+                        batch.removeFirst(accepted)
+                        if isOver() { return }
+                    default:
+                        framesRefused(answer.status)
+                        return
+                    }
                 }
             }
         }
     }
 
+    /// The relay takes no frames once the socket has ended there: the worker
+    /// closed it, or a frame of ours broke it. The stream's last record says
+    /// which, so the stream gets a moment to bring it.
+    private func framesRefused(_ status: Int) {
+        lock.lock()
+        sendingOver = true
+        pending = []
+        lock.unlock()
+        Task {
+            try? await Task.sleep(for: Self.flushTimeout)
+            self.cancelStream()
+            self.finish(reason: "the relay refused frames: HTTP \(status)")
+        }
+    }
+
     private static let posts = URLSession(configuration: .default)
 
-    private static func upload(_ request: URLRequest, _ body: Data) async -> Int? {
+    /// The status and the relay's count of accepted records; nil when the
+    /// request did not get an answer.
+    private static func upload(_ request: URLRequest, _ body: Data) async -> (status: Int, accepted: Int?)? {
         await withCheckedContinuation { continuation in
             posts.uploadTask(with: request, from: body) { _, response, error in
-                continuation.resume(returning: error == nil ? (response as? HTTPURLResponse)?.statusCode : nil)
+                guard error == nil, let http = response as? HTTPURLResponse else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: (http.statusCode, http.value(forHTTPHeaderField: acceptedHeader).flatMap { Int($0) }))
             }.resume()
         }
     }
@@ -246,11 +329,20 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
 
     // NSLock is not for async functions; the loops above take it through these.
 
-    private func takePending() -> Data? {
+    /// The next POST's records. Any POST answers a keepalive; one goes out
+    /// on its own only when nothing else is queued.
+    private func takeBatch() -> [Data]? {
         lock.lock(); defer { lock.unlock() }
-        guard opened, !finished, !pending.isEmpty else { return nil }
-        defer { pending = Data() }
-        return pending
+        guard opened, !finished, !sendingOver else { return nil }
+        let due = keepaliveDue
+        keepaliveDue = false
+        if pending.isEmpty { return due ? [RelayRecord.keepalive.encoded] : nil }
+        return RelayRecord.batch(from: &pending, maxBytes: Self.maxBatchBytes)
+    }
+
+    private func isOver() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return finished
     }
 
     private func isLate() -> Bool {
@@ -287,8 +379,9 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
         timers.forEach { $0.cancel() }
         wake.finish()
 
+        // The relay's own account of the end outranks ours of how we noticed.
         let code: Int, text: String
-        if let record, reason == nil {
+        if let record {
             (code, text) = record
         } else if let refused {
             (code, text) = (1006, "the relay refused the connection: HTTP \(refused)")
@@ -327,8 +420,11 @@ final class HTTPLiveSocket: LiveSocket, @unchecked Sendable {
         lastHeard = .now
         let over = finished
         for case .close(let code, let reason) in records { closeRecord = (code, reason) }
+        let keepalive = records.contains(.keepalive) && !over
+        if keepalive { keepaliveDue = true }
         lock.unlock()
         guard !over else { return }
+        if keepalive { wake.yield() }
         for record in records {
             switch record {
             case .text(let s): sink.yield(.frame(.text(s)))
