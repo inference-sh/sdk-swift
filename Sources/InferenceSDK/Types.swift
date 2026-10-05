@@ -3024,6 +3024,12 @@ public struct AppDTO: Codable, Sendable {
     public var status: AppStatus
     public var statusMessage: String?
     public var statusChangedAt: String?
+    /// ResolvedFunction is the function the requested ref named, when it named
+    /// one: "ns/app:fn" in the ref itself, or a route on the name that pins a
+    /// function (a retired dialogue app routed to "ns/new-app:dialogue"). Only
+    /// set on a lookup by ref; empty means the caller picks, starting from the
+    /// version's default.
+    public var resolvedFunction: String?
 
     public init(
         id: String = "",
@@ -3047,7 +3053,8 @@ public struct AppDTO: Codable, Sendable {
         version: AppVersionDTO? = nil,
         status: AppStatus,
         statusMessage: String? = nil,
-        statusChangedAt: String? = nil
+        statusChangedAt: String? = nil,
+        resolvedFunction: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -3071,6 +3078,7 @@ public struct AppDTO: Codable, Sendable {
         self.status = status
         self.statusMessage = statusMessage
         self.statusChangedAt = statusChangedAt
+        self.resolvedFunction = resolvedFunction
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3096,6 +3104,7 @@ public struct AppDTO: Codable, Sendable {
         case status = "status"
         case statusMessage = "status_message"
         case statusChangedAt = "status_changed_at"
+        case resolvedFunction = "resolved_function"
     }
 }
 
