@@ -41,6 +41,34 @@ final class HTTPLiveSocketTests: XCTestCase {
         XCTAssertEqual(RelayRecord.parse(&buffer), [.unknown(42), .text("after")])
     }
 
+    func testACloseIsOneAWebSocketCanSend() {
+        XCTAssertEqual(RelayRecord.close(sending: 1000, reason: "done"), .close(code: 1000, reason: "done"))
+        XCTAssertEqual(RelayRecord.close(sending: 4000, reason: ""), .close(code: 4000, reason: ""))
+        // Codes no WebSocket may send become 1000, as with URLSessionWebSocketTask.
+        for code in [0, 999, 1005, 1006, 1015, 2000, 5000] {
+            XCTAssertEqual(RelayRecord.close(sending: code, reason: "x"), .close(code: 1000, reason: "x"), "\(code)")
+        }
+        // A close frame holds 123 bytes of reason; the cut keeps whole characters.
+        guard case .close(_, let ascii) = RelayRecord.close(sending: 1000, reason: String(repeating: "x", count: 200)) else { return XCTFail() }
+        XCTAssertEqual(ascii.utf8.count, 123)
+        guard case .close(_, let wide) = RelayRecord.close(sending: 1000, reason: String(repeating: "é", count: 100)) else { return XCTFail() }
+        XCTAssertEqual(wide, String(repeating: "é", count: 61))
+    }
+
+    func testABatchTakesWhatFitsAndAlwaysOneRecord() {
+        var queue = [Data(count: 4), Data(count: 4), Data(count: 4)]
+        XCTAssertEqual(RelayRecord.batch(from: &queue, maxBytes: 9).count, 2)
+        XCTAssertEqual(queue.count, 1)
+        XCTAssertEqual(RelayRecord.batch(from: &queue, maxBytes: 9).count, 1)
+        XCTAssertTrue(queue.isEmpty)
+
+        // A record larger than the limit still goes, alone and in its turn.
+        queue = [Data(count: 2), Data(count: 50), Data(count: 2)]
+        XCTAssertEqual(RelayRecord.batch(from: &queue, maxBytes: 9).map(\.count), [2])
+        XCTAssertEqual(RelayRecord.batch(from: &queue, maxBytes: 9).map(\.count), [50])
+        XCTAssertEqual(RelayRecord.batch(from: &queue, maxBytes: 9).map(\.count), [2])
+    }
+
     func testEndpointsFromTheSocketURL() {
         let wss = HTTPLiveSocket.endpoints(URL(string: "wss://relay.inference.sh/sockets/abc")!)
         XCTAssertEqual(wss?.stream.absoluteString, "https://relay.inference.sh/sockets/abc/stream")
@@ -90,6 +118,76 @@ final class HTTPLiveSocketTests: XCTestCase {
         }
         XCTAssertEqual(events, [.opened, .frame(.text("echo:hi")), .frame(.binary(Data([3, 2, 1]))),
                                 .frame(.text("echo:bye")), .closed(code: 4000, reason: "app finished")])
+    }
+
+    /// The worker arrives after the relay's buffer (64 frames) has filled and
+    /// a POST has been answered 429: every frame still arrives, in order.
+    /// `go run ./cmd/echoworker -socket late -late 35s` prints these two.
+    func testRelayHoldsFramesForALateWorker() async throws {
+        let socket = try Self.dial("RELAY_E2E_LATE_URL", "RELAY_E2E_LATE_TOKEN")
+        let count = 200
+        var got: [LiveSocketEvent] = []
+        for await event in socket.events {
+            got.append(event)
+            if event == .opened {
+                for i in 0..<count { socket.send(.text("\(i)")) }
+                socket.send(.text("bye"))
+            }
+        }
+        XCTAssertEqual(got, [.opened] + (0..<count).map { .frame(.text("echo:\($0)")) }
+                           + [.frame(.text("echo:bye")), .closed(code: 4000, reason: "app finished")])
+    }
+
+    /// Idle past the relay's limit for an end that answers no keepalive
+    /// (three intervals, 75s): the socket is still there.
+    /// `go run ./cmd/echoworker -socket idle` prints these two.
+    func testRelayKeepsAnIdleSocket() async throws {
+        let socket = try Self.dial("RELAY_E2E_IDLE_URL", "RELAY_E2E_IDLE_TOKEN")
+        var got: [LiveSocketEvent] = []
+        for await event in socket.events {
+            got.append(event)
+            if event == .opened {
+                Task {
+                    try? await Task.sleep(for: .seconds(100))
+                    socket.send(.text("bye"))
+                }
+            }
+        }
+        XCTAssertEqual(got, [.opened, .frame(.text("echo:bye")), .closed(code: 4000, reason: "app finished")])
+    }
+
+    /// The worker ends the socket while we are still sending: the caller is
+    /// told the worker's close, not that the relay refused our frames. The
+    /// two differ only when a POST's answer arrives before the stream's close
+    /// record, which loopback rarely does: put a proxy that delays the stream
+    /// in front of the relay to see it.
+    /// `go run ./cmd/echoworker -socket closes` prints these two.
+    func testRelayWorkerCloseWinsOverRefusedFrames() async throws {
+        let socket = try Self.dial("RELAY_E2E_CLOSES_URL", "RELAY_E2E_CLOSES_TOKEN")
+        var last: LiveSocketEvent?
+        for await event in socket.events {
+            last = event
+            if event == .opened {
+                socket.send(.text("bye"))
+                Task {
+                    for i in 0..<300 {
+                        socket.send(.text("after \(i)"))
+                        try? await Task.sleep(for: .milliseconds(5))
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(last, .closed(code: 4000, reason: "app finished"))
+    }
+
+    private static func dial(_ urlKey: String, _ tokenKey: String) throws -> any LiveSocket {
+        let env = ProcessInfo.processInfo.environment
+        guard let url = env[urlKey].flatMap(URL.init(string:)), let token = env[tokenKey] else {
+            throw XCTSkip("set \(urlKey) and \(tokenKey)")
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return LiveTransport.http(request)
     }
 
     func testARefusedStreamClosesWith1006AndTheStatus() async throws {
