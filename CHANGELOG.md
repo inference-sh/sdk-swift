@@ -1,14 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
 Added:
-- `LiveTransport.http`: a `LiveDialer` that holds the client end of a socket over plain HTTP (`GET {socket}/stream` for the worker's frames, `POST {socket}/frames` for ours, one request at a time) instead of a WebSocket. For watchOS, which allows `URLSessionWebSocketTask` only while streaming audio or in a call (TN3135), and networks that drop the upgrade. Pass it as `OpenSocketOptions(dial: LiveTransport.http)`. Needs a relay with the HTTP client end (inference-sh/relay#4). `LiveTransport.webSocket` is the default.
-- `LiveTransport.http` behaves as the WebSocket does (needs inference-sh/relay#5):
+- `LiveTransport.http`: a `LiveDialer` that holds the client end of a socket over plain HTTP (`GET {socket}/stream` for the worker's frames, `POST {socket}/frames` for ours, one request at a time) instead of a WebSocket. For watchOS, which allows `URLSessionWebSocketTask` only while streaming audio or in a call (TN3135), and networks that drop the upgrade. Pass it as `OpenSocketOptions(dial: LiveTransport.http)`. `LiveTransport.webSocket` is the default. Needs relay-v4 (inference-sh/relay#4 and #5). It behaves as the WebSocket does:
   - It answers each of the relay's keepalives with a POST, as a WebSocket answers pings. The relay drops an end that posts nothing for 75s.
   - Frames sent while the app is still starting wait instead of ending the socket: the relay holds 64 and answers 429 with how many of a POST it took, and the rest go again in order. A POST carries at most 256 KB of queued frames (one frame at least).
   - When the app closes the socket while frames are on their way, `LiveEnd` carries the app's close code, not 1006 "the relay refused frames".
   - `close(code:reason:)` sends what a close frame can carry: a code outside 1000-1003, 1007-1013 and 3000-4999 goes as 1000, and the reason is cut to 123 bytes.
+- `Examples/live-run` and `make live` take `TRANSPORT=http`. On Linux that is the way to run it: Foundation's WebSocket cannot dial there.
+
+There is no 0.11.0 release. The tag 0.11.0 is on 55ab967, the commit before 0.10.1, and holds the same code.
 
 ## 0.10.1
 
