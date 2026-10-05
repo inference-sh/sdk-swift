@@ -41,7 +41,7 @@ e2e:
 
 live:
 	@test -n "$$INFERENCE_API_KEY" || { echo "set INFERENCE_API_KEY"; exit 2; }
-	AUDIO_FILE=$(AUDIO_FILE) SEND='$(SEND)' STAY=$(STAY) swift run live-run $(APP)
+	AUDIO_FILE=$(AUDIO_FILE) SEND='$(SEND)' STAY=$(STAY) TRANSPORT=$(TRANSPORT) swift run live-run $(APP)
 
 # Live dictation (InferenceAudio): make dictate APP=xai/grok-stt
 #   AUDIO_FILE=speech.wav   feed a WAV in real time instead of the microphone

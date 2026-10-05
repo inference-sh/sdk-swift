@@ -8,6 +8,8 @@
 //                   20 ms frames in real time, once the app is there.
 // SEND='{"events":{"type":"text","text":"hi"}}'  a JSON frame to send once live.
 // STAY=5            seconds to stay after the last frame went out.
+// TRANSPORT=http    dial with LiveTransport.http instead of the WebSocket
+//                   (Linux: Foundation's WebSocket cannot dial there).
 
 import Foundation
 import InferenceSDK
@@ -64,7 +66,8 @@ do {
 
     let (task, session) = try await client.live(
         ApiAppRunRequest(app: appRef, input: .object(input), function: name),
-        options: OpenSocketOptions(inputSchema: function.inputSchema, outputSchema: function.outputSchema))
+        options: OpenSocketOptions(dial: env["TRANSPORT"] == "http" ? LiveTransport.http : nil,
+                                   inputSchema: function.inputSchema, outputSchema: function.outputSchema))
     print("task \(task.id) socket \(task.socket?.id ?? "-")")
 
     // Once the app is there: send what was asked, stay a while, close.
