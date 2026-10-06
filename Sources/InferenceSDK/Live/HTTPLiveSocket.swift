@@ -31,10 +31,18 @@ import FoundationNetworking
 
 /// The transports a LiveSession can dial with (`OpenSocketOptions.dial`).
 public enum LiveTransport {
-    /// URLSessionWebSocketTask; the default.
+    /// URLSessionWebSocketTask; the default except on watchOS.
     public static let webSocket: LiveDialer = { URLSessionLiveSocket($0) }
     /// Plain HTTP requests; works where WebSockets are blocked (watchOS).
     public static let http: LiveDialer = { HTTPLiveSocket($0) }
+    /// What a session dials when none is given: HTTP on watchOS, which allows
+    /// URLSessionWebSocketTask only while streaming audio or in a call
+    /// (TN3135); the WebSocket everywhere else.
+    #if os(watchOS)
+    public static let platformDefault: LiveDialer = http
+    #else
+    public static let platformDefault: LiveDialer = webSocket
+    #endif
 }
 
 /// One record of the relay's HTTP framing.

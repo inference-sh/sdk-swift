@@ -145,14 +145,8 @@ public final class AgentChatSession {
     /// (the answers were rejected, the call is still waiting) is thrown
     /// without touching `state`: show it next to the form.
     public func submitMCPInput(_ toolInvocationId: String, responses: [String: ElicitResult]) async throws {
-        do {
-            try await client.submitToolResult(toolInvocationId, result: buildMCPInputResult(responses))
-        } catch {
-            if case InferenceError.http(let status, _) = error, status == 400 { throw error }
-            dispatch(.setConnectionStatus(.error))
-            dispatch(.setError(error.localizedDescription))
-            callbacks.onError?(error)
-            throw error
+        try await surfacing(passing: [400]) {
+            try await self.client.submitToolResult(toolInvocationId, result: buildMCPInputResult(responses))
         }
     }
 
@@ -179,14 +173,8 @@ public final class AgentChatSession {
     @discardableResult
     public func alwaysAllowTool(_ toolInvocationId: String, option: String?) async throws -> AlwaysAllowResultDTO? {
         guard let chatId = state.chatId else { return nil }
-        do {
-            return try await client.alwaysAllowTool(chatId: chatId, toolInvocationId: toolInvocationId, option: option)
-        } catch {
-            if case InferenceError.http(let status, _) = error, status == 409 || status == 400 { throw error }
-            dispatch(.setConnectionStatus(.error))
-            dispatch(.setError(error.localizedDescription))
-            callbacks.onError?(error)
-            throw error
+        return try await surfacing(passing: [400, 409]) {
+            try await self.client.alwaysAllowTool(chatId: chatId, toolInvocationId: toolInvocationId, option: option)
         }
     }
 
@@ -207,13 +195,8 @@ public final class AgentChatSession {
     /// A no-op before the chat exists. Errors set `state.error` and throw.
     public func updateChatSettings(_ settings: ChatSettingsRequest) async throws {
         guard let chatId = state.chatId else { return }
-        do {
-            dispatch(.mergeChatSettings(try await client.updateChatSettings(chatId: chatId, settings)))
-        } catch {
-            dispatch(.setError(error.localizedDescription))
-            callbacks.onError?(error)
-            throw error
-        }
+        let merged = try await surfacing(connection: false) { try await self.client.updateChatSettings(chatId: chatId, settings) }
+        dispatch(.mergeChatSettings(merged))
     }
 
     /// Hand this chat to another agent (namespace/name); the next message
@@ -221,22 +204,12 @@ public final class AgentChatSession {
     /// refusal sets `state.error` and is thrown. A no-op before the chat exists.
     public func switchAgent(_ agentRef: String) async throws {
         guard let chatId = state.chatId else { return }
-        do {
-            dispatch(.mergeChatAgent(try await client.setAgent(chatId: chatId, agent: agentRef)))
-        } catch {
-            dispatch(.setError(error.localizedDescription))
-            callbacks.onError?(error)
-            throw error
-        }
+        let agent = try await surfacing(connection: false) { try await self.client.setAgent(chatId: chatId, agent: agentRef) }
+        dispatch(.mergeChatAgent(agent))
     }
 
     public func cancelMessage(_ messageId: String) async throws {
-        do { try await client.chats.cancelMessage(messageId) }
-        catch {
-            dispatch(.setError(error.localizedDescription))
-            callbacks.onError?(error)
-            throw error
-        }
+        try await surfacing(connection: false) { try await self.client.chats.cancelMessage(messageId) }
     }
 
     public func resolveInterrupt(_ interruptId: String, decision: String) async throws {
@@ -390,10 +363,17 @@ public final class AgentChatSession {
 
     /// Shared error surface for the tool/interrupt calls (js repeats this
     /// catch in every action).
-    private func surfacing(_ body: () async throws -> Void) async throws {
-        do { try await body() }
+    /// Runs `body`; a failure sets `state.error`, calls `onError` and is
+    /// thrown. `passing`: HTTP statuses thrown untouched (the caller shows
+    /// them in place: the request was refused, the connection is fine).
+    /// `connection`: whether a failure also marks the connection failed.
+    @discardableResult
+    private func surfacing<T>(passing: Set<Int> = [], connection: Bool = true,
+                              _ body: () async throws -> T) async throws -> T {
+        do { return try await body() }
         catch {
-            dispatch(.setConnectionStatus(.error))
+            if case InferenceError.http(let status, _) = error, passing.contains(status) { throw error }
+            if connection { dispatch(.setConnectionStatus(.error)) }
             dispatch(.setError(error.localizedDescription))
             callbacks.onError?(error)
             throw error
