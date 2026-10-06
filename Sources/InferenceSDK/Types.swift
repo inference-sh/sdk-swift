@@ -3108,6 +3108,24 @@ public struct AppDTO: Codable, Sendable {
     }
 }
 
+/// AppUIRef names the artifact an app version renders as its UI: a page a
+/// host shows beside the task in place of the generic output view. Artifact
+/// is a ref ("ns/name", or "ns/name@version" to pin one) or an artifact id;
+/// an unpinned ref follows the artifact's current version.
+public struct AppUIRef: Codable, Sendable {
+    public var artifact: String
+
+    public init(
+        artifact: String = ""
+    ) {
+        self.artifact = artifact
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case artifact = "artifact"
+    }
+}
+
 /// AppVersionDTO is the API response for an app version.
 public struct AppVersionDTO: Codable, Sendable {
     public var id: String
@@ -3116,6 +3134,8 @@ public struct AppVersionDTO: Codable, Sendable {
     public var updatedAt: String
     public var deletedAt: String?
     public var metadata: [String: JSONValue]?
+    /// UI mirrors metadata.ui so clients need not dig through the map.
+    @Indirect public var ui: AppUIRef?
     public var repository: String
     public var flowVersionId: String?
     @Indirect public var flowVersion: FlowVersionDTO?
@@ -3138,6 +3158,7 @@ public struct AppVersionDTO: Codable, Sendable {
         updatedAt: String = "",
         deletedAt: String? = nil,
         metadata: [String: JSONValue]? = nil,
+        ui: AppUIRef? = nil,
         repository: String = "",
         flowVersionId: String? = nil,
         flowVersion: FlowVersionDTO? = nil,
@@ -3159,6 +3180,7 @@ public struct AppVersionDTO: Codable, Sendable {
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
         self.metadata = metadata
+        self.ui = ui
         self.repository = repository
         self.flowVersionId = flowVersionId
         self.flowVersion = flowVersion
@@ -3182,6 +3204,7 @@ public struct AppVersionDTO: Codable, Sendable {
         case updatedAt = "updated_at"
         case deletedAt = "deleted_at"
         case metadata = "metadata"
+        case ui = "ui"
         case repository = "repository"
         case flowVersionId = "flow_version_id"
         case flowVersion = "flow_version"
@@ -6213,6 +6236,8 @@ public struct EntitlementErrorMeta: Codable, Sendable {
     public var limit: Int?
     public var current: Int?
     public var upgradeAvailable: Bool
+    public var requestable: Bool
+    public var requestState: String?
     public var addonPlanId: String?
     public var addonPlanName: String?
     public var addonPlanPrice: Int?
@@ -6223,6 +6248,8 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         limit: Int? = nil,
         current: Int? = nil,
         upgradeAvailable: Bool = false,
+        requestable: Bool = false,
+        requestState: String? = nil,
         addonPlanId: String? = nil,
         addonPlanName: String? = nil,
         addonPlanPrice: Int? = nil
@@ -6232,6 +6259,8 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         self.limit = limit
         self.current = current
         self.upgradeAvailable = upgradeAvailable
+        self.requestable = requestable
+        self.requestState = requestState
         self.addonPlanId = addonPlanId
         self.addonPlanName = addonPlanName
         self.addonPlanPrice = addonPlanPrice
@@ -6243,9 +6272,170 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         case limit = "limit"
         case current = "current"
         case upgradeAvailable = "upgrade_available"
+        case requestable = "requestable"
+        case requestState = "request_state"
         case addonPlanId = "addon_plan_id"
         case addonPlanName = "addon_plan_name"
         case addonPlanPrice = "addon_plan_price"
+    }
+}
+
+/// EntitlementRequestDTO is a team's request for an entitlement, with the
+/// form submission that came with it when there was one, so the admin queue
+/// shows the answers next to the decision.
+public struct EntitlementRequestDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var resource: EntitlementResource
+    public var resourceLabel: String?
+    public var requested: JSONValue
+    public var submissionId: String?
+    @Indirect public var submission: FormSubmissionDTO?
+    public var state: EntitlementRequestState
+    public var decidedBy: String?
+    public var decidedAt: String?
+    public var note: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        resource: EntitlementResource,
+        resourceLabel: String? = nil,
+        requested: JSONValue = .null,
+        submissionId: String? = nil,
+        submission: FormSubmissionDTO? = nil,
+        state: EntitlementRequestState,
+        decidedBy: String? = nil,
+        decidedAt: String? = nil,
+        note: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.resource = resource
+        self.resourceLabel = resourceLabel
+        self.requested = requested
+        self.submissionId = submissionId
+        self.submission = submission
+        self.state = state
+        self.decidedBy = decidedBy
+        self.decidedAt = decidedAt
+        self.note = note
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case resource = "resource"
+        case resourceLabel = "resource_label"
+        case requested = "requested"
+        case submissionId = "submission_id"
+        case submission = "submission"
+        case state = "state"
+        case decidedBy = "decided_by"
+        case decidedAt = "decided_at"
+        case note = "note"
+    }
+}
+
+/// EntitlementRequested is the shape of a request's "requested" field and of
+/// the grant an acceptance makes: a boolean gate switched on, or a limit.
+public struct EntitlementRequested: Codable, Sendable {
+    public var type: EntitlementType
+    public var enabled: Bool?
+    public var limit: Int?
+
+    public init(
+        type: EntitlementType,
+        enabled: Bool? = nil,
+        limit: Int? = nil
+    ) {
+        self.type = type
+        self.enabled = enabled
+        self.limit = limit
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case enabled = "enabled"
+        case limit = "limit"
+    }
+}
+
+/// CreateEntitlementRequestRequest asks for a resource on behalf of the
+/// caller's team. requested defaults to a switched-on boolean gate. form
+/// (namespace/name or id) with data submits that form first and attaches
+/// the submission; the form's own policy and validation errors apply.
+public struct CreateEntitlementRequestRequest: Codable, Sendable {
+    public var resource: EntitlementResource
+    public var requested: JSONValue?
+    public var form: String?
+    public var data: JSONValue?
+
+    public init(
+        resource: EntitlementResource,
+        requested: JSONValue? = nil,
+        form: String? = nil,
+        data: JSONValue? = nil
+    ) {
+        self.resource = resource
+        self.requested = requested
+        self.form = form
+        self.data = data
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resource = "resource"
+        case requested = "requested"
+        case form = "form"
+        case data = "data"
+    }
+}
+
+/// DecideEntitlementRequestRequest is an admin's accept or decline; the note
+/// reaches the requester by email.
+public struct DecideEntitlementRequestRequest: Codable, Sendable {
+    public var note: String?
+
+    public init(
+        note: String? = nil
+    ) {
+        self.note = note
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case note = "note"
     }
 }
 
@@ -6302,6 +6492,14 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// payment method and the caller's team has none. Meta is
     /// PaymentMethodRequiredMeta; clients send the user to BillingPage.
     public static let paymentMethodRequired = ErrorCode(rawValue: "payment_method_required")
+    /// Form submissions (409): the form is not open, or its submit policy
+    /// already holds the caller's submission.
+    public static let formClosed = ErrorCode(rawValue: "form_closed")
+    public static let alreadySubmitted = ErrorCode(rawValue: "already_submitted")
+    /// Entitlement requests (409): the team already holds the entitlement, or
+    /// already has an open request for it.
+    public static let alreadyEntitled = ErrorCode(rawValue: "already_entitled")
+    public static let requestOpen = ErrorCode(rawValue: "request_open")
     /// Remote harness refusals.
     public static let agentsDisabled = ErrorCode(rawValue: "agents_disabled")
     public static let remoteOffline = ErrorCode(rawValue: "remote_offline")
@@ -7289,6 +7487,435 @@ public struct RenameOutputFieldPayload: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case oldField = "old_field"
         case newField = "new_field"
+    }
+}
+
+/// FormDTO is the API representation of a form: a JSON Schema plus the
+/// settings that say who may submit, and how often.
+public struct FormDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var namespace: String
+    public var name: String
+    public var title: String
+    public var description: String
+    public var schema: JSONValue
+    public var status: FormStatus
+    public var submitPolicy: FormSubmitPolicy
+    public var bountyName: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        namespace: String = "",
+        name: String = "",
+        title: String = "",
+        description: String = "",
+        schema: JSONValue = .null,
+        status: FormStatus,
+        submitPolicy: FormSubmitPolicy,
+        bountyName: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.namespace = namespace
+        self.name = name
+        self.title = title
+        self.description = description
+        self.schema = schema
+        self.status = status
+        self.submitPolicy = submitPolicy
+        self.bountyName = bountyName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case namespace = "namespace"
+        case name = "name"
+        case title = "title"
+        case description = "description"
+        case schema = "schema"
+        case status = "status"
+        case submitPolicy = "submit_policy"
+        case bountyName = "bounty_name"
+    }
+}
+
+/// FormSubmissionDTO is one set of answers to a form.
+public struct FormSubmissionDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var formId: String
+    public var formTeamId: String
+    public var submitterTeamId: String?
+    public var data: JSONValue
+    public var source: String?
+    public var agent: String?
+    public var context: String?
+    /// RewardAmount is the credit reward in microcents (0 when none was earned).
+    public var rewardAmount: Int?
+    public var rewardBlockedReason: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        formId: String = "",
+        formTeamId: String = "",
+        submitterTeamId: String? = nil,
+        data: JSONValue = .null,
+        source: String? = nil,
+        agent: String? = nil,
+        context: String? = nil,
+        rewardAmount: Int? = nil,
+        rewardBlockedReason: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.formId = formId
+        self.formTeamId = formTeamId
+        self.submitterTeamId = submitterTeamId
+        self.data = data
+        self.source = source
+        self.agent = agent
+        self.context = context
+        self.rewardAmount = rewardAmount
+        self.rewardBlockedReason = rewardBlockedReason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case formId = "form_id"
+        case formTeamId = "form_team_id"
+        case submitterTeamId = "submitter_team_id"
+        case data = "data"
+        case source = "source"
+        case agent = "agent"
+        case context = "context"
+        case rewardAmount = "reward_amount"
+        case rewardBlockedReason = "reward_blocked_reason"
+    }
+}
+
+/// CreateFormRequest creates a form in the caller's team namespace. The name
+/// is the immutable slug behind GET /forms/{namespace}/{name}.
+public struct CreateFormRequest: Codable, Sendable {
+    public var name: String
+    public var title: String
+    public var description: String?
+    public var schema: JSONValue?
+    public var submitPolicy: FormSubmitPolicy?
+    public var visibility: Visibility?
+
+    public init(
+        name: String = "",
+        title: String = "",
+        description: String? = nil,
+        schema: JSONValue? = nil,
+        submitPolicy: FormSubmitPolicy? = nil,
+        visibility: Visibility? = nil
+    ) {
+        self.name = name
+        self.title = title
+        self.description = description
+        self.schema = schema
+        self.submitPolicy = submitPolicy
+        self.visibility = visibility
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case title = "title"
+        case description = "description"
+        case schema = "schema"
+        case submitPolicy = "submit_policy"
+        case visibility = "visibility"
+    }
+}
+
+/// UpdateFormRequest patches a form; nil fields are left as they are.
+/// bounty_name is settable by platform admins only.
+public struct UpdateFormRequest: Codable, Sendable {
+    public var title: String?
+    public var description: String?
+    public var schema: JSONValue?
+    public var status: FormStatus?
+    public var submitPolicy: FormSubmitPolicy?
+    public var bountyName: String?
+
+    public init(
+        title: String? = nil,
+        description: String? = nil,
+        schema: JSONValue? = nil,
+        status: FormStatus? = nil,
+        submitPolicy: FormSubmitPolicy? = nil,
+        bountyName: String? = nil
+    ) {
+        self.title = title
+        self.description = description
+        self.schema = schema
+        self.status = status
+        self.submitPolicy = submitPolicy
+        self.bountyName = bountyName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case description = "description"
+        case schema = "schema"
+        case status = "status"
+        case submitPolicy = "submit_policy"
+        case bountyName = "bounty_name"
+    }
+}
+
+/// SubmitFormRequest is one person's answers to a form. data is validated
+/// against the form's schema.
+public struct SubmitFormRequest: Codable, Sendable {
+    public var data: JSONValue
+    /// "cli", "web" or "api"
+    public var source: String?
+    /// agent runtime name (e.g. "claude-code")
+    public var agent: String?
+    /// command/app that was running
+    public var context: String?
+
+    public init(
+        data: JSONValue = .null,
+        source: String? = nil,
+        agent: String? = nil,
+        context: String? = nil
+    ) {
+        self.data = data
+        self.source = source
+        self.agent = agent
+        self.context = context
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case source = "source"
+        case agent = "agent"
+        case context = "context"
+    }
+}
+
+/// SubmitFormResponse is returned when a submission was recorded.
+/// GrantedAmount is the credit reward in microcents (0 if no reward was
+/// earned). RewardBlockedReason is set when the submission was recorded but
+/// the reward was withheld (see the RewardBlocked* constants).
+public struct SubmitFormResponse: Codable, Sendable {
+    @Indirect public var submission: FormSubmissionDTO
+    public var grantedAmount: Int?
+    public var rewardBlockedReason: String?
+
+    public init(
+        submission: FormSubmissionDTO,
+        grantedAmount: Int? = nil,
+        rewardBlockedReason: String? = nil
+    ) {
+        self.submission = submission
+        self.grantedAmount = grantedAmount
+        self.rewardBlockedReason = rewardBlockedReason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case submission = "submission"
+        case grantedAmount = "granted_amount"
+        case rewardBlockedReason = "reward_blocked_reason"
+    }
+}
+
+/// SurveyResponseDTO is the API representation of a survey response.
+public struct SurveyResponseDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var questionId: String
+    public var response: String
+    public var agent: String?
+    public var source: String?
+    public var context: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        questionId: String = "",
+        response: String = "",
+        agent: String? = nil,
+        source: String? = nil,
+        context: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.questionId = questionId
+        self.response = response
+        self.agent = agent
+        self.source = source
+        self.context = context
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case questionId = "question_id"
+        case response = "response"
+        case agent = "agent"
+        case source = "source"
+        case context = "context"
+    }
+}
+
+/// SubmitSurveyResponse is returned when submitting a survey answer.
+/// GrantedAmount is the credit reward in microcents (0 if no reward was earned).
+/// RewardBlockedReason is set when the answer was recorded but the reward was
+/// withheld by policy (see RewardBlockedPaymentMethodRequired).
+public struct SubmitSurveyResponse: Codable, Sendable {
+    @Indirect public var response: SurveyResponseDTO
+    public var grantedAmount: Int?
+    public var rewardBlockedReason: String?
+
+    public init(
+        response: SurveyResponseDTO,
+        grantedAmount: Int? = nil,
+        rewardBlockedReason: String? = nil
+    ) {
+        self.response = response
+        self.grantedAmount = grantedAmount
+        self.rewardBlockedReason = rewardBlockedReason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case response = "response"
+        case grantedAmount = "granted_amount"
+        case rewardBlockedReason = "reward_blocked_reason"
+    }
+}
+
+/// SubmitSurveyRequest is used to submit a single survey answer.
+public struct SubmitSurveyRequest: Codable, Sendable {
+    public var questionId: String
+    public var response: String
+    public var agent: String?
+    public var source: String?
+    public var context: String?
+
+    public init(
+        questionId: String = "",
+        response: String = "",
+        agent: String? = nil,
+        source: String? = nil,
+        context: String? = nil
+    ) {
+        self.questionId = questionId
+        self.response = response
+        self.agent = agent
+        self.source = source
+        self.context = context
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case questionId = "question_id"
+        case response = "response"
+        case agent = "agent"
+        case source = "source"
+        case context = "context"
     }
 }
 
@@ -8762,6 +9389,7 @@ public struct ResourceContent: Codable, Sendable {
     public var mimeType: String?
     public var text: String?
     public var blob: String?
+    public var meta: [String: JSONValue]?
 
     public init(
         uri: String = "",
@@ -8769,7 +9397,8 @@ public struct ResourceContent: Codable, Sendable {
         title: String? = nil,
         mimeType: String? = nil,
         text: String? = nil,
-        blob: String? = nil
+        blob: String? = nil,
+        meta: [String: JSONValue]? = nil
     ) {
         self.uri = uri
         self.name = name
@@ -8777,6 +9406,7 @@ public struct ResourceContent: Codable, Sendable {
         self.mimeType = mimeType
         self.text = text
         self.blob = blob
+        self.meta = meta
     }
 
     enum CodingKeys: String, CodingKey {
@@ -8786,6 +9416,7 @@ public struct ResourceContent: Codable, Sendable {
         case mimeType = "mimeType"
         case text = "text"
         case blob = "blob"
+        case meta = "_meta"
     }
 }
 
@@ -8830,7 +9461,7 @@ public struct ToolCallResponse: Codable, Sendable {
     public var content: [ToolContent]?
     public var structuredContent: JSONValue?
     public var isError: Bool
-    @Indirect public var meta: ResultMeta?
+    @Indirect public var meta: JSONValue?
     /// MRTR fields — present when ResultType == ResultTypeInputRequired.
     public var inputRequests: [String: InputRequest]?
     public var requestState: String?
@@ -8840,7 +9471,7 @@ public struct ToolCallResponse: Codable, Sendable {
         content: [ToolContent]? = nil,
         structuredContent: JSONValue? = nil,
         isError: Bool = false,
-        meta: ResultMeta? = nil,
+        meta: JSONValue? = nil,
         inputRequests: [String: InputRequest]? = nil,
         requestState: String? = nil
     ) {
@@ -11236,134 +11867,6 @@ public struct SubscriptionDTO: Codable, Sendable {
     }
 }
 
-/// SurveyResponseDTO is the API representation of a survey response.
-public struct SurveyResponseDTO: Codable, Sendable {
-    public var id: String
-    public var shortId: String
-    public var createdAt: String
-    public var updatedAt: String
-    public var deletedAt: String?
-    public var userId: String
-    @Indirect public var user: UserRelationDTO?
-    public var teamId: String
-    @Indirect public var team: TeamRelationDTO?
-    public var visibility: Visibility
-    public var questionId: String
-    public var response: String
-    public var agent: String?
-    public var source: String?
-    public var context: String?
-
-    public init(
-        id: String = "",
-        shortId: String = "",
-        createdAt: String = "",
-        updatedAt: String = "",
-        deletedAt: String? = nil,
-        userId: String = "",
-        user: UserRelationDTO? = nil,
-        teamId: String = "",
-        team: TeamRelationDTO? = nil,
-        visibility: Visibility,
-        questionId: String = "",
-        response: String = "",
-        agent: String? = nil,
-        source: String? = nil,
-        context: String? = nil
-    ) {
-        self.id = id
-        self.shortId = shortId
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.deletedAt = deletedAt
-        self.userId = userId
-        self.user = user
-        self.teamId = teamId
-        self.team = team
-        self.visibility = visibility
-        self.questionId = questionId
-        self.response = response
-        self.agent = agent
-        self.source = source
-        self.context = context
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case shortId = "short_id"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case deletedAt = "deleted_at"
-        case userId = "user_id"
-        case user = "user"
-        case teamId = "team_id"
-        case team = "team"
-        case visibility = "visibility"
-        case questionId = "question_id"
-        case response = "response"
-        case agent = "agent"
-        case source = "source"
-        case context = "context"
-    }
-}
-
-/// SubmitSurveyResponse is returned when submitting a survey answer.
-/// GrantedAmount is the credit reward in microcents (0 if no reward was earned).
-/// RewardBlockedReason is set when the answer was recorded but the reward was
-/// withheld by policy (see RewardBlockedPaymentMethodRequired).
-public struct SubmitSurveyResponse: Codable, Sendable {
-    @Indirect public var response: SurveyResponseDTO
-    public var grantedAmount: Int?
-    public var rewardBlockedReason: String?
-
-    public init(
-        response: SurveyResponseDTO,
-        grantedAmount: Int? = nil,
-        rewardBlockedReason: String? = nil
-    ) {
-        self.response = response
-        self.grantedAmount = grantedAmount
-        self.rewardBlockedReason = rewardBlockedReason
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case response = "response"
-        case grantedAmount = "granted_amount"
-        case rewardBlockedReason = "reward_blocked_reason"
-    }
-}
-
-/// SubmitSurveyRequest is used to submit a single survey answer.
-public struct SubmitSurveyRequest: Codable, Sendable {
-    public var questionId: String
-    public var response: String
-    public var agent: String?
-    public var source: String?
-    public var context: String?
-
-    public init(
-        questionId: String = "",
-        response: String = "",
-        agent: String? = nil,
-        source: String? = nil,
-        context: String? = nil
-    ) {
-        self.questionId = questionId
-        self.response = response
-        self.agent = agent
-        self.source = source
-        self.context = context
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case questionId = "question_id"
-        case response = "response"
-        case agent = "agent"
-        case source = "source"
-        case context = "context"
-    }
-}
-
 /// Hardware/System related types
 public struct SystemInfo: Codable, Sendable {
     public var hostname: String
@@ -13014,6 +13517,8 @@ public struct UserRelationDTO: Codable, Sendable {
     public var createdAt: String
     public var updatedAt: String
     public var role: Role
+    /// Name is omitted when empty so older generated copies of this DTO stay assignable.
+    public var name: String?
     public var avatarUrl: String
 
     public init(
@@ -13021,12 +13526,14 @@ public struct UserRelationDTO: Codable, Sendable {
         createdAt: String = "",
         updatedAt: String = "",
         role: Role,
+        name: String? = nil,
         avatarUrl: String = ""
     ) {
         self.id = id
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.role = role
+        self.name = name
         self.avatarUrl = avatarUrl
     }
 
@@ -13035,6 +13542,7 @@ public struct UserRelationDTO: Codable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case role = "role"
+        case name = "name"
         case avatarUrl = "avatar_url"
     }
 }
@@ -13114,6 +13622,10 @@ public struct A2UIComponentType: RawRepresentable, Codable, Hashable, Sendable {
     /// Artifact embeds a published artifact (sandboxed page) with a link to
     /// the viewer. Rendered from the artifact's /render endpoint.
     public static let a2UIArtifact = A2UIComponentType(rawValue: "Artifact")
+    /// McpApp embeds a remote MCP server's tool page (MCP Apps, SEP-1865): a
+    /// sandboxed HTML document the host feeds the tool's input and result over
+    /// postMessage, and whose tools/call requests it proxies to the server.
+    public static let a2UIMcpApp = A2UIComponentType(rawValue: "McpApp")
 }
 
 /// A2UIComponent is the universal component representation.
@@ -13188,6 +13700,22 @@ public struct A2UIComponent: Codable, Sendable {
     public var artifactTitle: String?
     public var artifactUrl: String?
     public var artifactFavicon: String?
+    /// Extension: McpApp. The page is stored on the component so the chat
+    /// renders it from the message alone; the server, credential and tool name
+    /// let the host route the page's tools/call requests.
+    public var mcpHtml: String?
+    @Indirect public var mcpCsp: MCPUICSP?
+    public var mcpResourceUri: String?
+    public var mcpServerSlug: String?
+    public var mcpCredentialId: String?
+    public var mcpToolName: String?
+    public var mcpToolInput: [String: JSONValue]?
+    @Indirect public var mcpToolResult: A2UIMcpToolResult?
+    public var mcpPrefersBorder: Bool?
+    /// McpArtifactId is set when the page is one of our artifacts (an app's
+    /// own UI) rather than a remote server's: the host then serves the page's
+    /// runtime calls through the artifact's data endpoints, not /mcps.
+    public var mcpArtifactId: String?
 
     public init(
         id: String = "",
@@ -13240,7 +13768,17 @@ public struct A2UIComponent: Codable, Sendable {
         artifactVersionId: String? = nil,
         artifactTitle: String? = nil,
         artifactUrl: String? = nil,
-        artifactFavicon: String? = nil
+        artifactFavicon: String? = nil,
+        mcpHtml: String? = nil,
+        mcpCsp: MCPUICSP? = nil,
+        mcpResourceUri: String? = nil,
+        mcpServerSlug: String? = nil,
+        mcpCredentialId: String? = nil,
+        mcpToolName: String? = nil,
+        mcpToolInput: [String: JSONValue]? = nil,
+        mcpToolResult: A2UIMcpToolResult? = nil,
+        mcpPrefersBorder: Bool? = nil,
+        mcpArtifactId: String? = nil
     ) {
         self.id = id
         self.component = component
@@ -13293,6 +13831,16 @@ public struct A2UIComponent: Codable, Sendable {
         self.artifactTitle = artifactTitle
         self.artifactUrl = artifactUrl
         self.artifactFavicon = artifactFavicon
+        self.mcpHtml = mcpHtml
+        self.mcpCsp = mcpCsp
+        self.mcpResourceUri = mcpResourceUri
+        self.mcpServerSlug = mcpServerSlug
+        self.mcpCredentialId = mcpCredentialId
+        self.mcpToolName = mcpToolName
+        self.mcpToolInput = mcpToolInput
+        self.mcpToolResult = mcpToolResult
+        self.mcpPrefersBorder = mcpPrefersBorder
+        self.mcpArtifactId = mcpArtifactId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13347,6 +13895,74 @@ public struct A2UIComponent: Codable, Sendable {
         case artifactTitle = "artifactTitle"
         case artifactUrl = "artifactUrl"
         case artifactFavicon = "artifactFavicon"
+        case mcpHtml = "mcpHtml"
+        case mcpCsp = "mcpCsp"
+        case mcpResourceUri = "mcpResourceUri"
+        case mcpServerSlug = "mcpServerSlug"
+        case mcpCredentialId = "mcpCredentialId"
+        case mcpToolName = "mcpToolName"
+        case mcpToolInput = "mcpToolInput"
+        case mcpToolResult = "mcpToolResult"
+        case mcpPrefersBorder = "mcpPrefersBorder"
+        case mcpArtifactId = "mcpArtifactId"
+    }
+}
+
+/// MCPUICSP is an MCP Apps resource's _meta.ui.csp: the origins the host must
+/// let the page reach, by directive. Lives here rather than in apitypes
+/// because A2UI components carry it and apitypes imports this package.
+public struct MCPUICSP: Codable, Sendable {
+    public var connectDomains: [String]?
+    public var resourceDomains: [String]?
+    public var frameDomains: [String]?
+    public var baseUriDomains: [String]?
+
+    public init(
+        connectDomains: [String]? = nil,
+        resourceDomains: [String]? = nil,
+        frameDomains: [String]? = nil,
+        baseUriDomains: [String]? = nil
+    ) {
+        self.connectDomains = connectDomains
+        self.resourceDomains = resourceDomains
+        self.frameDomains = frameDomains
+        self.baseUriDomains = baseUriDomains
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case connectDomains = "connectDomains"
+        case resourceDomains = "resourceDomains"
+        case frameDomains = "frameDomains"
+        case baseUriDomains = "baseUriDomains"
+    }
+}
+
+/// A2UIMcpToolResult is the tool result in the shape the page expects
+/// (ui/notifications/tool-result carries a CallToolResult): the content blocks
+/// as the server sent them, not the platform's mapped output.
+public struct A2UIMcpToolResult: Codable, Sendable {
+    public var content: [[String: JSONValue]]?
+    public var structuredContent: JSONValue?
+    public var isError: Bool?
+    public var meta: [String: JSONValue]?
+
+    public init(
+        content: [[String: JSONValue]]? = nil,
+        structuredContent: JSONValue? = nil,
+        isError: Bool? = nil,
+        meta: [String: JSONValue]? = nil
+    ) {
+        self.content = content
+        self.structuredContent = structuredContent
+        self.isError = isError
+        self.meta = meta
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case structuredContent = "structuredContent"
+        case isError = "isError"
+        case meta = "_meta"
     }
 }
 
@@ -13613,6 +14229,19 @@ public struct EnforcementMode: RawRepresentable, Codable, Hashable, Sendable {
 
     public static let enforcementBlock = EnforcementMode(rawValue: "block")
     public static let enforcementWarn = EnforcementMode(rawValue: "warn")
+}
+
+/// EntitlementRequestState is where a team's request for an entitlement
+/// stands. A team holds at most one open request per resource; an admin
+/// accepts (which grants) or declines it, or the team withdraws it.
+public struct EntitlementRequestState: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let entitlementRequestOpen = EntitlementRequestState(rawValue: "open")
+    public static let entitlementRequestAccepted = EntitlementRequestState(rawValue: "accepted")
+    public static let entitlementRequestDeclined = EntitlementRequestState(rawValue: "declined")
+    public static let entitlementRequestWithdrawn = EntitlementRequestState(rawValue: "withdrawn")
 }
 
 public struct ChatStatus: RawRepresentable, Codable, Hashable, Sendable {
@@ -14116,6 +14745,31 @@ public struct OutputFieldMapping: Codable, Sendable {
 
 /// OutputMappings is a map of output field name to OutputFieldMapping
 public typealias OutputMappings = [String: OutputFieldMapping]
+
+/// FormStatus is a form's lifecycle. Only an open form takes submissions.
+public struct FormStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let draft = FormStatus(rawValue: "draft")
+    public static let `open` = FormStatus(rawValue: "open")
+    public static let closed = FormStatus(rawValue: "closed")
+}
+
+/// FormSubmitPolicy says how many submissions a form takes from one source.
+public struct FormSubmitPolicy: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// FormSubmitOncePerUser: one submission per person, whichever team they
+    /// selected when they answered.
+    public static let formSubmitOncePerUser = FormSubmitPolicy(rawValue: "once_per_user")
+    /// FormSubmitOncePerTeam: one submission per team; the submitter's
+    /// selected team counts.
+    public static let formSubmitOncePerTeam = FormSubmitPolicy(rawValue: "once_per_team")
+    /// FormSubmitMany: no limit.
+    public static let formSubmitMany = FormSubmitPolicy(rawValue: "many")
+}
 
 /// GateCondition defines a simple boolean condition for gate nodes.
 public struct GateCondition: Codable, Sendable {
@@ -14984,6 +15638,8 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     public static let resourceFeatureSeedance = EntitlementResource(rawValue: "feature:seedance")
     /// Granted per team: the marketplace takes submissions by invitation.
     public static let resourceFeatureMarketplacePublish = EntitlementResource(rawValue: "feature:marketplace_publish")
+    /// Granted per team: creating forms is by invitation for now.
+    public static let resourceFeatureForms = EntitlementResource(rawValue: "feature:forms")
     /// Legacy feature gates — kept for DB compatibility, no longer gated
     public static let resourceFeatureScopes = EntitlementResource(rawValue: "feature:scopes")
     public static let resourceFeatureWebhooks = EntitlementResource(rawValue: "feature:webhooks")
@@ -15142,6 +15798,8 @@ public struct NotificationType: RawRepresentable, Codable, Hashable, Sendable {
     public static let serviceNotice = NotificationType(rawValue: "service_notice")
     /// Team notifications
     public static let teamInvite = NotificationType(rawValue: "team_invite")
+    /// An admin decided the team's entitlement request
+    public static let entitlementRequest = NotificationType(rawValue: "entitlement_request")
 }
 
 /// NotificationStatus represents the status of a notification
