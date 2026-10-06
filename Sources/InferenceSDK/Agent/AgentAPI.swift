@@ -118,13 +118,32 @@ public struct AgentInfo: Sendable {
     public var examplePrompts: [String]?
 }
 
-// MARK: - Busy state (mirrors js/sdk-js/src/utils.ts isChatBusy)
+// MARK: - Run and busy state (mirrors js/sdk-js/src/utils.ts)
+
+// Ports of the Go methods AgentRunState.IsTerminal/IsInterrupted/IsSettled
+// and ToolInvocationStatus.IsTerminal (js isRunTerminal, isRunInterrupted,
+// isRunSettled, isRunWorking).
+public extension AgentRunState {
+    /// completed, failed, canceled or rejected.
+    var isTerminal: Bool { self == .completed || self == .failed || self == .canceled || self == .rejected }
+    /// Parked on a human: a tool approval or input (input_required) or an
+    /// authorization (auth_required).
+    var isInterrupted: Bool { self == .inputRequired || self == .authRequired }
+    /// The run produces no further events this turn: terminal or interrupted.
+    var isSettled: Bool { isTerminal || isInterrupted }
+    /// The run is executing: submitted or working.
+    var isWorking: Bool { self == .working || self == .submitted }
+}
+
+public extension ToolInvocationStatus {
+    /// completed, failed or cancelled.
+    var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled }
+}
 
 public extension AgentRunDTO {
-    /// The run is holding the chat: submitted, working, or waiting on input.
-    var isActive: Bool {
-        state == .working || state == .submitted || state == .inputRequired
-    }
+    /// The run is holding the chat: working, or parked on a human (approval,
+    /// input, authorization).
+    var isActive: Bool { state.isWorking || state.isInterrupted }
 }
 
 public extension ChatDTO {
@@ -133,6 +152,13 @@ public extension ChatDTO {
     var isBusy: Bool {
         if let run = activeRun { return run.isActive }
         return status == .busy || status == .awaitingInput
+    }
+
+    /// js isAwaitingHuman: nothing more arrives until someone approves,
+    /// answers or authorizes.
+    var isAwaitingHuman: Bool {
+        if let run = activeRun { return run.state.isInterrupted }
+        return status == .awaitingInput
     }
 }
 

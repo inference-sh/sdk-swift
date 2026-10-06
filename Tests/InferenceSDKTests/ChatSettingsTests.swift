@@ -36,7 +36,7 @@ final class ChatSettingsTests: XCTestCase {
                 return .json(#"{"data":{"chat_id":"c1","name":"n","visibility":"private","allow_all_tools":true,"disable_hooks":false}}"#)
             }
             if path.hasSuffix("/always-allow/options") {
-                return .json(#"{"data":{"options":[{"key":"o1","scope":"exact","label":"npm test on laptop","rules":[{"id":"","effect":"allow","kind":"RemoteExec","selector":"r1","specifier":"npm test","label":"npm test on laptop","created_by":""}]}],"default":"o1"}}"#)
+                return .json(#"{"data":{"options":[{"key":"o1","scope":"exact","label":"npm test on laptop","rules":[{"id":"","effect":"allow","enforcement":"default","kind":"RemoteExec","selector":"r1","specifier":"npm test","label":"npm test on laptop","created_by":""}]}],"default":"o1"}}"#)
             }
             if path.hasSuffix("/always-allow") {
                 return .json(#"{"data":{"rules":[]}}"#)

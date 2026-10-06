@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Added:
+- `InferenceOAuth.authorizationRequest(redirectURI:scope:teamId:)`: `teamId` is sent as `team_id` and preselects that team on the consent page (api 052c9835, web d3e7d26). Every sign-in now shows the consent page; without `teamId` it starts on the web session's current team.
+- `AgentChatSession.switchAgent(_:)` (sdk-js `switchAgent`): `POST /chats/{id}/agent` and merges the `ChatAgentDTO` it answers into `state.chat` (reducer action `mergeChatAgent`, sdk-js `MERGE_CHAT_AGENT`; an answer for another chat is ignored). A refusal sets `state.error` and is thrown.
+- MCP input requests (sdk-js `mcp-input.ts`): `MCPInputState(data:)` and `ToolInvocationDTO.mcpInputState` read what an `awaiting_input` MCP call waits on; `InputRequest.elicitParams` (`ElicitRequestParams`, `ElicitRequestedSchema`, `ElicitPropertySchema`), `ElicitRequestParams.isURL`, `buildMCPInputResult(_:)`. The params decode leniently: a field of an unexpected type reads as nil instead of hiding the request. `AgentChatSession.submitMCPInput(_:responses:)` answers them; a 400 (answers rejected, the call still waiting) is thrown without marking the connection failed.
+- System rows (web `SystemMessage`): `ChatMessageDTO.isSystemMessage` (injection, event, compaction), `.systemNote` (`ChatSystemNote`: `.hook(ChatHookEvent)`, `.contextAdded(text)`, `.compacted(summary:)` without the api's "[Earlier conversation compacted]" line), `.hookEvent`; `ChatHookEvent.isBlocking` and `.summary`; `ChatMessageRole.isLLMRole`.
+- `internalTools()` (`InternalToolsBuilder`), `lifecycleHook(_:)` (`LifecycleHookBuilder`) and `learningHooks(suggest:learn:)` (sdk-js `tool-builder.ts` internalTools, `hook-builder.ts`): build the generated `InternalToolsConfig` / `LifecycleHookConfig`; builders are values, so a base can be reused.
+- Run state predicates (sdk-js `utils.ts`, Go `AgentRunState`): `AgentRunState.isTerminal`, `.isInterrupted`, `.isSettled`, `.isWorking`; `ToolInvocationStatus.isTerminal`; `ChatDTO.isAwaitingHuman`.
+
+Fixes:
+- `AgentRunDTO.isActive` (and so `ChatDTO.isBusy`) counts a run in `auth_required` as holding the chat, as sdk-js `isChatBusy` does.
+
 ## 0.12.0
 
 Added:

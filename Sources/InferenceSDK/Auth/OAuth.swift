@@ -5,7 +5,10 @@
 // What the server does, and so what this assumes:
 // - Every endpoint is on the api host. GET /oauth/authorize redirects the
 //   browser to the web app (app.inference.sh) for login and consent, which
-//   then navigates to the redirect URI with `code` and `state`.
+//   then navigates to the redirect URI with `code` and `state`. Every
+//   sign-in shows the consent page (no code is issued without it); the team
+//   is the one picked there, preselected from `team_id` when the request
+//   carries it, else the web session's current team.
 // - Public clients (token_endpoint_auth_method "none") must use PKCE S256.
 // - /oauth/token and /oauth/revoke take application/x-www-form-urlencoded;
 //   /oauth/register takes JSON. Responses are bare JSON (no {data} envelope),
@@ -382,7 +385,11 @@ public struct InferenceOAuth: Sendable {
     /// Builds the authorize URL with a fresh PKCE pair and state. `scope` is
     /// space-separated; nil asks for no scope, which inference.sh grants as
     /// unrestricted access. `redirectURI` must be one the client registered.
-    public func authorizationRequest(redirectURI: String, scope: String? = nil,
+    /// `teamId` (sent as `team_id`) preselects that team on the consent page,
+    /// e.g. to sign a second device in to the team the first one uses; the
+    /// person can still pick another. Without it the page starts on the web
+    /// session's current team.
+    public func authorizationRequest(redirectURI: String, scope: String? = nil, teamId: String? = nil,
                                      pkce: PKCE = PKCE(), state: String = PKCE.randomToken()) -> OAuthAuthorizationRequest {
         var params: [(String, String)] = [
             ("response_type", "code"),
@@ -393,6 +400,7 @@ public struct InferenceOAuth: Sendable {
             ("state", state),
         ]
         if let scope, !scope.isEmpty { params.append(("scope", scope)) }
+        if let teamId, !teamId.isEmpty { params.append(("team_id", teamId)) }
         var comps = URLComponents(url: metadata.authorizationEndpoint, resolvingAgainstBaseURL: false)!
         let existing = comps.percentEncodedQuery.map { $0 + "&" } ?? ""
         comps.percentEncodedQuery = existing + Self.formEncode(params)

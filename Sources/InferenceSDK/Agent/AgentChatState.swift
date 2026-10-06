@@ -94,6 +94,9 @@ public enum ChatAction {
     /// js MERGE_CHAT_SETTINGS: what POST /chats/{id}/settings answered,
     /// merged into the chat held (ignored for another chat).
     case mergeChatSettings(ChatSettingsDTO)
+    /// js MERGE_CHAT_AGENT: what POST /chats/{id}/agent answered (the agent
+    /// the chat now runs on), merged into the chat held (ignored for another chat).
+    case mergeChatAgent(ChatAgentDTO)
     /// js SET_MESSAGES.
     case setMessages([ChatMessageDTO])
     /// js PREPEND_MESSAGES.
@@ -120,8 +123,8 @@ public enum ChatAction {
 /// js reducer.ts deriveChatStatus().
 func deriveChatStatus(_ run: AgentRunDTO?) -> ChatStatus {
     guard let run else { return .idle }
-    if run.state == .working || run.state == .submitted { return .busy }
-    if run.state == .inputRequired || run.state == .authRequired { return .awaitingInput }
+    if run.state.isWorking { return .busy }
+    if run.state.isInterrupted { return .awaitingInput }
     return .idle
 }
 
@@ -167,6 +170,9 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         next.chat = chat
         return next
 
+    // The settings and set-agent endpoints answer with only what they wrote.
+    // Merge it into the chat it belongs to; a chat switched away from in the
+    // meantime is left alone.
     case .mergeChatSettings(let settings):
         guard var chat = state.chat, chat.id == settings.chatId else { return state }
         chat.name = settings.name
@@ -176,6 +182,16 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         data.disableHooks = settings.disableHooks
         data.memory = settings.memory
         chat.agentData = data
+        var next = state
+        next.chat = chat
+        return next
+
+    case .mergeChatAgent(let agent):
+        guard var chat = state.chat, chat.id == agent.chatId else { return state }
+        chat.agentId = agent.agentId
+        chat.agent = agent.agent
+        chat.agentVersionId = agent.agentVersionId
+        chat.agentVersion = agent.agentVersion
         var next = state
         next.chat = chat
         return next
