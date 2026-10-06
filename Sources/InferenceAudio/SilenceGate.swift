@@ -19,6 +19,11 @@ public struct SilenceGate: Sendable {
         self.tail = tail
     }
 
+    /// Some frame has reached the threshold. With `pass` false it tells
+    /// "quiet for `tail` after sound" (a tapped take ends here) from "no
+    /// sound yet" (waiting for the speaker to start).
+    public var hasHeardSound: Bool { lastSound > -Double.infinity }
+
     /// Whether a frame with this peak level should be sent. `now` is any
     /// monotonic clock in seconds (the default is the system uptime).
     public mutating func pass(level: Float, now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {

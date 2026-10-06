@@ -9,6 +9,7 @@ Added:
 - System rows (web `SystemMessage`): `ChatMessageDTO.isSystemMessage` (injection, event, compaction), `.systemNote` (`ChatSystemNote`: `.hook(ChatHookEvent)`, `.contextAdded(text)`, `.compacted(summary:)` without the api's "[Earlier conversation compacted]" line), `.hookEvent`; `ChatHookEvent.isBlocking` and `.summary`; `ChatMessageRole.isLLMRole`.
 - `internalTools()` (`InternalToolsBuilder`), `lifecycleHook(_:)` (`LifecycleHookBuilder`) and `learningHooks(suggest:learn:)` (sdk-js `tool-builder.ts` internalTools, `hook-builder.ts`): build the generated `InternalToolsConfig` / `LifecycleHookConfig`; builders are values, so a base can be reused.
 - Run state predicates (sdk-js `utils.ts`, Go `AgentRunState`): `AgentRunState.isTerminal`, `.isInterrupted`, `.isSettled`, `.isWorking`; `ToolInvocationStatus.isTerminal`; `ChatDTO.isAwaitingHuman`.
+- `SilenceGate.hasHeardSound`: with `pass` false, tells "quiet for `tail` after sound" from "no sound yet", so the gate can end a tapped take after a pause.
 
 Fixes:
 - `AgentRunDTO.isActive` (and so `ChatDTO.isBusy`) counts a run in `auth_required` as holding the chat, as sdk-js `isChatBusy` does.
