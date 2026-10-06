@@ -59,7 +59,18 @@ final class AuthTests: XCTestCase {
 
         let noScope = oauth.authorizationRequest(redirectURI: "inferencesh://oauth/callback")
         XCTAssertFalse(noScope.url.absoluteString.contains("scope="))
+        XCTAssertFalse(noScope.url.absoluteString.contains("team_id="))
         XCTAssertEqual(noScope.pkce.verifier.count, 43)
+    }
+
+    /// team_id preselects the team on the consent page (api 052c9835, web d3e7d26).
+    func testAuthorizationURLTeam() throws {
+        let oauth = InferenceOAuth(clientId: "client-abc")
+        let req = oauth.authorizationRequest(redirectURI: "inferencesh://oauth/callback", teamId: "team_work")
+        let items = URLComponents(url: req.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        XCTAssertEqual(items.filter { $0.name == "team_id" }.map(\.value), ["team_work"])
+        let empty = oauth.authorizationRequest(redirectURI: "inferencesh://oauth/callback", teamId: "")
+        XCTAssertFalse(empty.url.absoluteString.contains("team_id="))
     }
 
     func testCompleteAuthorizationExchangesCode() async throws {

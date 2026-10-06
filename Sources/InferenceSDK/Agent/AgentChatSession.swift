@@ -140,6 +140,22 @@ public final class AgentChatSession {
         try await surfacing { try await self.client.submitToolResult(toolInvocationId, result: result) }
     }
 
+    /// Answer an MCP tool call's input requests (an awaiting_input call whose
+    /// data is an `MCPInputState`), one `ElicitResult` per request key. A 400
+    /// (the answers were rejected, the call is still waiting) is thrown
+    /// without touching `state`: show it next to the form.
+    public func submitMCPInput(_ toolInvocationId: String, responses: [String: ElicitResult]) async throws {
+        do {
+            try await client.submitToolResult(toolInvocationId, result: buildMCPInputResult(responses))
+        } catch {
+            if case InferenceError.http(let status, _) = error, status == 400 { throw error }
+            dispatch(.setConnectionStatus(.error))
+            dispatch(.setError(error.localizedDescription))
+            callbacks.onError?(error)
+            throw error
+        }
+    }
+
     public func approveTool(_ toolInvocationId: String) async throws {
         try await surfacing { try await self.client.approveTool(toolInvocationId) }
     }
@@ -193,6 +209,20 @@ public final class AgentChatSession {
         guard let chatId = state.chatId else { return }
         do {
             dispatch(.mergeChatSettings(try await client.updateChatSettings(chatId: chatId, settings)))
+        } catch {
+            dispatch(.setError(error.localizedDescription))
+            callbacks.onError?(error)
+            throw error
+        }
+    }
+
+    /// Hand this chat to another agent (namespace/name); the next message
+    /// goes to it. Only agents our loop runs: the api refuses others, and the
+    /// refusal sets `state.error` and is thrown. A no-op before the chat exists.
+    public func switchAgent(_ agentRef: String) async throws {
+        guard let chatId = state.chatId else { return }
+        do {
+            dispatch(.mergeChatAgent(try await client.setAgent(chatId: chatId, agent: agentRef)))
         } catch {
             dispatch(.setError(error.localizedDescription))
             callbacks.onError?(error)
