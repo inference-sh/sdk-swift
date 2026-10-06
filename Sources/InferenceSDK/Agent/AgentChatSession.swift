@@ -36,11 +36,17 @@ public final class AgentChatSession {
     }
 
     public private(set) var state: AgentChatState = .initial {
-        didSet { onChange?(state) }
+        didSet {
+            onChange?(state)
+            observers.yield(state)
+        }
     }
     /// Fired after every state transition with the new state (the SwiftUI
-    /// wrapper republish hook; js gets this for free from useReducer).
+    /// wrapper republish hook; js gets this for free from useReducer). One
+    /// owner only: setting it replaces the last. Anyone else listens with
+    /// `changes()`.
     public var onChange: ((AgentChatState) -> Void)?
+    private let observers = StateObservers()
     public var callbacks = Callbacks()
 
     private let client: InferenceClient
@@ -54,6 +60,24 @@ public final class AgentChatSession {
         self.client = client
         self.agent = agent
         self.streamEnabled = streamEnabled
+    }
+
+    deinit { observers.finishAll() }
+
+    /// `changes()` readers still registered (tests).
+    var observerCount: Int { observers.count }
+
+    /// Every state from now on, starting with the current one: a new stream
+    /// per call, so any number of listeners can follow one session without
+    /// taking `onChange` from its owner. Unbounded, so a slow reader still
+    /// sees each transition (a busy turn that ended, not just the end). A
+    /// reset yields the reset state; the stream finishes when the session is
+    /// released or the reader stops iterating.
+    public func changes() -> AsyncStream<AgentChatState> {
+        let (stream, continuation) = AsyncStream.makeStream(of: AgentChatState.self)
+        continuation.yield(state)
+        observers.add(continuation)
+        return stream
     }
 
     private func dispatch(_ action: ChatAction) {
@@ -378,5 +402,49 @@ public final class AgentChatSession {
             callbacks.onError?(error)
             throw error
         }
+    }
+}
+
+/// The continuations `changes()` handed out. Locked rather than main-actor
+/// bound: a reader that stops iterating removes itself from any thread, and
+/// the session's deinit is not isolated.
+private final class StateObservers: @unchecked Sendable {
+    private let lock = NSLock()
+    private var next = 0
+    private var continuations: [Int: AsyncStream<AgentChatState>.Continuation] = [:]
+
+    func add(_ continuation: AsyncStream<AgentChatState>.Continuation) {
+        lock.lock()
+        let id = next
+        next += 1
+        continuations[id] = continuation
+        lock.unlock()
+        continuation.onTermination = { [weak self] _ in self?.remove(id) }
+    }
+
+    private func remove(_ id: Int) {
+        lock.lock(); defer { lock.unlock() }
+        continuations[id] = nil
+    }
+
+    /// Readers still registered; tests check a reader that left is dropped.
+    var count: Int {
+        lock.lock(); defer { lock.unlock() }
+        return continuations.count
+    }
+
+    func yield(_ state: AgentChatState) {
+        lock.lock()
+        let all = Array(continuations.values)
+        lock.unlock()
+        for c in all { c.yield(state) }
+    }
+
+    func finishAll() {
+        lock.lock()
+        let all = Array(continuations.values)
+        continuations = [:]
+        lock.unlock()
+        for c in all { c.finish() }
     }
 }

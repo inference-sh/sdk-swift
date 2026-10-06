@@ -3,6 +3,14 @@
 ## Unreleased
 
 Added:
+- `InferenceClient.onFailure`: called with every HTTP error the api answers (one-shot requests and stream connects), after the 401 forced-refresh retry, so a 401 the refresh cures is never reported and one it does not cure is, once. A 401 whose refresh throws (a revoked refresh token) comes out as the provider's error instead, not through `onFailure`; a cancelled connect is not reported. For ending a session on a refused account (403 `account_deactivated` / `account_banned` via `InferenceError.problem`, a lasting 401). Errors from other hosts (presigned storage, CDN) are not reported.
+- `AgentChatSession.changes()`: an `AsyncStream<AgentChatState>` per call, starting with the current state, then every transition; finished when the session is released. Any number of listeners, without taking `onChange` (still there, one owner) from its owner.
+- `MCPInputState.elicitations`: each elicitation request's `ElicitRequestParams` under its key, decoded once when the requests are set instead of on every `InputRequest.elicitParams` read (which still works).
+- `JSONValue.parsingJSONString`: a value that may be an object or a JSON string, as JSON (nil for a string holding no JSON). `MCPInputState(data:)` reads through it.
+- `AgentDTO.displayTitle` (the title, or the name when the title is blank) and `AgentDTO.ref` (`namespace/name`, just the name for an empty namespace, as the api's `Ref.FullName`).
+
+Changed:
+- A non-2xx answer to a stream connect is thrown by one shared path for `runAgentStream`, `chats.stream` and task streams; a task stream's error body is now cut to 2000 bytes like the others.
 - `InferenceOAuth.authorizationRequest(redirectURI:scope:teamId:)`: `teamId` is sent as `team_id` and preselects that team on the consent page (api 052c9835, web d3e7d26). Every sign-in now shows the consent page; without `teamId` it starts on the web session's current team.
 - `AgentChatSession.switchAgent(_:)` (sdk-js `switchAgent`): `POST /chats/{id}/agent` and merges the `ChatAgentDTO` it answers into `state.chat` (reducer action `mergeChatAgent`, sdk-js `MERGE_CHAT_AGENT`; an answer for another chat is ignored). A refusal sets `state.error` and is thrown.
 - MCP input requests (sdk-js `mcp-input.ts`): `MCPInputState(data:)` and `ToolInvocationDTO.mcpInputState` read what an `awaiting_input` MCP call waits on; `InputRequest.elicitParams` (`ElicitRequestParams`, `ElicitRequestedSchema`, `ElicitPropertySchema`), `ElicitRequestParams.isURL`, `buildMCPInputResult(_:)`. The params decode leniently: a field of an unexpected type reads as nil instead of hiding the request. `AgentChatSession.submitMCPInput(_:responses:)` answers them; a 400 (answers rejected, the call still waiting) is thrown without marking the connection failed.

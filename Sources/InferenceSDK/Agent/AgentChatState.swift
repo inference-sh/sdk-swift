@@ -128,6 +128,17 @@ func deriveChatStatus(_ run: AgentRunDTO?) -> ChatStatus {
     return .idle
 }
 
+/// `state` with `merge` applied to the chat it holds, when that chat is
+/// `chatId`; unchanged otherwise (no chat, or one switched to meanwhile).
+private func mergingIntoChat(_ state: AgentChatState, _ chatId: String,
+                             _ merge: (inout ChatDTO) -> Void) -> AgentChatState {
+    guard var chat = state.chat, chat.id == chatId else { return state }
+    merge(&chat)
+    var next = state
+    next.chat = chat
+    return next
+}
+
 /// js reducer.ts chatReducer(). Pure function: returns a new state value.
 public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentChatState {
     switch action {
@@ -174,27 +185,24 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
     // Merge it into the chat it belongs to; a chat switched away from in the
     // meantime is left alone.
     case .mergeChatSettings(let settings):
-        guard var chat = state.chat, chat.id == settings.chatId else { return state }
-        chat.name = settings.name
-        chat.visibility = settings.visibility
-        var data = chat.agentData
-        data.allowAllTools = settings.allowAllTools
-        data.disableHooks = settings.disableHooks
-        data.memory = settings.memory
-        chat.agentData = data
-        var next = state
-        next.chat = chat
-        return next
+        return mergingIntoChat(state, settings.chatId) { chat in
+            chat.name = settings.name
+            chat.visibility = settings.visibility
+            // One write: agentData is boxed (@Indirect), each set reallocates.
+            var data = chat.agentData
+            data.allowAllTools = settings.allowAllTools
+            data.disableHooks = settings.disableHooks
+            data.memory = settings.memory
+            chat.agentData = data
+        }
 
     case .mergeChatAgent(let agent):
-        guard var chat = state.chat, chat.id == agent.chatId else { return state }
-        chat.agentId = agent.agentId
-        chat.agent = agent.agent
-        chat.agentVersionId = agent.agentVersionId
-        chat.agentVersion = agent.agentVersion
-        var next = state
-        next.chat = chat
-        return next
+        return mergingIntoChat(state, agent.chatId) { chat in
+            chat.agentId = agent.agentId
+            chat.agent = agent.agent
+            chat.agentVersionId = agent.agentVersionId
+            chat.agentVersion = agent.agentVersion
+        }
 
     case .setMessages(let messages):
         var next = state

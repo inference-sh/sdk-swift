@@ -221,11 +221,9 @@ public struct TasksAPI: Sendable {
                             _ options: TaskRunOptions) async throws -> TaskDTO? {
         var req = client.request("tasks/\(taskId)/stream", method: "GET", accept: "application/x-ndjson")
         req.timeoutInterval = 45
-        let (stream, status, _) = try await client.openLineStream(req)
+        // A non-2xx answer is thrown by openLineStream as InferenceError.http.
+        let (stream, _) = try await client.openLineStream(req)
         defer { stream.cancel() }
-        guard (200..<300).contains(status) else {
-            throw InferenceError.http(status: status, body: try await stream.drain())
-        }
 
         for try await line in stream.lines {
             sawLine = true

@@ -42,6 +42,17 @@ public struct InferenceClient: Sendable {
     public var auth: any InferenceAuthProvider
     /// Called with any warnings or notices the server attached to a response.
     public var onMessage: (@Sendable ([ResponseMessage]) -> Void)?
+    /// Called with every HTTP error the API answers, requests and stream
+    /// connects alike, before it is thrown: one place to notice a refused
+    /// account (403 `account_deactivated` / `account_banned`, see
+    /// `InferenceError.problem`) or a 401 that a forced refresh did not cure.
+    /// A 401 the refresh cures is not reported. Nor is one whose refresh
+    /// throws (a revoked refresh token): that comes out as the provider's
+    /// error, and `RefreshingAuthProvider`'s `onSignedOut` already saw it.
+    /// Cancelled requests are not reported. Errors from other hosts
+    /// (presigned storage, CDN downloads) are not the account's and are not
+    /// reported either. Called on whatever task made the request.
+    public var onFailure: (@Sendable (InferenceError) -> Void)?
     /// URLSession plumbing. Internal so tests can swap in a stub.
     var transport: HTTPTransport = .shared
 
@@ -82,12 +93,11 @@ public struct InferenceClient: Sendable {
         producerStream { continuation in
             var body = body
             body.stream = true
-            let (stream, status, contentType) = try await openLineStream(request("agents/run", accept: "application/x-ndjson", body: body))
+            let (stream, contentType) = try await openLineStream(request("agents/run", accept: "application/x-ndjson", body: body))
             defer { stream.cancel() }
 
-            if !(200..<300).contains(status) || !contentType.contains("ndjson") {
+            if !contentType.contains("ndjson") {
                 let text = try await stream.drain()
-                guard (200..<300).contains(status) else { throw InferenceError.http(status: status, body: text) }
                 // Plain JSON answer: message queued on a busy chat.
                 let resp: CreateAgentMessageResponse = try decode(Data(text.utf8))
                 guard let msg = resp.assistantMessage else { throw InferenceError.noAssistantMessage }
@@ -199,6 +209,16 @@ public struct InferenceClient: Sendable {
     /// see the token and are not retried on 401.
     func send(_ req: URLRequest, upload: Data? = nil, retries: Int = 0) async throws -> Data {
         guard carriesAuth(req) else { return try await sendRetrying(req, upload: upload, retries: retries) }
+        do {
+            return try await sendAuthorized(req, upload: upload, retries: retries)
+        } catch let error as InferenceError {
+            // Reported here, after the 401 retry, so a cured 401 never is.
+            if case .http = error { onFailure?(error) }
+            throw error
+        }
+    }
+
+    private func sendAuthorized(_ req: URLRequest, upload: Data?, retries: Int) async throws -> Data {
         var req = req
         let token = try await auth.bearerToken(forceRefresh: false)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -214,30 +234,53 @@ public struct InferenceClient: Sendable {
     }
 
     /// Starts `req` on a fresh HTTPLineStream with a bearer token from
-    /// `auth`. A 401 on connect is retried once with a forced refresh; if the
-    /// provider hands back the same token the 401 is thrown as
-    /// `InferenceError.http`. The caller owns and cancels the returned stream.
-    func openLineStream(_ req: URLRequest) async throws
-        -> (stream: HTTPLineStream, status: Int, contentType: String) {
+    /// `auth`. A 401 on connect is retried once with a forced refresh. A
+    /// non-2xx answer (a 401 included when the provider hands back the same
+    /// token) is drained, reported to `onFailure` and thrown as
+    /// `InferenceError.http`, so every stream fails the same way. The caller
+    /// owns and cancels the returned stream.
+    func openLineStream(_ req: URLRequest) async throws -> (stream: HTTPLineStream, contentType: String) {
         var req = req
         let first = try await auth.bearerToken(forceRefresh: false)
         req.setValue("Bearer \(first)", forHTTPHeaderField: "Authorization")
-        let stream = HTTPLineStream(router: transport.lineRouter)
-        let (status, contentType) = try await startOrCancel(stream, req)
-        guard status == 401 else { return (stream, status, contentType) }
+        var (stream, status, contentType) = try await startOrCancel(req)
 
-        let body = (try? await stream.drain()) ?? ""
-        stream.cancel()
-        let fresh = try await auth.bearerToken(forceRefresh: true)
-        guard fresh != first else { throw InferenceError.http(status: status, body: String(body.prefix(2000))) }
-        req.setValue("Bearer \(fresh)", forHTTPHeaderField: "Authorization")
-        let retry = HTTPLineStream(router: transport.lineRouter)
-        let (retryStatus, retryType) = try await startOrCancel(retry, req)
-        return (retry, retryStatus, retryType)
+        if status == 401 {
+            let body = try await errorBody(stream)
+            let fresh = try await auth.bearerToken(forceRefresh: true)
+            guard fresh != first else { throw reportedFailure(status, body) }
+            req.setValue("Bearer \(fresh)", forHTTPHeaderField: "Authorization")
+            (stream, status, contentType) = try await startOrCancel(req)
+        }
+        guard (200..<300).contains(status) else {
+            throw reportedFailure(status, try await errorBody(stream))
+        }
+        return (stream, contentType)
     }
 
-    private func startOrCancel(_ stream: HTTPLineStream, _ req: URLRequest) async throws -> (Int, String) {
-        do { return try await stream.start(req) } catch { stream.cancel(); throw error }
+    /// Drains and cancels a refused connect. A cancel during the drain throws
+    /// CancellationError: the caller left, so the (cut short) answer is
+    /// neither thrown as the API's error nor reported to `onFailure`.
+    private func errorBody(_ stream: HTTPLineStream) async throws -> String {
+        let body = (try? await stream.drain()) ?? ""
+        stream.cancel()
+        try Task.checkCancellation()
+        return body
+    }
+
+    private func startOrCancel(_ req: URLRequest) async throws -> (HTTPLineStream, Int, String) {
+        let stream = HTTPLineStream(router: transport.lineRouter)
+        do {
+            let (status, contentType) = try await stream.start(req)
+            return (stream, status, contentType)
+        } catch { stream.cancel(); throw error }
+    }
+
+    /// The HTTP error for a stream connect the API refused, after `onFailure` saw it.
+    private func reportedFailure(_ status: Int, _ body: String) -> InferenceError {
+        let error = InferenceError.http(status: status, body: String(body.prefix(2000)))
+        onFailure?(error)
+        return error
     }
 
     /// Same scheme, host and port as `baseURL`.
