@@ -171,9 +171,7 @@ public extension InputRequest {
 public func buildMCPInputResult(_ responses: [String: ElicitResult]) -> String {
     var out: [String: ElicitResult] = [:]
     for (key, response) in responses {
-        out[key] = response.action == .accept && response.content != nil
-            ? ElicitResult(action: response.action, content: response.content)
-            : ElicitResult(action: response.action)
+        out[key] = ElicitResult(action: response.action, content: response.action == .accept ? response.content : nil)
     }
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]

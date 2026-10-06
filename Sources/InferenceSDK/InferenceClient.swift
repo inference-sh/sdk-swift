@@ -10,14 +10,19 @@ public enum InferenceError: Error, LocalizedError, Sendable {
     case noAssistantMessage
     case transport(String)
 
+    /// The RFC 9457 problem details of an HTTP error, when the API sent them.
+    public var problem: (code: String?, title: String?, detail: String?)? {
+        guard case .http(_, let body) = self,
+              let obj = try? JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any] else { return nil }
+        // `type` is a URI whose last segment is the error code.
+        let code = (obj["type"] as? String)?.split(separator: "/").last.map(String.init)
+        return (code, obj["title"] as? String, obj["detail"] as? String)
+    }
+
     public var errorDescription: String? {
         switch self {
         case .http(let status, let body):
-            // RFC 9457 problem details when the API sent them.
-            if let obj = try? JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any],
-               let detail = (obj["detail"] ?? obj["title"]) as? String {
-                return "HTTP \(status): \(detail)"
-            }
+            if let p = problem, let text = p.detail ?? p.title { return "HTTP \(status): \(text)" }
             return "HTTP \(status): \(body)"
         case .noAssistantMessage: return "No assistant message in response (message was queued?)"
         case .transport(let s): return s

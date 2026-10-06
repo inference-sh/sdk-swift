@@ -153,7 +153,7 @@ public final class LiveSession: @unchecked Sendable {
     ///   - task: Ends the session when the task ends before the app connected.
     ///     Without it a task that fails before its worker dials leaves the
     ///     caller waiting on the relay until the pair timeout.
-    ///   - dial: The WebSocket to dial with; defaults to URLSession's.
+    ///   - dial: The transport; defaults to `LiveTransport.platformDefault`.
     ///   - inputSchema: The function's input schema: `sendField` routes by it.
     ///   - outputSchema: The function's output schema: `updates(for:)` maps
     ///     binary frames by it.
@@ -163,7 +163,7 @@ public final class LiveSession: @unchecked Sendable {
         self.access = access
         self.renew = renew
         self.taskWatch = task
-        self.dial = dial ?? { URLSessionLiveSocket($0) }
+        self.dial = dial ?? LiveTransport.platformDefault
         outputBinary = binaryLiveField(splitLiveSchema(outputSchema).live)?.key
         outputFields = Set((outputSchema?["properties"]?.objectValue ?? [:]).keys)
         inputKnown = inputSchema?.objectValue != nil

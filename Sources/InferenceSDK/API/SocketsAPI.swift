@@ -25,7 +25,7 @@ public struct OpenSocketOptions: Sendable {
     /// task ends first (default true). Off, a task that fails before its
     /// worker dials leaves the session waiting until the relay's pair timeout.
     public var watchTask: Bool
-    /// The WebSocket to dial with; defaults to URLSession's.
+    /// The transport; defaults to `LiveTransport.platformDefault` (HTTP on watchOS).
     public var dial: LiveDialer?
     /// The function's input schema: `session.sendField` routes by it.
     public var inputSchema: JSONValue?

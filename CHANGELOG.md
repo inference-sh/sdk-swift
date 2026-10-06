@@ -10,6 +10,8 @@ Added:
 - `internalTools()` (`InternalToolsBuilder`), `lifecycleHook(_:)` (`LifecycleHookBuilder`) and `learningHooks(suggest:learn:)` (sdk-js `tool-builder.ts` internalTools, `hook-builder.ts`): build the generated `InternalToolsConfig` / `LifecycleHookConfig`; builders are values, so a base can be reused.
 - Run state predicates (sdk-js `utils.ts`, Go `AgentRunState`): `AgentRunState.isTerminal`, `.isInterrupted`, `.isSettled`, `.isWorking`; `ToolInvocationStatus.isTerminal`; `ChatDTO.isAwaitingHuman`.
 - `SilenceGate.hasHeardSound`: with `pass` false, tells "quiet for `tail` after sound" from "no sound yet", so the gate can end a tapped take after a pause.
+- `LiveTransport.platformDefault`: a session dials HTTP on watchOS (TN3135 allows the WebSocket only while streaming audio or in a call) and the WebSocket elsewhere, when no `dial` is given.
+- `InferenceError.problem`: the RFC 9457 problem details of an HTTP error (`code` from the `type` URI's last segment, `title`, `detail`).
 
 Fixes:
 - `AgentRunDTO.isActive` (and so `ChatDTO.isBusy`) counts a run in `auth_required` as holding the chat, as sdk-js `isChatBusy` does.
