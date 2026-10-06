@@ -4405,7 +4405,6 @@ public struct BountyProgramDTO: Codable, Sendable {
     public var maxPerUser: Int
     public var maxPerDay: Int
     public var proofType: String
-    public var proofMinLength: Int
     /// RequiresPaymentMethod withholds the reward until the claimant's team has
     /// a saved payment method. The claim itself is refused with 402
     /// payment_method_required (survey answers are still recorded).
@@ -4436,7 +4435,6 @@ public struct BountyProgramDTO: Codable, Sendable {
         maxPerUser: Int = 0,
         maxPerDay: Int = 0,
         proofType: String = "",
-        proofMinLength: Int = 0,
         requiresPaymentMethod: Bool = false,
         status: String = "",
         noticeText: String = "",
@@ -4463,7 +4461,6 @@ public struct BountyProgramDTO: Codable, Sendable {
         self.maxPerUser = maxPerUser
         self.maxPerDay = maxPerDay
         self.proofType = proofType
-        self.proofMinLength = proofMinLength
         self.requiresPaymentMethod = requiresPaymentMethod
         self.status = status
         self.noticeText = noticeText
@@ -4492,7 +4489,6 @@ public struct BountyProgramDTO: Codable, Sendable {
         case maxPerUser = "max_per_user"
         case maxPerDay = "max_per_day"
         case proofType = "proof_type"
-        case proofMinLength = "proof_min_length"
         case requiresPaymentMethod = "requires_payment_method"
         case status = "status"
         case noticeText = "notice_text"
@@ -13700,10 +13696,15 @@ public struct A2UIComponent: Codable, Sendable {
     public var artifactTitle: String?
     public var artifactUrl: String?
     public var artifactFavicon: String?
-    /// Extension: McpApp. The page is stored on the component so the chat
-    /// renders it from the message alone; the server, credential and tool name
-    /// let the host route the page's tools/call requests.
+    /// Extension: McpApp. A remote server's page is named by McpPageHash and
+    /// read from GET /mcp-ui-pages/{hash}, so a chat that runs a tool many
+    /// times holds one copy of its page, not one per message. McpHtml carries
+    /// the page inline instead: an artifact's page, a component written
+    /// before pages were stored by hash, or a page that could not be stored.
+    /// The server, credential and tool name let the host route the page's
+    /// tools/call requests.
     public var mcpHtml: String?
+    public var mcpPageHash: String?
     @Indirect public var mcpCsp: MCPUICSP?
     public var mcpResourceUri: String?
     public var mcpServerSlug: String?
@@ -13770,6 +13771,7 @@ public struct A2UIComponent: Codable, Sendable {
         artifactUrl: String? = nil,
         artifactFavicon: String? = nil,
         mcpHtml: String? = nil,
+        mcpPageHash: String? = nil,
         mcpCsp: MCPUICSP? = nil,
         mcpResourceUri: String? = nil,
         mcpServerSlug: String? = nil,
@@ -13832,6 +13834,7 @@ public struct A2UIComponent: Codable, Sendable {
         self.artifactUrl = artifactUrl
         self.artifactFavicon = artifactFavicon
         self.mcpHtml = mcpHtml
+        self.mcpPageHash = mcpPageHash
         self.mcpCsp = mcpCsp
         self.mcpResourceUri = mcpResourceUri
         self.mcpServerSlug = mcpServerSlug
@@ -13896,6 +13899,7 @@ public struct A2UIComponent: Codable, Sendable {
         case artifactUrl = "artifactUrl"
         case artifactFavicon = "artifactFavicon"
         case mcpHtml = "mcpHtml"
+        case mcpPageHash = "mcpPageHash"
         case mcpCsp = "mcpCsp"
         case mcpResourceUri = "mcpResourceUri"
         case mcpServerSlug = "mcpServerSlug"
