@@ -53,6 +53,17 @@ final class PCMTests: XCTestCase {
         XCTAssertEqual(stereo.bytesPerFrame, 1920)
     }
 
+    func testSilenceGateHasHeardSound() {
+        var gate = SilenceGate(threshold: 0.01, tail: 2.5)
+        XCTAssertFalse(gate.pass(level: 0.001, now: 0))
+        XCTAssertFalse(gate.hasHeardSound)
+        XCTAssertTrue(gate.pass(level: 0.2, now: 1))
+        XCTAssertTrue(gate.hasHeardSound)
+        XCTAssertTrue(gate.pass(level: 0.001, now: 3.4))
+        XCTAssertFalse(gate.pass(level: 0.001, now: 3.6))
+        XCTAssertTrue(gate.hasHeardSound)
+    }
+
     func testSilenceGate() {
         var gate = SilenceGate()
         XCTAssertFalse(gate.pass(level: 0, now: 100), "silence before any sound is not sent")
