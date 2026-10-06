@@ -54,17 +54,14 @@ public extension InferenceClient {
                 // "thinking" while queued messages completed server-side unseen.
                 req.timeoutInterval = 45
 
-                // openLineStream asks `auth` for a token on every connect and
-                // retries a 401 once with a forced refresh.
+                // openLineStream asks `auth` for a token on every connect,
+                // retries a 401 once with a forced refresh and throws a
+                // non-2xx answer as InferenceError.http, which is not
+                // transient: surfaced below, never reconnected.
                 var stream: HTTPLineStream?
                 do {
-                    let (opened, status, _) = try await self.openLineStream(req)
+                    let (opened, _) = try await self.openLineStream(req)
                     stream = opened
-                    guard (200..<300).contains(status) else {
-                        // Non-2xx is not transient: surface it, do not reconnect.
-                        let body = try await opened.drain()
-                        throw InferenceError.http(status: status, body: String(body.prefix(2000)))
-                    }
 
                     // SSE frame state: an event ends on a blank line; `data:` lines
                     // concatenate with "\n"; lines starting with ":" are heartbeats.

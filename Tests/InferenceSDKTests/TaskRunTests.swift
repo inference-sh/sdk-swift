@@ -45,4 +45,34 @@ final class TaskRunTests: XCTestCase {
         XCTAssertEqual(statuses.values, [7, 10])
         XCTAssertEqual(StubProtocol.recorded.map(\.path), ["/apps/run", "/tasks/t1", "/tasks/t1/stream", "/tasks/t1"])
     }
+
+    /// The stream connect is refused: thrown as the API's error with the
+    /// body cut to 2000 bytes, not reconnected, and reported once.
+    func testStreamRefusalIsThrownCutAndReported() async throws {
+        let dispatched = try fixture(status: 3)
+        let failures = Recorder<InferenceError>()
+        var client = InferenceClient(apiKey: "k")
+        client.onFailure = { failures.append($0) }
+        let long = String(repeating: "x", count: 3000)
+        client.transport = StubProtocol.start { req, _ in
+            switch (req.httpMethod ?? "", req.url?.path ?? "") {
+            case ("POST", "/apps/run"): return .json(self.created)
+            case ("GET", "/tasks/t1"): return StubProtocol.Response(body: dispatched)
+            case ("GET", "/tasks/t1/stream"): return .json(long, status: 403)
+            default: return .json(#"{"title":"unexpected"}"#, status: 404)
+            }
+        }
+        do {
+            _ = try await client.tasks.run(ApiAppRunRequest(app: "a/b", input: ["prompt": "x"]))
+            XCTFail("expected 403")
+        } catch InferenceError.http(let status, let body) {
+            XCTAssertEqual(status, 403)
+            XCTAssertEqual(body.count, 2000)
+        } catch { XCTFail("\(error)") }
+        XCTAssertEqual(StubProtocol.recorded.filter { $0.path == "/tasks/t1/stream" }.count, 1)
+        XCTAssertEqual(failures.values.map { e -> Int in
+            guard case .http(let status, _) = e else { return 0 }
+            return status
+        }, [403])
+    }
 }

@@ -21,26 +21,33 @@ public let mcpMethodElicitationCreate = "elicitation/create"
 /// Stored in `ToolInvocationDTO.data` while an MCP tool call waits for the user.
 public struct MCPInputState: Sendable {
     /// One request per key; the answers go back under the same keys.
-    public var inputRequests: [String: InputRequest]
+    public var inputRequests: [String: InputRequest] {
+        didSet { elicitations = Self.elicitations(inputRequests) }
+    }
+    /// Each elicitation request's params under its key, decoded once when
+    /// the requests are set (a view reads them on every render). Requests of
+    /// other methods have none.
+    public private(set) var elicitations: [String: ElicitRequestParams]
     public var requestState: String?
     /// 1 for the first request; goes up each time the server asks again.
     public var round: Int
 
     public init(inputRequests: [String: InputRequest], requestState: String? = nil, round: Int = 1) {
         self.inputRequests = inputRequests
+        self.elicitations = Self.elicitations(inputRequests)
         self.requestState = requestState
         self.round = round
+    }
+
+    private static func elicitations(_ requests: [String: InputRequest]) -> [String: ElicitRequestParams] {
+        requests.compactMapValues(\.elicitParams)
     }
 
     /// js parseMCPInputState: an invocation's data (an object or a JSON
     /// string) as an MCPInputState, or nil when it is not a pending MCP input.
     public init?(data: JSONValue?) {
-        guard var value = data else { return nil }
-        if let s = value.stringValue {
-            guard let parsed = try? JSONDecoder().decode(JSONValue.self, from: Data(s.utf8)) else { return nil }
-            value = parsed
-        }
-        guard value["input_required"]?.boolValue == true,
+        guard let value = data?.parsingJSONString,
+              value["input_required"]?.boolValue == true,
               let requests = value["input_requests"]?.objectValue, !requests.isEmpty else { return nil }
         var out: [String: InputRequest] = [:]
         for (key, request) in requests {
@@ -158,10 +165,22 @@ public struct ElicitRequestParams: Codable, Sendable, Equatable {
 
 public extension InputRequest {
     /// js elicitParams: the elicitation params, or nil for other methods.
+    /// Decodes on every read; from an `MCPInputState`, read its
+    /// `elicitations`, decoded once.
     var elicitParams: ElicitRequestParams? {
         guard method == mcpMethodElicitationCreate, !params.isNull,
               let data = try? JSONEncoder().encode(params) else { return nil }
         return try? JSONDecoder().decode(ElicitRequestParams.self, from: data)
+    }
+}
+
+public extension JSONValue {
+    /// This value, or the JSON a string holds: api fields typed as JSON are
+    /// sometimes stored as a JSON string (tool invocation `data`). nil for a
+    /// string that holds no JSON.
+    var parsingJSONString: JSONValue? {
+        guard let s = stringValue else { return self }
+        return try? InferenceClient.decoder.decode(JSONValue.self, from: Data(s.utf8))
     }
 }
 
