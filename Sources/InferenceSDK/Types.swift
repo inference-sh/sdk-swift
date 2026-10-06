@@ -4405,9 +4405,13 @@ public struct BountyProgramDTO: Codable, Sendable {
     public var maxPerUser: Int
     public var maxPerDay: Int
     public var proofType: String
+    /// ProofForm is the form (namespace/name) a "form" program takes a
+    /// submission to as proof; empty for every other proof type.
+    public var proofForm: String
     /// RequiresPaymentMethod withholds the reward until the claimant's team has
-    /// a saved payment method. The claim itself is refused with 402
-    /// payment_method_required (survey answers are still recorded).
+    /// a saved payment method. The claim is refused with 402
+    /// payment_method_required and no claim is recorded, so it can be retried
+    /// once a card is on file.
     public var requiresPaymentMethod: Bool
     public var status: String
     public var noticeText: String
@@ -4435,6 +4439,7 @@ public struct BountyProgramDTO: Codable, Sendable {
         maxPerUser: Int = 0,
         maxPerDay: Int = 0,
         proofType: String = "",
+        proofForm: String = "",
         requiresPaymentMethod: Bool = false,
         status: String = "",
         noticeText: String = "",
@@ -4461,6 +4466,7 @@ public struct BountyProgramDTO: Codable, Sendable {
         self.maxPerUser = maxPerUser
         self.maxPerDay = maxPerDay
         self.proofType = proofType
+        self.proofForm = proofForm
         self.requiresPaymentMethod = requiresPaymentMethod
         self.status = status
         self.noticeText = noticeText
@@ -4489,6 +4495,7 @@ public struct BountyProgramDTO: Codable, Sendable {
         case maxPerUser = "max_per_user"
         case maxPerDay = "max_per_day"
         case proofType = "proof_type"
+        case proofForm = "proof_form"
         case requiresPaymentMethod = "requires_payment_method"
         case status = "status"
         case noticeText = "notice_text"
@@ -4574,7 +4581,10 @@ public struct BountySubmissionDTO: Codable, Sendable {
     }
 }
 
-/// SubmitBountyRequest is used to claim a bounty reward.
+/// SubmitBountyRequest is used to claim a bounty reward. proof_id names the
+/// proof the program's proof_type asks for: an app (id or namespace/name) for
+/// "app", one of the caller's form submission ids for "form", free text
+/// otherwise.
 public struct SubmitBountyRequest: Codable, Sendable {
     public var bountyId: String
     public var proofId: String
@@ -6492,6 +6502,9 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// already holds the caller's submission.
     public static let formClosed = ErrorCode(rawValue: "form_closed")
     public static let alreadySubmitted = ErrorCode(rawValue: "already_submitted")
+    /// Bounty claims (409): the caller already claimed this proof, or as many
+    /// times as the program allows.
+    public static let alreadyClaimed = ErrorCode(rawValue: "already_claimed")
     /// Entitlement requests (409): the team already holds the entitlement, or
     /// already has an open request for it.
     public static let alreadyEntitled = ErrorCode(rawValue: "already_entitled")
@@ -7506,7 +7519,6 @@ public struct FormDTO: Codable, Sendable {
     public var schema: JSONValue
     public var status: FormStatus
     public var submitPolicy: FormSubmitPolicy
-    public var bountyName: String?
 
     public init(
         id: String = "",
@@ -7525,8 +7537,7 @@ public struct FormDTO: Codable, Sendable {
         description: String = "",
         schema: JSONValue = .null,
         status: FormStatus,
-        submitPolicy: FormSubmitPolicy,
-        bountyName: String? = nil
+        submitPolicy: FormSubmitPolicy
     ) {
         self.id = id
         self.shortId = shortId
@@ -7545,7 +7556,6 @@ public struct FormDTO: Codable, Sendable {
         self.schema = schema
         self.status = status
         self.submitPolicy = submitPolicy
-        self.bountyName = bountyName
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7566,7 +7576,6 @@ public struct FormDTO: Codable, Sendable {
         case schema = "schema"
         case status = "status"
         case submitPolicy = "submit_policy"
-        case bountyName = "bounty_name"
     }
 }
 
@@ -7589,9 +7598,6 @@ public struct FormSubmissionDTO: Codable, Sendable {
     public var source: String?
     public var agent: String?
     public var context: String?
-    /// RewardAmount is the credit reward in microcents (0 when none was earned).
-    public var rewardAmount: Int?
-    public var rewardBlockedReason: String?
 
     public init(
         id: String = "",
@@ -7610,9 +7616,7 @@ public struct FormSubmissionDTO: Codable, Sendable {
         data: JSONValue = .null,
         source: String? = nil,
         agent: String? = nil,
-        context: String? = nil,
-        rewardAmount: Int? = nil,
-        rewardBlockedReason: String? = nil
+        context: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -7631,8 +7635,6 @@ public struct FormSubmissionDTO: Codable, Sendable {
         self.source = source
         self.agent = agent
         self.context = context
-        self.rewardAmount = rewardAmount
-        self.rewardBlockedReason = rewardBlockedReason
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7653,8 +7655,6 @@ public struct FormSubmissionDTO: Codable, Sendable {
         case source = "source"
         case agent = "agent"
         case context = "context"
-        case rewardAmount = "reward_amount"
-        case rewardBlockedReason = "reward_blocked_reason"
     }
 }
 
@@ -7695,29 +7695,25 @@ public struct CreateFormRequest: Codable, Sendable {
 }
 
 /// UpdateFormRequest patches a form; nil fields are left as they are.
-/// bounty_name is settable by platform admins only.
 public struct UpdateFormRequest: Codable, Sendable {
     public var title: String?
     public var description: String?
     public var schema: JSONValue?
     public var status: FormStatus?
     public var submitPolicy: FormSubmitPolicy?
-    public var bountyName: String?
 
     public init(
         title: String? = nil,
         description: String? = nil,
         schema: JSONValue? = nil,
         status: FormStatus? = nil,
-        submitPolicy: FormSubmitPolicy? = nil,
-        bountyName: String? = nil
+        submitPolicy: FormSubmitPolicy? = nil
     ) {
         self.title = title
         self.description = description
         self.schema = schema
         self.status = status
         self.submitPolicy = submitPolicy
-        self.bountyName = bountyName
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7726,7 +7722,6 @@ public struct UpdateFormRequest: Codable, Sendable {
         case schema = "schema"
         case status = "status"
         case submitPolicy = "submit_policy"
-        case bountyName = "bounty_name"
     }
 }
 
@@ -7762,28 +7757,17 @@ public struct SubmitFormRequest: Codable, Sendable {
 }
 
 /// SubmitFormResponse is returned when a submission was recorded.
-/// GrantedAmount is the credit reward in microcents (0 if no reward was
-/// earned). RewardBlockedReason is set when the submission was recorded but
-/// the reward was withheld (see the RewardBlocked* constants).
 public struct SubmitFormResponse: Codable, Sendable {
     @Indirect public var submission: FormSubmissionDTO
-    public var grantedAmount: Int?
-    public var rewardBlockedReason: String?
 
     public init(
-        submission: FormSubmissionDTO,
-        grantedAmount: Int? = nil,
-        rewardBlockedReason: String? = nil
+        submission: FormSubmissionDTO
     ) {
         self.submission = submission
-        self.grantedAmount = grantedAmount
-        self.rewardBlockedReason = rewardBlockedReason
     }
 
     enum CodingKeys: String, CodingKey {
         case submission = "submission"
-        case grantedAmount = "granted_amount"
-        case rewardBlockedReason = "reward_blocked_reason"
     }
 }
 
@@ -7859,9 +7843,9 @@ public struct SurveyResponseDTO: Codable, Sendable {
 }
 
 /// SubmitSurveyResponse is returned when submitting a survey answer.
-/// GrantedAmount is the credit reward in microcents (0 if no reward was earned).
-/// RewardBlockedReason is set when the answer was recorded but the reward was
-/// withheld by policy (see RewardBlockedPaymentMethodRequired).
+/// GrantedAmount and RewardBlockedReason are kept for the CLIs that read
+/// them; the alias records answers only, so they are always 0 and empty.
+/// Bounties are claimed through POST /me/bounty.
 public struct SubmitSurveyResponse: Codable, Sendable {
     @Indirect public var response: SurveyResponseDTO
     public var grantedAmount: Int?
