@@ -6700,6 +6700,92 @@ public struct FileDTO: Codable, Sendable {
     }
 }
 
+/// TaskFileRole says how a task relates to a file.
+public struct TaskFileRole: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let input = TaskFileRole(rawValue: "input")
+    public static let output = TaskFileRole(rawValue: "output")
+}
+
+/// TaskFileDTO is one file attached to a task, as GET /tasks/{id}/files lists it.
+public struct TaskFileDTO: Codable, Sendable {
+    public var id: String
+    public var createdAt: String
+    public var role: TaskFileRole
+    public var uri: String
+    public var filename: String
+    public var contentType: String
+    public var size: Int
+
+    public init(
+        id: String = "",
+        createdAt: String = "",
+        role: TaskFileRole,
+        uri: String = "",
+        filename: String = "",
+        contentType: String = "",
+        size: Int = 0
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.role = role
+        self.uri = uri
+        self.filename = filename
+        self.contentType = contentType
+        self.size = size
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case createdAt = "created_at"
+        case role = "role"
+        case uri = "uri"
+        case filename = "filename"
+        case contentType = "content_type"
+        case size = "size"
+    }
+}
+
+/// TaskFileSkipped is a file DELETE /tasks/{id}/files left in place.
+public struct TaskFileSkipped: Codable, Sendable {
+    public var id: String
+    public var reason: String
+
+    public init(
+        id: String = "",
+        reason: String = ""
+    ) {
+        self.id = id
+        self.reason = reason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case reason = "reason"
+    }
+}
+
+/// DeleteTaskFilesResponse reports what DELETE /tasks/{id}/files did.
+public struct DeleteTaskFilesResponse: Codable, Sendable {
+    public var deleted: [String]?
+    public var skipped: [TaskFileSkipped]?
+
+    public init(
+        deleted: [String]? = nil,
+        skipped: [TaskFileSkipped]? = nil
+    ) {
+        self.deleted = deleted
+        self.skipped = skipped
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+        case skipped = "skipped"
+    }
+}
+
 /// FlowNodeData describes a node's data within a flow
 public struct FlowNodeData: Codable, Sendable {
     @Indirect public var app: AppDTO?
