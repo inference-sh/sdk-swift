@@ -3026,8 +3026,9 @@ public struct AppDTO: Codable, Sendable {
     public var agentDescription: String
     public var category: AppCategory
     @Indirect public var images: AppImages
-    /// Tags name what the app does and its traits, as lowercase slugs. Known
-    /// slugs are the shared.AppTag constants; others are free-form.
+    /// Tags name what the app does and its traits, as lowercase slugs
+    /// (text-to-image, open-weights). GET /store/tags lists the ones in use
+    /// with their titles.
     public var tags: [String]?
     public var versionId: String
     @Indirect public var version: AppVersionDTO?
@@ -14201,107 +14202,6 @@ public struct AppCategory: RawRepresentable, Codable, Hashable, Sendable {
     public static let flow = AppCategory(rawValue: "flow")
     /// Decision models: typed questions in, a probability for every answer out, no generation.
     public static let decision = AppCategory(rawValue: "decision")
-}
-
-/// AppTag is a known app tag: a lowercase slug naming a task an app performs
-/// (text-to-image) or a trait it has (open-weights). An app's tags are free
-/// strings; the ones listed here are the tags clients present by title and
-/// build pages for. Each has an AppTagTitle constant with the same suffix.
-public struct AppTag: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let textToImage = AppTag(rawValue: "text-to-image")
-    public static let imageToImage = AppTag(rawValue: "image-to-image")
-    public static let imageEditing = AppTag(rawValue: "image-editing")
-    public static let imageUpscaling = AppTag(rawValue: "image-upscaling")
-    public static let backgroundRemoval = AppTag(rawValue: "background-removal")
-    public static let training = AppTag(rawValue: "training")
-    public static let loRA = AppTag(rawValue: "lora")
-    public static let pbrMaterials = AppTag(rawValue: "pbr-materials")
-    public static let textToVideo = AppTag(rawValue: "text-to-video")
-    public static let imageToVideo = AppTag(rawValue: "image-to-video")
-    public static let referenceToVideo = AppTag(rawValue: "reference-to-video")
-    public static let videoToVideo = AppTag(rawValue: "video-to-video")
-    public static let videoUpscaling = AppTag(rawValue: "video-upscaling")
-    public static let videoExtension = AppTag(rawValue: "video-extension")
-    public static let videoEnhancement = AppTag(rawValue: "video-enhancement")
-    public static let lipSync = AppTag(rawValue: "lip-sync")
-    public static let talkingAvatar = AppTag(rawValue: "talking-avatar")
-    public static let nativeAudio = AppTag(rawValue: "native-audio")
-    public static let textToSpeech = AppTag(rawValue: "text-to-speech")
-    public static let speechToText = AppTag(rawValue: "speech-to-text")
-    public static let voiceCloning = AppTag(rawValue: "voice-cloning")
-    public static let voiceDesign = AppTag(rawValue: "voice-design")
-    public static let musicGeneration = AppTag(rawValue: "music-generation")
-    public static let soundEffects = AppTag(rawValue: "sound-effects")
-    public static let realtime = AppTag(rawValue: "realtime")
-    public static let reasoning = AppTag(rawValue: "reasoning")
-    public static let vision = AppTag(rawValue: "vision")
-    public static let coding = AppTag(rawValue: "coding")
-    public static let openWeights = AppTag(rawValue: "open-weights")
-    public static let classification = AppTag(rawValue: "classification")
-    public static let moderation = AppTag(rawValue: "moderation")
-    public static let routing = AppTag(rawValue: "routing")
-    public static let webSearch = AppTag(rawValue: "web-search")
-    public static let webScraping = AppTag(rawValue: "web-scraping")
-    public static let deepResearch = AppTag(rawValue: "deep-research")
-    public static let researchPapers = AppTag(rawValue: "research-papers")
-    public static let socialMedia = AppTag(rawValue: "social-media")
-    public static let messaging = AppTag(rawValue: "messaging")
-    public static let productivity = AppTag(rawValue: "productivity")
-    public static let mediaUtilities = AppTag(rawValue: "media-utilities")
-    public static let rendering = AppTag(rawValue: "rendering")
-    public static let evaluation = AppTag(rawValue: "evaluation")
-}
-
-/// AppTagTitle is the display title of a known AppTag.
-public struct AppTagTitle: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let textToImage = AppTagTitle(rawValue: "Text to Image")
-    public static let imageToImage = AppTagTitle(rawValue: "Image to Image")
-    public static let imageEditing = AppTagTitle(rawValue: "Image Editing")
-    public static let imageUpscaling = AppTagTitle(rawValue: "Image Upscaling")
-    public static let backgroundRemoval = AppTagTitle(rawValue: "Background Removal")
-    public static let training = AppTagTitle(rawValue: "Model Training")
-    public static let loRA = AppTagTitle(rawValue: "LoRA")
-    public static let pbrMaterials = AppTagTitle(rawValue: "PBR Materials")
-    public static let textToVideo = AppTagTitle(rawValue: "Text to Video")
-    public static let imageToVideo = AppTagTitle(rawValue: "Image to Video")
-    public static let referenceToVideo = AppTagTitle(rawValue: "Reference to Video")
-    public static let videoToVideo = AppTagTitle(rawValue: "Video to Video")
-    public static let videoUpscaling = AppTagTitle(rawValue: "Video Upscaling")
-    public static let videoExtension = AppTagTitle(rawValue: "Video Extension")
-    public static let videoEnhancement = AppTagTitle(rawValue: "Video Enhancement")
-    public static let lipSync = AppTagTitle(rawValue: "Lip Sync")
-    public static let talkingAvatar = AppTagTitle(rawValue: "Talking Avatar")
-    public static let nativeAudio = AppTagTitle(rawValue: "Native Audio")
-    public static let textToSpeech = AppTagTitle(rawValue: "Text to Speech")
-    public static let speechToText = AppTagTitle(rawValue: "Speech to Text")
-    public static let voiceCloning = AppTagTitle(rawValue: "Voice Cloning")
-    public static let voiceDesign = AppTagTitle(rawValue: "Voice Design")
-    public static let musicGeneration = AppTagTitle(rawValue: "Music Generation")
-    public static let soundEffects = AppTagTitle(rawValue: "Sound Effects")
-    public static let realtime = AppTagTitle(rawValue: "Realtime")
-    public static let reasoning = AppTagTitle(rawValue: "Reasoning")
-    public static let vision = AppTagTitle(rawValue: "Vision")
-    public static let coding = AppTagTitle(rawValue: "Coding")
-    public static let openWeights = AppTagTitle(rawValue: "Open Weights")
-    public static let classification = AppTagTitle(rawValue: "Classification")
-    public static let moderation = AppTagTitle(rawValue: "Moderation")
-    public static let routing = AppTagTitle(rawValue: "Routing")
-    public static let webSearch = AppTagTitle(rawValue: "Web Search")
-    public static let webScraping = AppTagTitle(rawValue: "Web Scraping")
-    public static let deepResearch = AppTagTitle(rawValue: "Deep Research")
-    public static let researchPapers = AppTagTitle(rawValue: "Research Papers")
-    public static let socialMedia = AppTagTitle(rawValue: "Social Media")
-    public static let messaging = AppTagTitle(rawValue: "Messaging")
-    public static let productivity = AppTagTitle(rawValue: "Productivity")
-    public static let mediaUtilities = AppTagTitle(rawValue: "Media Utilities")
-    public static let rendering = AppTagTitle(rawValue: "Rendering")
-    public static let evaluation = AppTagTitle(rawValue: "Evaluation")
 }
 
 public struct AppStatus: RawRepresentable, Codable, Hashable, Sendable {
