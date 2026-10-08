@@ -6500,6 +6500,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// account is one and cannot sign in.
     public static let personRequired = ErrorCode(rawValue: "person_required")
     public static let otpRequired = ErrorCode(rawValue: "otp_required")
+    /// ErrorCodeImpersonationReasonRequired (403): a platform admin named a
+    /// team they are not a member of without a live impersonation grant.
+    /// Clients stop viewing as the team on it.
+    public static let impersonationReasonRequired = ErrorCode(rawValue: "impersonation_reason_required")
     public static let mcpAuthExpired = ErrorCode(rawValue: "mcp_auth_expired")
     /// Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
     /// EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
@@ -14597,6 +14601,286 @@ public struct ChannelContext: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case channelType = "channel_type"
         case channelMetadata = "channel_metadata"
+    }
+}
+
+/// DecisionChoiceOption is one answer option of a choice question.
+public struct DecisionChoiceOption: Codable, Sendable {
+    /// Name is returned as the choice and keys the probabilities.
+    public var name: String
+    /// Description says what the option covers.
+    public var description: JSONValue?
+
+    public init(
+        name: String = "",
+        description: JSONValue? = nil
+    ) {
+        self.name = name
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case description = "description"
+    }
+}
+
+/// DecisionChoiceQuestion asks which one of a fixed set of options holds.
+public struct DecisionChoiceQuestion: Codable, Sendable {
+    /// ID is the caller's key for the question; its answer comes back under it.
+    public var id: String
+    public var instructions: JSONValue
+    public var options: [DecisionChoiceOption]?
+
+    public init(
+        id: String = "",
+        instructions: JSONValue = .null,
+        options: [DecisionChoiceOption]? = nil
+    ) {
+        self.id = id
+        self.instructions = instructions
+        self.options = options
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case instructions = "instructions"
+        case options = "options"
+    }
+}
+
+/// DecisionScoreQuestion asks where the state sits on ordered levels.
+public struct DecisionScoreQuestion: Codable, Sendable {
+    public var id: String
+    public var instructions: JSONValue
+    /// Levels are described low end to high end; a level's number is its index.
+    public var levels: [JSONValue]?
+
+    public init(
+        id: String = "",
+        instructions: JSONValue = .null,
+        levels: [JSONValue]? = nil
+    ) {
+        self.id = id
+        self.instructions = instructions
+        self.levels = levels
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case instructions = "instructions"
+        case levels = "levels"
+    }
+}
+
+/// DecisionNoulCriteria pins down what yes and no mean for a noul question.
+public struct DecisionNoulCriteria: Codable, Sendable {
+    public var `true`: JSONValue?
+    public var `false`: JSONValue?
+
+    public init(
+        `true`: JSONValue? = nil,
+        `false`: JSONValue? = nil
+    ) {
+        self.`true` = `true`
+        self.`false` = `false`
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case `true` = "true"
+        case `false` = "false"
+    }
+}
+
+/// DecisionNoulQuestion asks for the probability that something is true.
+public struct DecisionNoulQuestion: Codable, Sendable {
+    public var id: String
+    public var instructions: JSONValue
+    @Indirect public var criteria: DecisionNoulCriteria?
+
+    public init(
+        id: String = "",
+        instructions: JSONValue = .null,
+        criteria: DecisionNoulCriteria? = nil
+    ) {
+        self.id = id
+        self.instructions = instructions
+        self.criteria = criteria
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case instructions = "instructions"
+        case criteria = "criteria"
+    }
+}
+
+/// DecisionInput is one state and the questions asked of it.
+public struct DecisionInput: Codable, Sendable {
+    public var state: JSONValue
+    public var choices: [DecisionChoiceQuestion]?
+    public var scores: [DecisionScoreQuestion]?
+    public var nouls: [DecisionNoulQuestion]?
+
+    public init(
+        state: JSONValue = .null,
+        choices: [DecisionChoiceQuestion]? = nil,
+        scores: [DecisionScoreQuestion]? = nil,
+        nouls: [DecisionNoulQuestion]? = nil
+    ) {
+        self.state = state
+        self.choices = choices
+        self.scores = scores
+        self.nouls = nouls
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case state = "state"
+        case choices = "choices"
+        case scores = "scores"
+        case nouls = "nouls"
+    }
+}
+
+/// DecisionVisionInput is the input of a decision model that also sees
+/// images: a DecisionInput plus the images the questions are about.
+public struct DecisionVisionInput: Codable, Sendable {
+    public var state: JSONValue
+    public var choices: [DecisionChoiceQuestion]?
+    public var scores: [DecisionScoreQuestion]?
+    public var nouls: [DecisionNoulQuestion]?
+    /// Images are file URIs. Every question sees them.
+    public var images: [String]?
+
+    public init(
+        state: JSONValue = .null,
+        choices: [DecisionChoiceQuestion]? = nil,
+        scores: [DecisionScoreQuestion]? = nil,
+        nouls: [DecisionNoulQuestion]? = nil,
+        images: [String]? = nil
+    ) {
+        self.state = state
+        self.choices = choices
+        self.scores = scores
+        self.nouls = nouls
+        self.images = images
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case state = "state"
+        case choices = "choices"
+        case scores = "scores"
+        case nouls = "nouls"
+        case images = "images"
+    }
+}
+
+/// DecisionChoiceAnswer is the answer to a choice question.
+public struct DecisionChoiceAnswer: Codable, Sendable {
+    /// Choice is the highest-probability option.
+    public var choice: String
+    public var confidence: Double
+    /// Probabilities maps every option name to its probability.
+    public var probabilities: [String: Double]?
+
+    public init(
+        choice: String = "",
+        confidence: Double = 0,
+        probabilities: [String: Double]? = nil
+    ) {
+        self.choice = choice
+        self.confidence = confidence
+        self.probabilities = probabilities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case choice = "choice"
+        case confidence = "confidence"
+        case probabilities = "probabilities"
+    }
+}
+
+/// DecisionScoreAnswer is the answer to a score question.
+public struct DecisionScoreAnswer: Codable, Sendable {
+    /// Score is the probability-weighted level, 0 to the top level number.
+    public var score: Double
+    /// Normalized is Score over the top level number: 0 to 1.
+    public var normalized: Double
+    public var confidence: Double
+    /// Probabilities maps each level number, as a string, to its probability.
+    public var probabilities: [String: Double]?
+    /// Legend maps each level number back to its description.
+    public var legend: [String: JSONValue]?
+
+    public init(
+        score: Double = 0,
+        normalized: Double = 0,
+        confidence: Double = 0,
+        probabilities: [String: Double]? = nil,
+        legend: [String: JSONValue]? = nil
+    ) {
+        self.score = score
+        self.normalized = normalized
+        self.confidence = confidence
+        self.probabilities = probabilities
+        self.legend = legend
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case score = "score"
+        case normalized = "normalized"
+        case confidence = "confidence"
+        case probabilities = "probabilities"
+        case legend = "legend"
+    }
+}
+
+/// DecisionNoulAnswer is the answer to a noul question.
+public struct DecisionNoulAnswer: Codable, Sendable {
+    /// Noul is the probability that the answer is yes.
+    public var noul: Double
+
+    public init(
+        noul: Double = 0
+    ) {
+        self.noul = noul
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case noul = "noul"
+    }
+}
+
+/// DecisionOutput is the answers, keyed by question id within each kind.
+public struct DecisionOutput: Codable, Sendable {
+    public var choices: [String: DecisionChoiceAnswer]?
+    public var scores: [String: DecisionScoreAnswer]?
+    public var nouls: [String: DecisionNoulAnswer]?
+    /// Model is the model that answered.
+    public var model: String
+    /// InputTokens is what the model read; decision models write none.
+    public var inputTokens: Int
+
+    public init(
+        choices: [String: DecisionChoiceAnswer]? = nil,
+        scores: [String: DecisionScoreAnswer]? = nil,
+        nouls: [String: DecisionNoulAnswer]? = nil,
+        model: String = "",
+        inputTokens: Int = 0
+    ) {
+        self.choices = choices
+        self.scores = scores
+        self.nouls = nouls
+        self.model = model
+        self.inputTokens = inputTokens
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case choices = "choices"
+        case scores = "scores"
+        case nouls = "nouls"
+        case model = "model"
+        case inputTokens = "input_tokens"
     }
 }
 
