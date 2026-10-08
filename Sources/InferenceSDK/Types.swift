@@ -1672,6 +1672,10 @@ public struct CreateAppRequest: Codable, Sendable {
     public var agentDescription: String?
     public var category: AppCategory?
     @Indirect public var images: AppImages?
+    /// Tags replace the app's tags when given; omitted, a deploy takes them
+    /// from the version's metadata.tags, and keeps the stored ones if that is
+    /// empty too.
+    public var tags: [String]?
     @Indirect public var version: AppVersionInput?
     public var preserveCurrentVersion: Bool?
 
@@ -1684,6 +1688,7 @@ public struct CreateAppRequest: Codable, Sendable {
         agentDescription: String? = nil,
         category: AppCategory? = nil,
         images: AppImages? = nil,
+        tags: [String]? = nil,
         version: AppVersionInput? = nil,
         preserveCurrentVersion: Bool? = nil
     ) {
@@ -1695,6 +1700,7 @@ public struct CreateAppRequest: Codable, Sendable {
         self.agentDescription = agentDescription
         self.category = category
         self.images = images
+        self.tags = tags
         self.version = version
         self.preserveCurrentVersion = preserveCurrentVersion
     }
@@ -1708,6 +1714,7 @@ public struct CreateAppRequest: Codable, Sendable {
         case agentDescription = "agent_description"
         case category = "category"
         case images = "images"
+        case tags = "tags"
         case version = "version"
         case preserveCurrentVersion = "preserve_current_version"
     }
@@ -3019,6 +3026,9 @@ public struct AppDTO: Codable, Sendable {
     public var agentDescription: String
     public var category: AppCategory
     @Indirect public var images: AppImages
+    /// Tags name what the app does and its traits, as lowercase slugs. Known
+    /// slugs are the shared.AppTag constants; others are free-form.
+    public var tags: [String]?
     public var versionId: String
     @Indirect public var version: AppVersionDTO?
     public var status: AppStatus
@@ -3049,6 +3059,7 @@ public struct AppDTO: Codable, Sendable {
         agentDescription: String = "",
         category: AppCategory,
         images: AppImages,
+        tags: [String]? = nil,
         versionId: String = "",
         version: AppVersionDTO? = nil,
         status: AppStatus,
@@ -3073,6 +3084,7 @@ public struct AppDTO: Codable, Sendable {
         self.agentDescription = agentDescription
         self.category = category
         self.images = images
+        self.tags = tags
         self.versionId = versionId
         self.version = version
         self.status = status
@@ -3099,6 +3111,7 @@ public struct AppDTO: Codable, Sendable {
         case agentDescription = "agent_description"
         case category = "category"
         case images = "images"
+        case tags = "tags"
         case versionId = "version_id"
         case version = "version"
         case status = "status"
@@ -14186,6 +14199,111 @@ public struct AppCategory: RawRepresentable, Codable, Hashable, Sendable {
     public static let _3D = AppCategory(rawValue: "3d")
     public static let other = AppCategory(rawValue: "other")
     public static let flow = AppCategory(rawValue: "flow")
+    /// Decision models: typed questions in, a probability for every answer out, no generation.
+    public static let decision = AppCategory(rawValue: "decision")
+}
+
+/// AppTag is a known app tag: a lowercase slug naming a task an app performs
+/// (text-to-image) or a trait it has (open-weights). An app's tags are free
+/// strings; the ones listed here are the tags clients present by title and
+/// build pages for. Each has an AppTagTitle constant with the same suffix.
+public struct AppTag: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let textToImage = AppTag(rawValue: "text-to-image")
+    public static let imageToImage = AppTag(rawValue: "image-to-image")
+    public static let imageEditing = AppTag(rawValue: "image-editing")
+    public static let imageUpscaling = AppTag(rawValue: "image-upscaling")
+    public static let backgroundRemoval = AppTag(rawValue: "background-removal")
+    public static let virtualTryOn = AppTag(rawValue: "virtual-try-on")
+    public static let faceSwap = AppTag(rawValue: "face-swap")
+    public static let training = AppTag(rawValue: "training")
+    public static let textToVideo = AppTag(rawValue: "text-to-video")
+    public static let imageToVideo = AppTag(rawValue: "image-to-video")
+    public static let referenceToVideo = AppTag(rawValue: "reference-to-video")
+    public static let videoToVideo = AppTag(rawValue: "video-to-video")
+    public static let videoUpscaling = AppTag(rawValue: "video-upscaling")
+    public static let videoExtension = AppTag(rawValue: "video-extension")
+    public static let lipSync = AppTag(rawValue: "lip-sync")
+    public static let talkingAvatar = AppTag(rawValue: "talking-avatar")
+    public static let videoCaptions = AppTag(rawValue: "video-captions")
+    public static let textToSpeech = AppTag(rawValue: "text-to-speech")
+    public static let speechToText = AppTag(rawValue: "speech-to-text")
+    public static let speechToSpeech = AppTag(rawValue: "speech-to-speech")
+    public static let voiceCloning = AppTag(rawValue: "voice-cloning")
+    public static let voiceDesign = AppTag(rawValue: "voice-design")
+    public static let musicGeneration = AppTag(rawValue: "music-generation")
+    public static let soundEffects = AppTag(rawValue: "sound-effects")
+    public static let videoToAudio = AppTag(rawValue: "video-to-audio")
+    public static let dubbing = AppTag(rawValue: "dubbing")
+    public static let textTo3D = AppTag(rawValue: "text-to-3d")
+    public static let imageTo3D = AppTag(rawValue: "image-to-3d")
+    public static let pbrMaterials = AppTag(rawValue: "pbr-materials")
+    public static let webSearch = AppTag(rawValue: "web-search")
+    public static let webScraping = AppTag(rawValue: "web-scraping")
+    public static let ocr = AppTag(rawValue: "ocr")
+    public static let embeddings = AppTag(rawValue: "embeddings")
+    public static let classification = AppTag(rawValue: "classification")
+    public static let moderation = AppTag(rawValue: "moderation")
+    public static let routing = AppTag(rawValue: "routing")
+    public static let vision = AppTag(rawValue: "vision")
+    public static let reasoning = AppTag(rawValue: "reasoning")
+    public static let coding = AppTag(rawValue: "coding")
+    public static let openWeights = AppTag(rawValue: "open-weights")
+    public static let realtime = AppTag(rawValue: "realtime")
+    public static let nativeAudio = AppTag(rawValue: "native-audio")
+    public static let loRA = AppTag(rawValue: "lora")
+}
+
+/// AppTagTitle is the display title of a known AppTag.
+public struct AppTagTitle: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let textToImage = AppTagTitle(rawValue: "Text to Image")
+    public static let imageToImage = AppTagTitle(rawValue: "Image to Image")
+    public static let imageEditing = AppTagTitle(rawValue: "Image Editing")
+    public static let imageUpscaling = AppTagTitle(rawValue: "Image Upscaling")
+    public static let backgroundRemoval = AppTagTitle(rawValue: "Background Removal")
+    public static let virtualTryOn = AppTagTitle(rawValue: "Virtual Try-On")
+    public static let faceSwap = AppTagTitle(rawValue: "Face Swap")
+    public static let training = AppTagTitle(rawValue: "Model Training")
+    public static let textToVideo = AppTagTitle(rawValue: "Text to Video")
+    public static let imageToVideo = AppTagTitle(rawValue: "Image to Video")
+    public static let referenceToVideo = AppTagTitle(rawValue: "Reference to Video")
+    public static let videoToVideo = AppTagTitle(rawValue: "Video to Video")
+    public static let videoUpscaling = AppTagTitle(rawValue: "Video Upscaling")
+    public static let videoExtension = AppTagTitle(rawValue: "Video Extension")
+    public static let lipSync = AppTagTitle(rawValue: "Lip Sync")
+    public static let talkingAvatar = AppTagTitle(rawValue: "Talking Avatar")
+    public static let videoCaptions = AppTagTitle(rawValue: "Video Captions")
+    public static let textToSpeech = AppTagTitle(rawValue: "Text to Speech")
+    public static let speechToText = AppTagTitle(rawValue: "Speech to Text")
+    public static let speechToSpeech = AppTagTitle(rawValue: "Speech to Speech")
+    public static let voiceCloning = AppTagTitle(rawValue: "Voice Cloning")
+    public static let voiceDesign = AppTagTitle(rawValue: "Voice Design")
+    public static let musicGeneration = AppTagTitle(rawValue: "Music Generation")
+    public static let soundEffects = AppTagTitle(rawValue: "Sound Effects")
+    public static let videoToAudio = AppTagTitle(rawValue: "Video to Audio")
+    public static let dubbing = AppTagTitle(rawValue: "Dubbing")
+    public static let textTo3D = AppTagTitle(rawValue: "Text to 3D")
+    public static let imageTo3D = AppTagTitle(rawValue: "Image to 3D")
+    public static let pbrMaterials = AppTagTitle(rawValue: "PBR Materials")
+    public static let webSearch = AppTagTitle(rawValue: "Web Search")
+    public static let webScraping = AppTagTitle(rawValue: "Web Scraping")
+    public static let ocr = AppTagTitle(rawValue: "OCR")
+    public static let embeddings = AppTagTitle(rawValue: "Embeddings")
+    public static let classification = AppTagTitle(rawValue: "Classification")
+    public static let moderation = AppTagTitle(rawValue: "Moderation")
+    public static let routing = AppTagTitle(rawValue: "Routing")
+    public static let vision = AppTagTitle(rawValue: "Vision")
+    public static let reasoning = AppTagTitle(rawValue: "Reasoning")
+    public static let coding = AppTagTitle(rawValue: "Coding")
+    public static let openWeights = AppTagTitle(rawValue: "Open Weights")
+    public static let realtime = AppTagTitle(rawValue: "Realtime")
+    public static let nativeAudio = AppTagTitle(rawValue: "Native Audio")
+    public static let loRA = AppTagTitle(rawValue: "LoRA")
 }
 
 public struct AppStatus: RawRepresentable, Codable, Hashable, Sendable {
