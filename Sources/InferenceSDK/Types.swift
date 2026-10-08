@@ -11880,6 +11880,66 @@ public struct StatBuckets: Codable, Sendable {
     }
 }
 
+public struct StoreCategoryDTO: Codable, Sendable {
+    public var slug: String
+    public var name: String
+    public var description: String
+    public var icon: String
+    public var rank: Int
+    /// live listings
+    public var count: Int
+
+    public init(
+        slug: String = "",
+        name: String = "",
+        description: String = "",
+        icon: String = "",
+        rank: Int = 0,
+        count: Int = 0
+    ) {
+        self.slug = slug
+        self.name = name
+        self.description = description
+        self.icon = icon
+        self.rank = rank
+        self.count = count
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case name = "name"
+        case description = "description"
+        case icon = "icon"
+        case rank = "rank"
+        case count = "count"
+    }
+}
+
+/// StoreTagDTO is one app tag the store lists: a tag at least
+/// shared.MinAppsPerListedTag public apps carry.
+public struct StoreTagDTO: Codable, Sendable {
+    public var slug: String
+    public var title: String
+    /// public apps carrying it
+    public var count: Int
+
+    public init(
+        slug: String = "",
+        title: String = "",
+        count: Int = 0
+    ) {
+        self.slug = slug
+        self.title = title
+        self.count = count
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case title = "title"
+        case count = "count"
+    }
+}
+
 /// SubscriptionDTO for API responses
 public struct SubscriptionDTO: Codable, Sendable {
     public var id: String
