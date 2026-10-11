@@ -463,18 +463,26 @@ public struct AgentToolConfig: Codable, Sendable {
 
 public struct HookToolConfig: Codable, Sendable {
     public var url: String
+    /// Secret is write-only: a new value for the X-Hook-Secret header. On
+    /// save it moves into the team's encrypted secret store and SecretRef
+    /// names it; a stored config, and every read, has it empty.
     public var secret: String?
+    /// SecretRef names the stored hook secret. Sending it back unchanged
+    /// (with Secret empty) keeps it; leaving both empty removes it.
+    public var secretRef: String?
     public var inputSchema: JSONValue?
     public var outputSchema: JSONValue?
 
     public init(
         url: String = "",
         secret: String? = nil,
+        secretRef: String? = nil,
         inputSchema: JSONValue? = nil,
         outputSchema: JSONValue? = nil
     ) {
         self.url = url
         self.secret = secret
+        self.secretRef = secretRef
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
     }
@@ -482,6 +490,7 @@ public struct HookToolConfig: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case url = "url"
         case secret = "secret"
+        case secretRef = "secret_ref"
         case inputSchema = "input_schema"
         case outputSchema = "output_schema"
     }
@@ -555,7 +564,15 @@ public struct HTTPToolConfig: Codable, Sendable {
     public var url: String
     public var method: String?
     @Indirect public var auth: ToolAuthConfig?
+    /// Headers are sent with every call. A value is either a reference to a
+    /// team secret ("${{secrets.NAME}}"), kept as written, or a literal: on
+    /// save a literal moves into the team's encrypted secret store and
+    /// HeaderSecretRefs names it, so a stored config and every read carry
+    /// the header with an empty value. An empty value whose header has a
+    /// ref keeps the stored one.
     public var headers: [String: String]?
+    /// HeaderSecretRefs maps a header name to its stored value.
+    public var headerSecretRefs: [String: String]?
     public var inputSchema: JSONValue?
     public var outputSchema: JSONValue?
 
@@ -564,6 +581,7 @@ public struct HTTPToolConfig: Codable, Sendable {
         method: String? = nil,
         auth: ToolAuthConfig? = nil,
         headers: [String: String]? = nil,
+        headerSecretRefs: [String: String]? = nil,
         inputSchema: JSONValue? = nil,
         outputSchema: JSONValue? = nil
     ) {
@@ -571,6 +589,7 @@ public struct HTTPToolConfig: Codable, Sendable {
         self.method = method
         self.auth = auth
         self.headers = headers
+        self.headerSecretRefs = headerSecretRefs
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
     }
@@ -580,6 +599,7 @@ public struct HTTPToolConfig: Codable, Sendable {
         case method = "method"
         case auth = "auth"
         case headers = "headers"
+        case headerSecretRefs = "header_secret_refs"
         case inputSchema = "input_schema"
         case outputSchema = "output_schema"
     }
@@ -677,18 +697,22 @@ public struct AgentToolConfigDTO: Codable, Sendable {
 
 public struct HookToolConfigDTO: Codable, Sendable {
     public var url: String
+    /// Secret is always empty on a read; SecretRef says one is stored.
     public var secret: String?
+    public var secretRef: String?
     public var inputSchema: JSONValue?
     public var outputSchema: JSONValue?
 
     public init(
         url: String = "",
         secret: String? = nil,
+        secretRef: String? = nil,
         inputSchema: JSONValue? = nil,
         outputSchema: JSONValue? = nil
     ) {
         self.url = url
         self.secret = secret
+        self.secretRef = secretRef
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
     }
@@ -696,6 +720,7 @@ public struct HookToolConfigDTO: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case url = "url"
         case secret = "secret"
+        case secretRef = "secret_ref"
         case inputSchema = "input_schema"
         case outputSchema = "output_schema"
     }
@@ -723,7 +748,10 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
     public var url: String
     public var method: String?
     @Indirect public var auth: ToolAuthConfig?
+    /// Headers lists every header; a stored (secret) value reads as empty,
+    /// and HeaderSecretRefs names it.
     public var headers: [String: String]?
+    public var headerSecretRefs: [String: String]?
     public var inputSchema: JSONValue?
     public var outputSchema: JSONValue?
 
@@ -732,6 +760,7 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
         method: String? = nil,
         auth: ToolAuthConfig? = nil,
         headers: [String: String]? = nil,
+        headerSecretRefs: [String: String]? = nil,
         inputSchema: JSONValue? = nil,
         outputSchema: JSONValue? = nil
     ) {
@@ -739,6 +768,7 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
         self.method = method
         self.auth = auth
         self.headers = headers
+        self.headerSecretRefs = headerSecretRefs
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
     }
@@ -748,6 +778,7 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
         case method = "method"
         case auth = "auth"
         case headers = "headers"
+        case headerSecretRefs = "header_secret_refs"
         case inputSchema = "input_schema"
         case outputSchema = "output_schema"
     }
@@ -953,6 +984,12 @@ public struct AgentVersionDTO: Codable, Sendable {
     @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
+    /// VisitorReads is the scope groups of the team's resources (knowledge,
+    /// files, artifacts, remotes) a visitor of an embed of this version can
+    /// have it read by id, beyond what it configures by name. Set when the
+    /// agent is read (get, version get); the value a publication of it
+    /// answers. Absent elsewhere (lists, chats).
+    public var visitorReads: [ScopeGroup]?
 
     public init(
         id: String = "",
@@ -975,7 +1012,8 @@ public struct AgentVersionDTO: Codable, Sendable {
         internalTools: InternalToolsConfig? = nil,
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
-        outputSchema: JSONValue? = nil
+        outputSchema: JSONValue? = nil,
+        visitorReads: [ScopeGroup]? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -998,6 +1036,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
+        self.visitorReads = visitorReads
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1022,18 +1061,27 @@ public struct AgentVersionDTO: Codable, Sendable {
         case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
+        case visitorReads = "visitor_reads"
     }
 }
 
 /// CreateAgentRequest is the request body for POST /agents
 /// For new agents: omit ID, backend generates it
 /// For new version of existing agent: include ID
+/// A new agent's namespace is its team's; the body cannot name one.
 public struct CreateAgentRequest: Codable, Sendable {
     public var id: String?
     public var name: String
     public var title: String?
-    public var namespace: String?
     @Indirect public var images: AgentImages?
+    public var visibility: Visibility?
+    /// Harness runs the agent: "inference" (ours) or an external harness.
+    public var harness: String?
+    /// ProfileID and RemoteID place the agent on one of the caller's
+    /// machines; ProjectID files it in a project.
+    public var profileId: String?
+    public var remoteId: String?
+    public var projectId: String?
     /// Version config (embedded - backend generates version ID, timestamps, etc)
     @Indirect public var version: AgentConfigInput?
 
@@ -1041,15 +1089,23 @@ public struct CreateAgentRequest: Codable, Sendable {
         id: String? = nil,
         name: String = "",
         title: String? = nil,
-        namespace: String? = nil,
         images: AgentImages? = nil,
+        visibility: Visibility? = nil,
+        harness: String? = nil,
+        profileId: String? = nil,
+        remoteId: String? = nil,
+        projectId: String? = nil,
         version: AgentConfigInput? = nil
     ) {
         self.id = id
         self.name = name
         self.title = title
-        self.namespace = namespace
         self.images = images
+        self.visibility = visibility
+        self.harness = harness
+        self.profileId = profileId
+        self.remoteId = remoteId
+        self.projectId = projectId
         self.version = version
     }
 
@@ -1057,8 +1113,12 @@ public struct CreateAgentRequest: Codable, Sendable {
         case id = "id"
         case name = "name"
         case title = "title"
-        case namespace = "namespace"
         case images = "images"
+        case visibility = "visibility"
+        case harness = "harness"
+        case profileId = "profile_id"
+        case remoteId = "remote_id"
+        case projectId = "project_id"
         case version = "version"
     }
 }
@@ -1935,17 +1995,23 @@ public struct DeviceAuthPollResponse: Codable, Sendable {
     /// SessionToken is set when the flow was initiated with token_kind=session.
     public var sessionToken: String?
     public var teamId: String?
+    /// AdminUntil is set when an admin elevation request was approved: the
+    /// CLI login that asked now carries admin power until then. No
+    /// credential comes with it.
+    public var adminUntil: String?
 
     public init(
         status: DeviceAuthStatus,
         apiKey: String? = nil,
         sessionToken: String? = nil,
-        teamId: String? = nil
+        teamId: String? = nil,
+        adminUntil: String? = nil
     ) {
         self.status = status
         self.apiKey = apiKey
         self.sessionToken = sessionToken
         self.teamId = teamId
+        self.adminUntil = adminUntil
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1953,6 +2019,104 @@ public struct DeviceAuthPollResponse: Codable, Sendable {
         case apiKey = "api_key"
         case sessionToken = "session_token"
         case teamId = "team_id"
+        case adminUntil = "admin_until"
+    }
+}
+
+/// AdminElevateRequest is the body of POST /device/auth/elevate: a platform
+/// admin's CLI login asking to carry admin power for TTLSeconds (default one
+/// hour, at most eight).
+public struct AdminElevateRequest: Codable, Sendable {
+    public var ttlSeconds: Int?
+
+    public init(
+        ttlSeconds: Int? = nil
+    ) {
+        self.ttlSeconds = ttlSeconds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ttlSeconds = "ttl_seconds"
+    }
+}
+
+/// AdminElevateResponse is a pending elevation request: the admin approves
+/// UserCode at ApproveURL in their browser and the CLI polls PollURL.
+public struct AdminElevateResponse: Codable, Sendable {
+    public var userCode: String
+    public var deviceCode: String
+    public var pollUrl: String
+    public var approveUrl: String
+    public var expiresIn: Int
+    public var interval: Int
+    public var ttlSeconds: Int
+
+    public init(
+        userCode: String = "",
+        deviceCode: String = "",
+        pollUrl: String = "",
+        approveUrl: String = "",
+        expiresIn: Int = 0,
+        interval: Int = 0,
+        ttlSeconds: Int = 0
+    ) {
+        self.userCode = userCode
+        self.deviceCode = deviceCode
+        self.pollUrl = pollUrl
+        self.approveUrl = approveUrl
+        self.expiresIn = expiresIn
+        self.interval = interval
+        self.ttlSeconds = ttlSeconds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userCode = "user_code"
+        case deviceCode = "device_code"
+        case pollUrl = "poll_url"
+        case approveUrl = "approve_url"
+        case expiresIn = "expires_in"
+        case interval = "interval"
+        case ttlSeconds = "ttl_seconds"
+    }
+}
+
+/// AdminElevationStatus is GET /device/auth/elevate: whether the calling
+/// session carries an admin elevation, and until when.
+public struct AdminElevationStatus: Codable, Sendable {
+    public var elevated: Bool
+    public var adminUntil: String?
+
+    public init(
+        elevated: Bool = false,
+        adminUntil: String? = nil
+    ) {
+        self.elevated = elevated
+        self.adminUntil = adminUntil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case elevated = "elevated"
+        case adminUntil = "admin_until"
+    }
+}
+
+/// AdminElevationDropResponse is DELETE /device/auth/elevate. Dropped is
+/// false when the session held no elevation.
+public struct AdminElevationDropResponse: Codable, Sendable {
+    public var elevated: Bool
+    public var dropped: Bool
+
+    public init(
+        elevated: Bool = false,
+        dropped: Bool = false
+    ) {
+        self.elevated = elevated
+        self.dropped = dropped
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case elevated = "elevated"
+        case dropped = "dropped"
     }
 }
 
@@ -1975,6 +2139,15 @@ public struct MeResponse: Codable, Sendable {
     /// before landing, whichever team it lands in (an invite's included), via
     /// POST /teams/{personal_team_id}/complete-setup.
     public var needsUsername: Bool
+    /// PlatformPower: the credential carries platform administration
+    /// (admin:read): an admin's own browser sign-in that proved their
+    /// authenticator, or an elevated CLI login. The admin role alone is not
+    /// it.
+    public var platformPower: Bool
+    /// Scopes is every scope the request's credential holds
+    /// (AuthContext.HeldScopes): what a client asks before it calls a route
+    /// it may not reach (an API key holds no sign-in-only scope).
+    public var scopes: [Scope]?
 
     public init(
         user: UserDTO? = nil,
@@ -1983,7 +2156,9 @@ public struct MeResponse: Codable, Sendable {
         teamView: TeamViewDTO? = nil,
         diagnostics: DiagnosticsConfig? = nil,
         personalTeamId: String? = nil,
-        needsUsername: Bool = false
+        needsUsername: Bool = false,
+        platformPower: Bool = false,
+        scopes: [Scope]? = nil
     ) {
         self.user = user
         self.team = team
@@ -1992,6 +2167,8 @@ public struct MeResponse: Codable, Sendable {
         self.diagnostics = diagnostics
         self.personalTeamId = personalTeamId
         self.needsUsername = needsUsername
+        self.platformPower = platformPower
+        self.scopes = scopes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2002,6 +2179,8 @@ public struct MeResponse: Codable, Sendable {
         case diagnostics = "diagnostics"
         case personalTeamId = "personal_team_id"
         case needsUsername = "needs_username"
+        case platformPower = "platform_power"
+        case scopes = "scopes"
     }
 }
 
@@ -2175,6 +2354,10 @@ public struct CredentialConnectRequest: Codable, Sendable {
     /// admin). Empty = the provider's default. Distinct from Scopes, which
     /// are OAuth permission scopes.
     public var connectionScope: CredentialScope?
+    /// AnotherAccount connects an account next to the ones already
+    /// connected: the provider is asked to let the user choose the account
+    /// rather than reuse the one it remembers.
+    public var anotherAccount: Bool?
 
     public init(
         provider: String = "",
@@ -2182,7 +2365,8 @@ public struct CredentialConnectRequest: Codable, Sendable {
         scopes: [String]? = nil,
         apiKey: String? = nil,
         metadata: [String: JSONValue]? = nil,
-        connectionScope: CredentialScope? = nil
+        connectionScope: CredentialScope? = nil,
+        anotherAccount: Bool? = nil
     ) {
         self.provider = provider
         self.type = type
@@ -2190,6 +2374,7 @@ public struct CredentialConnectRequest: Codable, Sendable {
         self.apiKey = apiKey
         self.metadata = metadata
         self.connectionScope = connectionScope
+        self.anotherAccount = anotherAccount
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2199,6 +2384,7 @@ public struct CredentialConnectRequest: Codable, Sendable {
         case apiKey = "api_key"
         case metadata = "metadata"
         case connectionScope = "connection_scope"
+        case anotherAccount = "another_account"
     }
 }
 
@@ -2497,6 +2683,10 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Secrets (sensitive - excluded from read-only preset)
     public static let secretsRead = Scope(rawValue: "secrets:read")
     public static let secretsWrite = Scope(rawValue: "secrets:write")
+    /// ScopeSecretsReveal reads a secret's plaintext value. A key holding
+    /// secrets:read holds it too (keys revealed with secrets:read before it
+    /// existed); an app's OAuth token or a bound session never does.
+    public static let secretsReveal = Scope(rawValue: "secrets:reveal")
     /// Action-level scopes for credentials (connected accounts, vaults,
     /// auth schemes, MCP servers).
     public static let credentialsRead = Scope(rawValue: "credentials:read")
@@ -2522,6 +2712,24 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Settings/Notifications
     public static let settingsRead = Scope(rawValue: "settings:read")
     public static let settingsWrite = Scope(rawValue: "settings:write")
+    /// Approvals: answering a human-in-the-loop question (a tool approval, a
+    /// gate, a widget or MCP input request, always-allow) and widening a
+    /// chat's approval policy (allow every tool, skip hooks, allow rules).
+    /// Held only by the account holder's own sign-in.
+    public static let approvalsWrite = Scope(rawValue: "approvals:write")
+    /// ScopeAdminRead views platform administration (/admin GET). Held
+    /// only by an admin's own sign-in; the route's admin gate decides
+    /// whether it carries power.
+    public static let adminRead = Scope(rawValue: "admin:read")
+    /// ScopeAdminWrite changes platform administration (/admin). Held only
+    /// by an admin's own sign-in.
+    public static let adminWrite = Scope(rawValue: "admin:write")
+    /// ScopeAdminPricing reads and changes store pricing: a version's
+    /// terms, its draft pricing (edit, evaluate, discard, publish, apply to
+    /// the listing) and the sample tasks drafts are evaluated against. Held
+    /// by an admin's own sign-in with platform power, and by a key of the
+    /// platform's automation account (ScopeDefinition.Automation).
+    public static let adminPricing = Scope(rawValue: "admin:pricing")
 }
 
 /// ScopeGroup identifies a category of scopes for UI grouping
@@ -2547,6 +2755,8 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let artifacts = ScopeGroup(rawValue: "artifacts")
     public static let user = ScopeGroup(rawValue: "user")
     public static let settings = ScopeGroup(rawValue: "settings")
+    public static let approvals = ScopeGroup(rawValue: "approvals")
+    public static let admin = ScopeGroup(rawValue: "admin")
 }
 
 /// ScopeDefinition describes a single scope for UI rendering
@@ -2559,17 +2769,41 @@ public struct ScopeDefinition: Codable, Sendable {
     public var description: String
     /// Category for grouping
     public var group: ScopeGroup
+    /// SignInOnly: only the account holder's own sign-in (browser session,
+    /// CLI login) holds it. No API key, workspace key, OAuth token, bound or
+    /// grant session can be granted it or pass a check for it.
+    public var signInOnly: Bool?
+    /// NotForApps: an app's OAuth token, a bound session or a grant never
+    /// holds it, whatever it was granted; the person's sign-in and API keys
+    /// may.
+    public var notForApps: Bool?
+    /// CostsCredits: using the scope spends the account's credits (running
+    /// apps, agents, flows).
+    public var costsCredits: Bool?
+    /// Automation: a narrow platform-administration scope that a workspace
+    /// key of the platform's automation account (the system team's service
+    /// account) may hold, minted by an admin with platform power and always
+    /// expiring. Every other key, token and app holds no admin scope.
+    public var automation: Bool?
 
     public init(
         value: Scope,
         label: String = "",
         description: String = "",
-        group: ScopeGroup
+        group: ScopeGroup,
+        signInOnly: Bool? = nil,
+        notForApps: Bool? = nil,
+        costsCredits: Bool? = nil,
+        automation: Bool? = nil
     ) {
         self.value = value
         self.label = label
         self.description = description
         self.group = group
+        self.signInOnly = signInOnly
+        self.notForApps = notForApps
+        self.costsCredits = costsCredits
+        self.automation = automation
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2577,6 +2811,10 @@ public struct ScopeDefinition: Codable, Sendable {
         case label = "label"
         case description = "description"
         case group = "group"
+        case signInOnly = "sign_in_only"
+        case notForApps = "not_for_apps"
+        case costsCredits = "costs_credits"
+        case automation = "automation"
     }
 }
 
@@ -2585,21 +2823,34 @@ public struct ScopeGroupDefinition: Codable, Sendable {
     public var id: ScopeGroup
     public var label: String
     public var description: String
+    /// PublicRows: the resource's rows can be public, so a credential
+    /// without its read scope still reads what a signed-out caller reads
+    /// (its public rows) instead of being refused.
+    public var publicRows: Bool?
+    /// StaffOnly: the group's scopes are offered (GET /scopes) only to staff
+    /// holding platform power: the platform's own engines.
+    public var staffOnly: Bool?
 
     public init(
         id: ScopeGroup,
         label: String = "",
-        description: String = ""
+        description: String = "",
+        publicRows: Bool? = nil,
+        staffOnly: Bool? = nil
     ) {
         self.id = id
         self.label = label
         self.description = description
+        self.publicRows = publicRows
+        self.staffOnly = staffOnly
     }
 
     enum CodingKeys: String, CodingKey {
         case id = "id"
         case label = "label"
         case description = "description"
+        case publicRows = "public_rows"
+        case staffOnly = "staff_only"
     }
 }
 
@@ -2608,21 +2859,37 @@ public struct ScopesResponse: Codable, Sendable {
     public var scopes: [ScopeDefinition]?
     public var groups: [ScopeGroupDefinition]?
     public var presets: [ScopePreset]?
+    /// AccountScopes are the account holder's own scopes (approvals,
+    /// profile and sessions, keys, billing writes) a sign-in may be approved
+    /// for: the device approval page offers them as their own section. No
+    /// key or app is ever granted one.
+    public var accountScopes: [ScopeDefinition]?
+    /// LoginPreset is what the device approval page preselects for
+    /// `belt login`: the standard preset plus approvals:write (answering
+    /// the person's own approvals from the CLI). Its Grants is what such a
+    /// login holds (LoginGrants).
+    @Indirect public var loginPreset: ScopePreset
 
     public init(
         scopes: [ScopeDefinition]? = nil,
         groups: [ScopeGroupDefinition]? = nil,
-        presets: [ScopePreset]? = nil
+        presets: [ScopePreset]? = nil,
+        accountScopes: [ScopeDefinition]? = nil,
+        loginPreset: ScopePreset
     ) {
         self.scopes = scopes
         self.groups = groups
         self.presets = presets
+        self.accountScopes = accountScopes
+        self.loginPreset = loginPreset
     }
 
     enum CodingKeys: String, CodingKey {
         case scopes = "scopes"
         case groups = "groups"
         case presets = "presets"
+        case accountScopes = "account_scopes"
+        case loginPreset = "login_preset"
     }
 }
 
@@ -2634,6 +2901,13 @@ public struct ScopePreset: Codable, Sendable {
     public var scopes: [Scope]?
     public var summary: [String]?
     public var hidden: Bool?
+    /// Default: the preset a new key or app grant starts from.
+    public var `default`: Bool?
+    /// Grants is every action scope the preset's key holds (Scopes expanded:
+    /// a resource scope's actions, the read a write implies, secrets:reveal
+    /// with secrets:read; never a sign-in-only scope), so a client compares a
+    /// key against it without re-deriving the rule (ApiKeyDTO.Grants).
+    public var grants: [Scope]?
 
     public init(
         id: String = "",
@@ -2641,7 +2915,9 @@ public struct ScopePreset: Codable, Sendable {
         description: String = "",
         scopes: [Scope]? = nil,
         summary: [String]? = nil,
-        hidden: Bool? = nil
+        hidden: Bool? = nil,
+        `default`: Bool? = nil,
+        grants: [Scope]? = nil
     ) {
         self.id = id
         self.label = label
@@ -2649,6 +2925,8 @@ public struct ScopePreset: Codable, Sendable {
         self.scopes = scopes
         self.summary = summary
         self.hidden = hidden
+        self.`default` = `default`
+        self.grants = grants
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2658,6 +2936,8 @@ public struct ScopePreset: Codable, Sendable {
         case scopes = "scopes"
         case summary = "summary"
         case hidden = "hidden"
+        case `default` = "default"
+        case grants = "grants"
     }
 }
 
@@ -2679,6 +2959,10 @@ public struct ApiKeyDTO: Codable, Sendable {
     public var lastUsedAt: String?
     public var expiresAt: String?
     public var scopes: [Scope]?
+    /// Grants is every action scope the key holds: Scopes expanded the way a
+    /// request with the key is checked (models.KeyGrants), every key scope
+    /// for a key created without any.
+    public var grants: [Scope]?
     public var source: String?
     /// Scope is who the key acts as: its creator (user) or the workspace.
     public var scope: ApiKeyScope
@@ -2704,6 +2988,7 @@ public struct ApiKeyDTO: Codable, Sendable {
         lastUsedAt: String? = nil,
         expiresAt: String? = nil,
         scopes: [Scope]? = nil,
+        grants: [Scope]? = nil,
         source: String? = nil,
         scope: ApiKeyScope,
         createdBy: String = "",
@@ -2724,6 +3009,7 @@ public struct ApiKeyDTO: Codable, Sendable {
         self.lastUsedAt = lastUsedAt
         self.expiresAt = expiresAt
         self.scopes = scopes
+        self.grants = grants
         self.source = source
         self.scope = scope
         self.createdBy = createdBy
@@ -2746,6 +3032,7 @@ public struct ApiKeyDTO: Codable, Sendable {
         case lastUsedAt = "last_used_at"
         case expiresAt = "expires_at"
         case scopes = "scopes"
+        case grants = "grants"
         case source = "source"
         case scope = "scope"
         case createdBy = "created_by"
@@ -3140,6 +3427,40 @@ public struct AppUIRef: Codable, Sendable {
     }
 }
 
+/// AppSandbox is what an app version's container may do beyond the engine's
+/// default hardening, as its package's inf.yml declares it:
+/// 
+/// 	sandbox:
+/// 	  host_network: true          # share the host's network namespace
+/// 	  capabilities: [SYS_PTRACE]  # Linux capabilities the app's processes keep
+/// 
+/// The API reads it from the package when the version is deployed and stores
+/// it on the version (server-owned: no caller writes it). Engines enforce the
+/// copy the task dispatch carries, and store review shows it. The empty value
+/// declares no exception.
+public struct AppSandbox: Codable, Sendable {
+    /// HostNetwork runs the container on the host's network: it reaches the
+    /// host's services and the cloud metadata service.
+    public var hostNetwork: Bool?
+    /// Capabilities are Linux capability names without the CAP_ prefix, in
+    /// upper case. The container is given them and the app's processes keep
+    /// them.
+    public var capabilities: [String]?
+
+    public init(
+        hostNetwork: Bool? = nil,
+        capabilities: [String]? = nil
+    ) {
+        self.hostNetwork = hostNetwork
+        self.capabilities = capabilities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case hostNetwork = "host_network"
+        case capabilities = "capabilities"
+    }
+}
+
 /// AppVersionDTO is the API response for an app version.
 public struct AppVersionDTO: Codable, Sendable {
     public var id: String
@@ -3163,6 +3484,10 @@ public struct AppVersionDTO: Codable, Sendable {
     public var requiredSecrets: [SecretRequirement]?
     public var requiredCredentials: [CredentialRequirement]?
     @Indirect public var resources: AppResources
+    /// Sandbox is the version's declared sandbox exceptions. Absent on a
+    /// version deployed before the API recorded them (engines then read the
+    /// package's inf.yml) and on a version with no package (a flow app).
+    @Indirect public var sandbox: AppSandbox?
     public var checksum: String?
 
     public init(
@@ -3186,6 +3511,7 @@ public struct AppVersionDTO: Codable, Sendable {
         requiredSecrets: [SecretRequirement]? = nil,
         requiredCredentials: [CredentialRequirement]? = nil,
         resources: AppResources,
+        sandbox: AppSandbox? = nil,
         checksum: String? = nil
     ) {
         self.id = id
@@ -3208,6 +3534,7 @@ public struct AppVersionDTO: Codable, Sendable {
         self.requiredSecrets = requiredSecrets
         self.requiredCredentials = requiredCredentials
         self.resources = resources
+        self.sandbox = sandbox
         self.checksum = checksum
     }
 
@@ -3232,6 +3559,7 @@ public struct AppVersionDTO: Codable, Sendable {
         case requiredSecrets = "required_secrets"
         case requiredCredentials = "required_credentials"
         case resources = "resources"
+        case sandbox = "sandbox"
         case checksum = "checksum"
     }
 }
@@ -5129,21 +5457,69 @@ public struct AlwaysAllowOptionsDTO: Codable, Sendable {
     /// Unavailable says why there are no options: a policy allows only its
     /// own rules, or no chat rule could allow this call.
     public var unavailable: String?
+    /// SecretSend is set when the call is an agent of another team sending
+    /// the runner's own secrets: what it sends and where. Approving the call
+    /// sends them; the prompt names them.
+    @Indirect public var secretSend: SecretSendDTO?
 
     public init(
         options: [AlwaysAllowOptionDTO]? = nil,
         `default`: String? = nil,
-        unavailable: String? = nil
+        unavailable: String? = nil,
+        secretSend: SecretSendDTO? = nil
     ) {
         self.options = options
         self.`default` = `default`
         self.unavailable = unavailable
+        self.secretSend = secretSend
     }
 
     enum CodingKeys: String, CodingKey {
         case options = "options"
         case `default` = "default"
         case unavailable = "unavailable"
+        case secretSend = "secret_send"
+    }
+}
+
+/// SecretSendDTO is an agent of another team asking to send the runner's
+/// secrets with a call: "alice/helper wants to send OPENAI_API_KEY to
+/// alice.example". It rides on the call's approval interrupt (meta
+/// secret_send) and on its always-allow options.
+public struct SecretSendDTO: Codable, Sendable {
+    /// Agent is the agent as people know it (namespace/name); AgentID is
+    /// its id.
+    public var agent: String
+    public var agentId: String
+    /// AgentVersionID is the agent version making the call: approving the
+    /// prompt approves this version's send only.
+    public var agentVersionId: String
+    /// Host is where the call sends them.
+    public var host: String
+    /// Secrets are the runner's secrets the call sends, by name: secret
+    /// keys (OPENAI_API_KEY) and logins (credential:github).
+    public var secrets: [String]?
+
+    public init(
+        agent: String = "",
+        agentId: String = "",
+        agentVersionId: String = "",
+        host: String = "",
+        secrets: [String]? = nil
+    ) {
+        self.agent = agent
+        self.agentId = agentId
+        self.agentVersionId = agentVersionId
+        self.host = host
+        self.secrets = secrets
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case agent = "agent"
+        case agentId = "agent_id"
+        case agentVersionId = "agent_version_id"
+        case host = "host"
+        case secrets = "secrets"
     }
 }
 
@@ -5259,6 +5635,10 @@ public struct CredentialDTO: Codable, Sendable {
     public var status: CredentialStatus
     public var displayName: String
     public var iconUrl: String?
+    /// AccountID is the provider's own, unchanging id for the account; what
+    /// an account is named by when choosing one. AccountIdentifier is its
+    /// label (an email, an @handle).
+    public var accountId: String?
     public var accountIdentifier: String?
     public var accountName: String?
     public var scopes: StringSlice?
@@ -5287,6 +5667,7 @@ public struct CredentialDTO: Codable, Sendable {
         status: CredentialStatus,
         displayName: String = "",
         iconUrl: String? = nil,
+        accountId: String? = nil,
         accountIdentifier: String? = nil,
         accountName: String? = nil,
         scopes: StringSlice? = nil,
@@ -5314,6 +5695,7 @@ public struct CredentialDTO: Codable, Sendable {
         self.status = status
         self.displayName = displayName
         self.iconUrl = iconUrl
+        self.accountId = accountId
         self.accountIdentifier = accountIdentifier
         self.accountName = accountName
         self.scopes = scopes
@@ -5343,6 +5725,7 @@ public struct CredentialDTO: Codable, Sendable {
         case status = "status"
         case displayName = "display_name"
         case iconUrl = "icon_url"
+        case accountId = "account_id"
         case accountIdentifier = "account_identifier"
         case accountName = "account_name"
         case scopes = "scopes"
@@ -5381,7 +5764,13 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// AuthSchemeID is set when the provider is one the team defined
     /// itself (models.AuthScheme), so the UI can offer edit and remove.
     public var authSchemeId: String?
+    /// Credential is the login used where no account is named: the caller's
+    /// own, else the workspace's default account.
     @Indirect public var credential: CredentialDTO?
+    /// Accounts is every login to this provider the caller can use, in that
+    /// order (Credential first). More than one when several accounts are
+    /// connected.
+    public var accounts: [CredentialDTO]?
 
     public init(
         slug: String = "",
@@ -5400,7 +5789,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
         connectionScope: CredentialScope,
         app: CredentialDTO? = nil,
         authSchemeId: String? = nil,
-        credential: CredentialDTO? = nil
+        credential: CredentialDTO? = nil,
+        accounts: [CredentialDTO]? = nil
     ) {
         self.slug = slug
         self.provider = provider
@@ -5419,6 +5809,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.app = app
         self.authSchemeId = authSchemeId
         self.credential = credential
+        self.accounts = accounts
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5439,6 +5830,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case app = "app"
         case authSchemeId = "auth_scheme_id"
         case credential = "credential"
+        case accounts = "accounts"
     }
 }
 
@@ -6500,11 +6892,49 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// account is one and cannot sign in.
     public static let personRequired = ErrorCode(rawValue: "person_required")
     public static let otpRequired = ErrorCode(rawValue: "otp_required")
+    /// ErrorCodeRequiresSignIn (403): the action needs a scope only the
+    /// account holder's own sign-in holds (answering an approval, widening a
+    /// chat's approval policy, the account, API keys, billing changes,
+    /// admin), and the request carried an API key, an app's OAuth token or
+    /// another delegated credential. Sign in on the web app or with `belt
+    /// login` to do it.
+    public static let requiresSignIn = ErrorCode(rawValue: "requires_sign_in")
+    /// ErrorCodeInsufficientScope (403): the credential does not hold the
+    /// scope the operation takes (an API key, an app's OAuth token or a
+    /// narrowed login granted less). The detail names the scope.
+    public static let insufficientScope = ErrorCode(rawValue: "insufficient_scope")
     /// ErrorCodeImpersonationReasonRequired (403): a platform admin named a
     /// team they are not a member of without a live impersonation grant.
     /// Clients stop viewing as the team on it.
     public static let impersonationReasonRequired = ErrorCode(rawValue: "impersonation_reason_required")
     public static let mcpAuthExpired = ErrorCode(rawValue: "mcp_auth_expired")
+    /// Admin elevation ("belt admin elevate"). AdminSessionRequired (403): a
+    /// platform admin's credential that carries no admin power reached an
+    /// admin route; a CLI login gets it by elevating. CLISessionRequired
+    /// (403): only a CLI login may ask to be elevated. AdminRequired (403):
+    /// only a platform admin may ask for or grant one. SameAdminRequired
+    /// (403): the elevation was asked for by another account.
+    /// BrowserSessionRequired (403): only the admin's own browser sign-in
+    /// grants one, and only the person's own browser sign-in changes how the
+    /// account is signed into (authenticator enrollment, RequireBrowserSession).
+    /// InvalidTTL (400): the elevation asked for a window outside
+    /// models.AdminElevationMinTTL..AdminElevationMaxTTL.
+    /// AdminScopesNotApproved (403): a platform admin's CLI login was approved
+    /// with a scope list that does not name the admin scopes, so it can't be
+    /// elevated: log in again approving them, then elevate.
+    public static let adminSessionRequired = ErrorCode(rawValue: "admin_session_required")
+    public static let adminScopesNotApproved = ErrorCode(rawValue: "admin_scopes_not_approved")
+    public static let cliSessionRequired = ErrorCode(rawValue: "cli_session_required")
+    public static let adminRequired = ErrorCode(rawValue: "admin_required")
+    public static let sameAdminRequired = ErrorCode(rawValue: "same_admin_required")
+    public static let browserSessionRequired = ErrorCode(rawValue: "browser_session_required")
+    public static let invalidTTL = ErrorCode(rawValue: "invalid_ttl")
+    /// AdminAuthenticatorRequired (403): a platform admin without an
+    /// authenticator app (TOTP) enrolled. Admin power needs one; until it is
+    /// enrolled (POST /auth/totp/enroll, then /auth/totp/confirm) the admin
+    /// works as an ordinary member. An admin who has one but whose session
+    /// has not proved it gets otp_required instead: re-authenticate with it.
+    public static let adminAuthenticatorRequired = ErrorCode(rawValue: "admin_authenticator_required")
     /// Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
     /// EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
     /// not be checked and the request is retriable.
@@ -6527,6 +6957,26 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// already has an open request for it.
     public static let alreadyEntitled = ErrorCode(rawValue: "already_entitled")
     public static let requestOpen = ErrorCode(rawValue: "request_open")
+    /// Authorization codes (device sign-in, admin elevation) (400): the code
+    /// is unknown, already approved or denied, or past its expiry.
+    public static let invalidCode = ErrorCode(rawValue: "invalid_code")
+    public static let alreadyProcessed = ErrorCode(rawValue: "already_processed")
+    public static let expired = ErrorCode(rawValue: "expired")
+    /// Run-time refusals. AppRetired (410): the app no longer runs.
+    /// AppMaintenance (503, Retry-After): the owner paused it; the message is
+    /// theirs. InvalidTransition (409): the task already moved on.
+    public static let appRetired = ErrorCode(rawValue: "app_retired")
+    public static let appMaintenance = ErrorCode(rawValue: "app_maintenance")
+    public static let invalidTransition = ErrorCode(rawValue: "invalid_transition")
+    /// Session-bound runs. SessionNotFound (404), SessionExpired and
+    /// SessionEnded (410), WorkerLeased, AppMismatch and VersionMismatch
+    /// (409). The SDKs match these upper-case strings.
+    public static let sessionNotFound = ErrorCode(rawValue: "SESSION_NOT_FOUND")
+    public static let sessionExpired = ErrorCode(rawValue: "SESSION_EXPIRED")
+    public static let sessionEnded = ErrorCode(rawValue: "SESSION_ENDED")
+    public static let workerLeased = ErrorCode(rawValue: "WORKER_LEASED")
+    public static let appMismatch = ErrorCode(rawValue: "APP_MISMATCH")
+    public static let versionMismatch = ErrorCode(rawValue: "VERSION_MISMATCH")
     /// Remote harness refusals.
     public static let agentsDisabled = ErrorCode(rawValue: "agents_disabled")
     public static let remoteOffline = ErrorCode(rawValue: "remote_offline")
@@ -6562,6 +7012,23 @@ public struct TeamRoleRequiredMeta: Codable, Sendable {
         case actualRole = "actual_role"
         case requiredRole = "required_role"
         case requiresOrgAdmin = "requires_org_admin"
+    }
+}
+
+/// ScopeRefusedMeta is the meta of an insufficient_scope or
+/// requires_sign_in error: the scope the operation declares and the
+/// credential does not hold. The detail says what would hold it.
+public struct ScopeRefusedMeta: Codable, Sendable {
+    public var requiredScope: Scope
+
+    public init(
+        requiredScope: Scope
+    ) {
+        self.requiredScope = requiredScope
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case requiredScope = "required_scope"
     }
 }
 
@@ -11559,7 +12026,10 @@ public struct ResourceShareDTO: Codable, Sendable {
     public var deletedAt: String?
     public var resourceId: String
     public var resourceType: String
+    /// UserID names the person a share is to; TeamID, with UserID empty,
+    /// the resource's whole team.
     public var userId: String
+    public var teamId: String?
     @Indirect public var user: UserRelationDTO?
     public var permission: Permission
 
@@ -11572,6 +12042,7 @@ public struct ResourceShareDTO: Codable, Sendable {
         resourceId: String = "",
         resourceType: String = "",
         userId: String = "",
+        teamId: String? = nil,
         user: UserRelationDTO? = nil,
         permission: Permission
     ) {
@@ -11583,6 +12054,7 @@ public struct ResourceShareDTO: Codable, Sendable {
         self.resourceId = resourceId
         self.resourceType = resourceType
         self.userId = userId
+        self.teamId = teamId
         self.user = user
         self.permission = permission
     }
@@ -11596,25 +12068,33 @@ public struct ResourceShareDTO: Codable, Sendable {
         case resourceId = "resource_id"
         case resourceType = "resource_type"
         case userId = "user_id"
+        case teamId = "team_id"
         case user = "user"
         case permission = "permission"
     }
 }
 
+/// ShareRequest is POST /{resource}/{id}/share: a share to one person
+/// (user_id) or to the resource's whole team (team: true), at a permission
+/// (read when empty).
 public struct ShareRequest: Codable, Sendable {
-    public var userId: String
+    public var userId: String?
+    public var team: Bool?
     public var permission: Permission
 
     public init(
-        userId: String = "",
+        userId: String? = nil,
+        team: Bool? = nil,
         permission: Permission
     ) {
         self.userId = userId
+        self.team = team
         self.permission = permission
     }
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
+        case team = "team"
         case permission = "permission"
     }
 }
@@ -13283,17 +13763,75 @@ public struct TelemetryReportDTO: Codable, Sendable {
     }
 }
 
+/// SubmitTelemetryRequest is the CLI's diagnostics report for an account the
+/// abuse redlist flags. Payload is the host report (platform, locale,
+/// network); Device carries the identifiers that recognise the same machine
+/// across accounts. The API stores Device's hashes for matching and its
+/// readable names encrypted, apart from the payload.
 public struct SubmitTelemetryRequest: Codable, Sendable {
     public var payload: [String: JSONValue]?
+    @Indirect public var device: DeviceEvidence?
 
     public init(
-        payload: [String: JSONValue]? = nil
+        payload: [String: JSONValue]? = nil,
+        device: DeviceEvidence? = nil
     ) {
         self.payload = payload
+        self.device = device
     }
 
     enum CodingKeys: String, CodingKey {
         case payload = "payload"
+        case device = "device"
+    }
+}
+
+/// DeviceEvidence is what a flagged account's CLI sends about its machine:
+/// salted hashes of the hostname, OS user, git user.name, MAC addresses and
+/// SSH key fingerprints, and the hostname, OS user and git user.name readable.
+public struct DeviceEvidence: Codable, Sendable {
+    public var scheme: String
+    public var hostnameHash: String?
+    public var usernameHash: String?
+    public var gitUserNameHash: String?
+    public var macHashes: [String]?
+    public var sshKeyFingerprintHashes: [String]?
+    public var hostname: String?
+    public var username: String?
+    public var gitUserName: String?
+
+    public init(
+        scheme: String = "",
+        hostnameHash: String? = nil,
+        usernameHash: String? = nil,
+        gitUserNameHash: String? = nil,
+        macHashes: [String]? = nil,
+        sshKeyFingerprintHashes: [String]? = nil,
+        hostname: String? = nil,
+        username: String? = nil,
+        gitUserName: String? = nil
+    ) {
+        self.scheme = scheme
+        self.hostnameHash = hostnameHash
+        self.usernameHash = usernameHash
+        self.gitUserNameHash = gitUserNameHash
+        self.macHashes = macHashes
+        self.sshKeyFingerprintHashes = sshKeyFingerprintHashes
+        self.hostname = hostname
+        self.username = username
+        self.gitUserName = gitUserName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case scheme = "scheme"
+        case hostnameHash = "hostname_hash"
+        case usernameHash = "username_hash"
+        case gitUserNameHash = "git_user_name_hash"
+        case macHashes = "mac_hashes"
+        case sshKeyFingerprintHashes = "ssh_key_fingerprint_hashes"
+        case hostname = "hostname"
+        case username = "username"
+        case gitUserName = "git_user_name"
     }
 }
 
@@ -16303,6 +16841,9 @@ public struct PolicyKind: RawRepresentable, Codable, Hashable, Sendable {
     public static let flow = PolicyKind(rawValue: "Flow")
     /// PolicyKindWebFetch: fetched domains.
     public static let webFetch = PolicyKind(rawValue: "WebFetch")
+    /// PolicyKindSecretSend: an agent of another team sending the runner's
+    /// secrets to a host.
+    public static let secretSend = PolicyKind(rawValue: "SecretSend")
 }
 
 /// FunctionKind is how an app function talks to its caller.
@@ -16651,12 +17192,20 @@ public struct AgentEventType: RawRepresentable, Codable, Hashable, Sendable {
     public static let agentEventApprovalResolved = AgentEventType(rawValue: "approval.resolved")
     /// Hook lifecycle
     public static let agentEventHookExecuted = AgentEventType(rawValue: "hook.executed")
-    /// Usage
+    /// Usage: a turn's tokens (usage.updated), the context window's fill
+    /// (context.updated), the plan's rate limits (limits.updated) and the
+    /// account the agent runs as (account.updated).
     public static let agentEventUsageUpdated = AgentEventType(rawValue: "usage.updated")
+    public static let agentEventContextUpdated = AgentEventType(rawValue: "context.updated")
+    public static let agentEventLimitsUpdated = AgentEventType(rawValue: "limits.updated")
+    public static let agentEventAccountUpdated = AgentEventType(rawValue: "account.updated")
     /// Context management
     public static let agentEventContextCompacted = AgentEventType(rawValue: "context.compacted")
     /// Errors
     public static let agentEventError = AgentEventType(rawValue: "error")
+    public static let agentEventSubagentStarted = AgentEventType(rawValue: "subagent.started")
+    public static let agentEventSubagentUpdated = AgentEventType(rawValue: "subagent.updated")
+    public static let agentEventSubagentCompleted = AgentEventType(rawValue: "subagent.completed")
 }
 
 /// AgentEvent is the backbone protocol event for agent runs.
@@ -16790,18 +17339,23 @@ public struct TurnCompletedPayload: Codable, Sendable {
 public struct ContentDeltaPayload: Codable, Sendable {
     public var kind: ContentDeltaKind
     public var delta: String
+    /// SubagentID is set on a subagent's own output (subagent_types.go).
+    public var subagentId: String?
 
     public init(
         kind: ContentDeltaKind,
-        delta: String = ""
+        delta: String = "",
+        subagentId: String? = nil
     ) {
         self.kind = kind
         self.delta = delta
+        self.subagentId = subagentId
     }
 
     enum CodingKeys: String, CodingKey {
         case kind = "kind"
         case delta = "delta"
+        case subagentId = "subagent_id"
     }
 }
 
@@ -16819,19 +17373,23 @@ public struct ToolStartedPayload: Codable, Sendable {
     public var toolType: ToolType?
     public var displayName: String?
     public var arguments: StringEncodedMap?
+    /// SubagentID is set on a subagent's own tool calls.
+    public var subagentId: String?
 
     public init(
         toolInvocationId: String = "",
         toolName: String = "",
         toolType: ToolType? = nil,
         displayName: String? = nil,
-        arguments: StringEncodedMap? = nil
+        arguments: StringEncodedMap? = nil,
+        subagentId: String? = nil
     ) {
         self.toolInvocationId = toolInvocationId
         self.toolName = toolName
         self.toolType = toolType
         self.displayName = displayName
         self.arguments = arguments
+        self.subagentId = subagentId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -16840,6 +17398,7 @@ public struct ToolStartedPayload: Codable, Sendable {
         case toolType = "tool_type"
         case displayName = "display_name"
         case arguments = "arguments"
+        case subagentId = "subagent_id"
     }
 }
 
@@ -16849,19 +17408,23 @@ public struct ToolCompletedPayload: Codable, Sendable {
     public var status: ToolInvocationStatus
     public var result: String?
     public var durationMs: Int?
+    /// SubagentID is set on a subagent's own tool calls.
+    public var subagentId: String?
 
     public init(
         toolInvocationId: String = "",
         toolName: String = "",
         status: ToolInvocationStatus,
         result: String? = nil,
-        durationMs: Int? = nil
+        durationMs: Int? = nil,
+        subagentId: String? = nil
     ) {
         self.toolInvocationId = toolInvocationId
         self.toolName = toolName
         self.status = status
         self.result = result
         self.durationMs = durationMs
+        self.subagentId = subagentId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -16870,6 +17433,7 @@ public struct ToolCompletedPayload: Codable, Sendable {
         case status = "status"
         case result = "result"
         case durationMs = "duration_ms"
+        case subagentId = "subagent_id"
     }
 }
 
@@ -16878,17 +17442,22 @@ public struct ApprovalRequiredPayload: Codable, Sendable {
     public var toolName: String
     public var arguments: StringEncodedMap?
     public var reason: InterruptReason
+    /// SubagentID is set when a subagent asks: its tool call, not the
+    /// agent's.
+    public var subagentId: String?
 
     public init(
         toolInvocationId: String = "",
         toolName: String = "",
         arguments: StringEncodedMap? = nil,
-        reason: InterruptReason
+        reason: InterruptReason,
+        subagentId: String? = nil
     ) {
         self.toolInvocationId = toolInvocationId
         self.toolName = toolName
         self.arguments = arguments
         self.reason = reason
+        self.subagentId = subagentId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -16896,6 +17465,7 @@ public struct ApprovalRequiredPayload: Codable, Sendable {
         case toolName = "tool_name"
         case arguments = "arguments"
         case reason = "reason"
+        case subagentId = "subagent_id"
     }
 }
 
@@ -16952,33 +17522,51 @@ public struct HookExecutedPayload: Codable, Sendable {
     }
 }
 
+/// UsageUpdatedPayload is what one turn used, emitted once when the turn
+/// ends. PromptTokens counts every input token, cached or not:
+/// CachedInputTokens (read from a prompt cache) and CacheCreationTokens
+/// (written to one) are parts of it. ReasoningTokens is part of
+/// CompletionTokens. CostUSD is the agent's own figure, 0 when it reports
+/// none.
 public struct UsageUpdatedPayload: Codable, Sendable {
     public var promptTokens: Int
     public var completionTokens: Int
     public var totalTokens: Int
+    public var cachedInputTokens: Int?
+    public var cacheCreationTokens: Int?
     public var reasoningTokens: Int?
     public var costUsd: Double?
+    public var status: TurnUsageStatus?
 
     public init(
         promptTokens: Int = 0,
         completionTokens: Int = 0,
         totalTokens: Int = 0,
+        cachedInputTokens: Int? = nil,
+        cacheCreationTokens: Int? = nil,
         reasoningTokens: Int? = nil,
-        costUsd: Double? = nil
+        costUsd: Double? = nil,
+        status: TurnUsageStatus? = nil
     ) {
         self.promptTokens = promptTokens
         self.completionTokens = completionTokens
         self.totalTokens = totalTokens
+        self.cachedInputTokens = cachedInputTokens
+        self.cacheCreationTokens = cacheCreationTokens
         self.reasoningTokens = reasoningTokens
         self.costUsd = costUsd
+        self.status = status
     }
 
     enum CodingKeys: String, CodingKey {
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
         case totalTokens = "total_tokens"
+        case cachedInputTokens = "cached_input_tokens"
+        case cacheCreationTokens = "cache_creation_tokens"
         case reasoningTokens = "reasoning_tokens"
         case costUsd = "cost_usd"
+        case status = "status"
     }
 }
 
@@ -17694,5 +18282,17 @@ public struct ToolParameterProperty: Codable, Sendable {
         case items = "items"
         case required = "required"
     }
+}
+
+/// TurnUsageStatus says how much of a turn's usage the agent reported.
+public struct TurnUsageStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// TurnUsageComplete is the whole turn, as the agent counted it.
+    public static let turnUsageComplete = TurnUsageStatus(rawValue: "complete")
+    /// TurnUsagePartial is what was reported before the turn ended early
+    /// (interrupted, failed).
+    public static let turnUsagePartial = TurnUsageStatus(rawValue: "partial")
 }
 
