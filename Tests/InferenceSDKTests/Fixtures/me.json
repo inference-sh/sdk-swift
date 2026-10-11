@@ -1,5 +1,6 @@
 {
  "needs_username": false,
+ "platform_power": false,
  "user": {
   "id": "id_id",
   "short_id": "id_short_id",
