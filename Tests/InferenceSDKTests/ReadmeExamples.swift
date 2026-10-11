@@ -96,7 +96,7 @@ private enum ReadmeExamples {
     }
 
     static func agents(client: InferenceClient, chatId: String) async throws {
-        let request = ApiAgentRunRequest(agent: "my-team/support-agent@latest", input: LLMInput(text: "hello"))
+        let request = ApiAgentRunRequest(agent: "my-team/support-agent@latest", input: MessageInput(text: "hello"))
         for try await message in client.runAgentStream(request) {
             print(message.status.rawValue, message.text)
             if message.status.isTerminal { break }

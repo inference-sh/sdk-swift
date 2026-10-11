@@ -3,7 +3,7 @@ import XCTest
 
 final class DecodeTests: XCTestCase {
     func testRequestEncodesWireNames() throws {
-        let req = ApiAgentRunRequest(chatId: "chat_1", agent: "ns/agent@latest", input: LLMInput(text: "hi"), stream: true)
+        let req = ApiAgentRunRequest(chatId: "chat_1", agent: "ns/agent@latest", input: MessageInput(text: "hi"), stream: true)
         let data = try JSONEncoder().encode(req)
         let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(obj["chat_id"] as? String, "chat_1")

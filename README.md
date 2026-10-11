@@ -376,7 +376,7 @@ let more = await session.loadOlderMessages()
 Without a session, `runAgentStream` posts a message and streams snapshots of the assistant reply until it finishes:
 
 ```swift
-let request = ApiAgentRunRequest(agent: "my-team/support-agent@latest", input: LLMInput(text: "hello"))
+let request = ApiAgentRunRequest(agent: "my-team/support-agent@latest", input: MessageInput(text: "hello"))
 for try await message in client.runAgentStream(request) {
     print(message.status.rawValue, message.text)
     if message.status.isTerminal { break }
