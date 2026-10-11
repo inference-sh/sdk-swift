@@ -330,7 +330,7 @@ final class AuthTests: XCTestCase {
                                          body: Data((#"{"type":"heartbeat"}"# + "\n" + Self.readyMessageJSON + "\n").utf8))
         }
         var texts: [String] = []
-        for try await message in client.runAgentStream(ApiAgentRunRequest(agent: "a/b", input: LLMInput(text: "hi"))) {
+        for try await message in client.runAgentStream(ApiAgentRunRequest(agent: "a/b", input: MessageInput(text: "hi"))) {
             texts.append(message.text)
         }
         XCTAssertEqual(texts, ["done"])

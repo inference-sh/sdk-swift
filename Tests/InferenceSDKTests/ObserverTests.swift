@@ -84,7 +84,7 @@ final class ObserverTests: XCTestCase {
         client.transport = StubProtocol.start { _, _ in .json(Self.deactivated, status: 403) }
 
         do {
-            for try await _ in client.runAgentStream(ApiAgentRunRequest(agent: "a/b", input: LLMInput(text: "hi"))) {}
+            for try await _ in client.runAgentStream(ApiAgentRunRequest(agent: "a/b", input: MessageInput(text: "hi"))) {}
             XCTFail("expected 403")
         } catch InferenceError.http(let status, let body) {
             XCTAssertEqual(status, 403)
