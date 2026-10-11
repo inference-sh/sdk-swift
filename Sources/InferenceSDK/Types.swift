@@ -15461,6 +15461,44 @@ public struct DecisionVisionInput: Codable, Sendable {
     }
 }
 
+/// DecisionVideoInput is the input of a decision model that also watches
+/// videos: a DecisionVisionInput plus the videos the questions are about.
+public struct DecisionVideoInput: Codable, Sendable {
+    public var state: JSONValue
+    public var choices: [DecisionChoiceQuestion]?
+    public var scores: [DecisionScoreQuestion]?
+    public var nouls: [DecisionNoulQuestion]?
+    /// Images are file URIs. Every question sees them.
+    public var images: [String]?
+    /// Videos are file URIs. Every question sees them, after the images.
+    public var videos: [String]?
+
+    public init(
+        state: JSONValue = .null,
+        choices: [DecisionChoiceQuestion]? = nil,
+        scores: [DecisionScoreQuestion]? = nil,
+        nouls: [DecisionNoulQuestion]? = nil,
+        images: [String]? = nil,
+        videos: [String]? = nil
+    ) {
+        self.state = state
+        self.choices = choices
+        self.scores = scores
+        self.nouls = nouls
+        self.images = images
+        self.videos = videos
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case state = "state"
+        case choices = "choices"
+        case scores = "scores"
+        case nouls = "nouls"
+        case images = "images"
+        case videos = "videos"
+    }
+}
+
 /// DecisionChoiceAnswer is the answer to a choice question.
 public struct DecisionChoiceAnswer: Codable, Sendable {
     /// Choice is the highest-probability option.
