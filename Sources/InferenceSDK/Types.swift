@@ -3117,6 +3117,14 @@ public struct AppFunction: Codable, Sendable {
     /// Kind is how the function talks to its caller, from engine discovery:
     /// a stream function declares a socket parameter. Empty means run.
     public var kind: FunctionKind?
+    /// Credentials the function needs at run time, declared on the function
+    /// in app code. Each must be covered by the app-wide list in inf.yml.
+    /// Empty means the function gets the app-wide list.
+    public var credentials: [CredentialRequirement]?
+    /// Annotations are MCP tool hints (read-only, destructive, idempotent,
+    /// open-world) declared on the function. Hints only: nothing trusts
+    /// them for an unverified namespace.
+    @Indirect public var annotations: ToolAnnotations?
 
     public init(
         name: String = "",
@@ -3124,7 +3132,9 @@ public struct AppFunction: Codable, Sendable {
         inputSchema: JSONValue = .null,
         outputSchema: JSONValue = .null,
         capabilities: [String]? = nil,
-        kind: FunctionKind? = nil
+        kind: FunctionKind? = nil,
+        credentials: [CredentialRequirement]? = nil,
+        annotations: ToolAnnotations? = nil
     ) {
         self.name = name
         self.description = description
@@ -3132,6 +3142,8 @@ public struct AppFunction: Codable, Sendable {
         self.outputSchema = outputSchema
         self.capabilities = capabilities
         self.kind = kind
+        self.credentials = credentials
+        self.annotations = annotations
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3141,6 +3153,8 @@ public struct AppFunction: Codable, Sendable {
         case outputSchema = "output_schema"
         case capabilities = "capabilities"
         case kind = "kind"
+        case credentials = "credentials"
+        case annotations = "annotations"
     }
 }
 
@@ -9968,6 +9982,40 @@ public struct ResourceContent: Codable, Sendable {
         case text = "text"
         case blob = "blob"
         case meta = "_meta"
+    }
+}
+
+/// ToolAnnotations describes tool behavior so clients can make trust and UX
+/// decisions (e.g., auto-approve read-only tools). All fields are optional hints.
+public struct ToolAnnotations: Codable, Sendable {
+    /// Title is the human-readable name clients and the Claude directory show.
+    /// It repeats MCPTool.Title because some clients read only this one.
+    public var title: String?
+    public var readOnlyHint: Bool?
+    public var destructiveHint: Bool?
+    public var idempotentHint: Bool?
+    public var openWorldHint: Bool?
+
+    public init(
+        title: String? = nil,
+        readOnlyHint: Bool? = nil,
+        destructiveHint: Bool? = nil,
+        idempotentHint: Bool? = nil,
+        openWorldHint: Bool? = nil
+    ) {
+        self.title = title
+        self.readOnlyHint = readOnlyHint
+        self.destructiveHint = destructiveHint
+        self.idempotentHint = idempotentHint
+        self.openWorldHint = openWorldHint
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case readOnlyHint = "readOnlyHint"
+        case destructiveHint = "destructiveHint"
+        case idempotentHint = "idempotentHint"
+        case openWorldHint = "openWorldHint"
     }
 }
 
