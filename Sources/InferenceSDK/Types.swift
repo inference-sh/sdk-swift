@@ -307,23 +307,31 @@ public struct SkillConfig: Codable, Sendable {
     }
 }
 
-/// ContextField declares a context parameter expected by the agent.
+/// ContextField declares a context parameter expected by the agent. The
+/// agent's prompt names it with its description, and the agent writes
+/// {{context.NAME}} in a tool call's arguments for the server to fill in;
+/// it does not see the value unless InPrompt.
 public struct ContextField: Codable, Sendable {
     public var name: String
     public var description: String?
     public var required: Bool?
     public var `default`: String?
+    /// InPrompt shows the value to the model too, in the system prompt,
+    /// labeled as the caller's data and quoted.
+    public var inPrompt: Bool?
 
     public init(
         name: String = "",
         description: String? = nil,
         required: Bool? = nil,
-        `default`: String? = nil
+        `default`: String? = nil,
+        inPrompt: Bool? = nil
     ) {
         self.name = name
         self.description = description
         self.required = required
         self.`default` = `default`
+        self.inPrompt = inPrompt
     }
 
     enum CodingKeys: String, CodingKey {
@@ -331,6 +339,7 @@ public struct ContextField: Codable, Sendable {
         case description = "description"
         case required = "required"
         case `default` = "default"
+        case inPrompt = "in_prompt"
     }
 }
 
@@ -1486,98 +1495,91 @@ public struct ApiAppRunRequest: Codable, Sendable {
     }
 }
 
-/// ApiAgentRunRequest is the request body for /agents/run endpoint.
+/// MessageInput is a message a caller sends to an agent: its text and the
+/// files sent with it. The model, its settings, the system prompt, the tools
+/// and the history come from the agent and the chat. Every endpoint that
+/// takes a message decodes this type.
+public struct MessageInput: Codable, Sendable {
+    public var text: String?
+    /// Attachments are files uploaded with POST /files. Images reach the
+    /// model as image input.
+    public var attachments: [FileRef]?
+    /// Deprecated: send Attachments. Image URIs, read only when Attachments
+    /// is empty.
+    public var images: [String]?
+    /// Deprecated: send Attachments. File URIs, read only when Attachments
+    /// is empty.
+    public var files: [String]?
+
+    public init(
+        text: String? = nil,
+        attachments: [FileRef]? = nil,
+        images: [String]? = nil,
+        files: [String]? = nil
+    ) {
+        self.text = text
+        self.attachments = attachments
+        self.images = images
+        self.files = files
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case text = "text"
+        case attachments = "attachments"
+        case images = "images"
+        case files = "files"
+    }
+}
+
+/// ApiAgentRunRequest is the request body of POST /agents/run and its aliases
+/// /agents/message and /agents/messages. It names the agent once: by ref
+/// (agent), by id (agent_id, with an optional agent_version_id), or by an
+/// ad-hoc agent_config; or names none and posts into chat_id's chat.
 public struct ApiAgentRunRequest: Codable, Sendable {
     public var chatId: String?
     public var agent: String?
+    /// AgentID names a stored agent by id; AgentVersionID pins one of its
+    /// versions (full or short id), else the agent's current version runs.
+    public var agentId: String?
+    public var agentVersionId: String?
     @Indirect public var agentConfig: AgentConfigInput?
     public var agentName: String?
-    @Indirect public var input: LLMInput
+    @Indirect public var input: MessageInput
     public var context: [String: String]?
     public var stream: Bool?
-    /// ChannelContext is recorded on the chat the first time it is seen.
-    @Indirect public var channelContext: ChannelContext?
 
     public init(
         chatId: String? = nil,
         agent: String? = nil,
+        agentId: String? = nil,
+        agentVersionId: String? = nil,
         agentConfig: AgentConfigInput? = nil,
         agentName: String? = nil,
-        input: LLMInput,
+        input: MessageInput,
         context: [String: String]? = nil,
-        stream: Bool? = nil,
-        channelContext: ChannelContext? = nil
+        stream: Bool? = nil
     ) {
         self.chatId = chatId
         self.agent = agent
+        self.agentId = agentId
+        self.agentVersionId = agentVersionId
         self.agentConfig = agentConfig
         self.agentName = agentName
         self.input = input
         self.context = context
         self.stream = stream
-        self.channelContext = channelContext
     }
 
     enum CodingKeys: String, CodingKey {
         case chatId = "chat_id"
         case agent = "agent"
+        case agentId = "agent_id"
+        case agentVersionId = "agent_version_id"
         case agentConfig = "agent_config"
         case agentName = "agent_name"
         case input = "input"
         case context = "context"
         case stream = "stream"
-        case channelContext = "channel_context"
-    }
-}
-
-/// CreateAgentMessageRequest is the request for creating agent messages.
-public struct CreateAgentMessageRequest: Codable, Sendable {
-    public var chatId: String?
-    public var agentId: String?
-    public var agentVersionId: String?
-    public var agent: String?
-    public var toolCallId: String?
-    @Indirect public var input: LLMInput
-    @Indirect public var channelContext: ChannelContext?
-    @Indirect public var agentConfig: AgentConfigInput?
-    public var agentName: String?
-    public var context: [String: String]?
-
-    public init(
-        chatId: String? = nil,
-        agentId: String? = nil,
-        agentVersionId: String? = nil,
-        agent: String? = nil,
-        toolCallId: String? = nil,
-        input: LLMInput,
-        channelContext: ChannelContext? = nil,
-        agentConfig: AgentConfigInput? = nil,
-        agentName: String? = nil,
-        context: [String: String]? = nil
-    ) {
-        self.chatId = chatId
-        self.agentId = agentId
-        self.agentVersionId = agentVersionId
-        self.agent = agent
-        self.toolCallId = toolCallId
-        self.input = input
-        self.channelContext = channelContext
-        self.agentConfig = agentConfig
-        self.agentName = agentName
-        self.context = context
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case chatId = "chat_id"
-        case agentId = "agent_id"
-        case agentVersionId = "agent_version_id"
-        case agent = "agent"
-        case toolCallId = "tool_call_id"
-        case input = "input"
-        case channelContext = "channel_context"
-        case agentConfig = "agent_config"
-        case agentName = "agent_name"
-        case context = "context"
     }
 }
 
@@ -2724,12 +2726,15 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// ScopeAdminWrite changes platform administration (/admin). Held only
     /// by an admin's own sign-in.
     public static let adminWrite = Scope(rawValue: "admin:write")
-    /// ScopeAdminPricing reads and changes store pricing: a version's
-    /// terms, its draft pricing (edit, evaluate, discard, publish, apply to
-    /// the listing) and the sample tasks drafts are evaluated against. Held
-    /// by an admin's own sign-in with platform power, and by a key of the
-    /// platform's automation account (ScopeDefinition.Automation).
-    public static let adminPricing = Scope(rawValue: "admin:pricing")
+    /// ScopeStorePricing reads and changes store pricing: a version's terms,
+    /// its draft pricing (edit, evaluate, discard, publish, apply to the
+    /// listing) and the sample tasks drafts are evaluated against. Held only
+    /// in the platform's workspace (the system team), by its members, their
+    /// keys and runs, and its own keys.
+    public static let storePricing = Scope(rawValue: "store:pricing")
+    /// ScopeStoreSubmit submits a resource version to the store on its
+    /// publisher's behalf. Held like ScopeStorePricing.
+    public static let storeSubmit = Scope(rawValue: "store:submit")
 }
 
 /// ScopeGroup identifies a category of scopes for UI grouping
@@ -2757,6 +2762,7 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let settings = ScopeGroup(rawValue: "settings")
     public static let approvals = ScopeGroup(rawValue: "approvals")
     public static let admin = ScopeGroup(rawValue: "admin")
+    public static let store = ScopeGroup(rawValue: "store")
 }
 
 /// ScopeDefinition describes a single scope for UI rendering
@@ -2780,11 +2786,6 @@ public struct ScopeDefinition: Codable, Sendable {
     /// CostsCredits: using the scope spends the account's credits (running
     /// apps, agents, flows).
     public var costsCredits: Bool?
-    /// Automation: a narrow platform-administration scope that a workspace
-    /// key of the platform's automation account (the system team's service
-    /// account) may hold, minted by an admin with platform power and always
-    /// expiring. Every other key, token and app holds no admin scope.
-    public var automation: Bool?
 
     public init(
         value: Scope,
@@ -2793,8 +2794,7 @@ public struct ScopeDefinition: Codable, Sendable {
         group: ScopeGroup,
         signInOnly: Bool? = nil,
         notForApps: Bool? = nil,
-        costsCredits: Bool? = nil,
-        automation: Bool? = nil
+        costsCredits: Bool? = nil
     ) {
         self.value = value
         self.label = label
@@ -2803,7 +2803,6 @@ public struct ScopeDefinition: Codable, Sendable {
         self.signInOnly = signInOnly
         self.notForApps = notForApps
         self.costsCredits = costsCredits
-        self.automation = automation
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2814,7 +2813,6 @@ public struct ScopeDefinition: Codable, Sendable {
         case signInOnly = "sign_in_only"
         case notForApps = "not_for_apps"
         case costsCredits = "costs_credits"
-        case automation = "automation"
     }
 }
 
@@ -6996,8 +6994,9 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let featureNotAvailable = ErrorCode(rawValue: "feature_not_available")
     public static let entitlementUnavailable = ErrorCode(rawValue: "entitlement_unavailable")
     public static let paymentRequired = ErrorCode(rawValue: "payment_required")
-    /// ErrorCodePaymentMethodRequired (402): a bounty program requires a saved
-    /// payment method and the caller's team has none. Meta is
+    /// ErrorCodePaymentMethodRequired (402): the action needs a saved payment
+    /// method and the caller's team has none: a bounty program that requires
+    /// one, or a free app run without a balance. Meta is
     /// PaymentMethodRequiredMeta; clients send the user to BillingPage.
     public static let paymentMethodRequired = ErrorCode(rawValue: "payment_method_required")
     /// Form submissions (409): the form is not open, or its submit policy
@@ -7087,12 +7086,13 @@ public struct ScopeRefusedMeta: Codable, Sendable {
 }
 
 /// PaymentMethodRequiredMeta is the meta of a payment_method_required error.
+/// BountyID is set when a bounty claim was refused.
 public struct PaymentMethodRequiredMeta: Codable, Sendable {
-    public var bountyId: String
+    public var bountyId: String?
     public var billingPage: String
 
     public init(
-        bountyId: String = "",
+        bountyId: String? = nil,
         billingPage: String = ""
     ) {
         self.bountyId = bountyId
