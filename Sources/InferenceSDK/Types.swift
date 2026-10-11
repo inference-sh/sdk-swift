@@ -1601,18 +1601,26 @@ public struct CreateAgentMessageResponse: Codable, Sendable {
     }
 }
 
-/// ToolResultRequest represents a tool result submission
+/// ToolResultRequest is the body of POST /tools/{id}: a client's result for a
+/// tool call it ran.
 public struct ToolResultRequest: Codable, Sendable {
     public var result: String
+    /// Attachments are files uploaded with POST /files, as in MessageInput.
+    /// The tool message carries them; images reach the model as image input
+    /// when it accepts images.
+    public var attachments: [FileRef]?
 
     public init(
-        result: String = ""
+        result: String = "",
+        attachments: [FileRef]? = nil
     ) {
         self.result = result
+        self.attachments = attachments
     }
 
     enum CodingKeys: String, CodingKey {
         case result = "result"
+        case attachments = "attachments"
     }
 }
 
