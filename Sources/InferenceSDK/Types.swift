@@ -2864,6 +2864,9 @@ public struct ScopesResponse: Codable, Sendable {
     /// for: the device approval page offers them as their own section. No
     /// key or app is ever granted one.
     public var accountScopes: [ScopeDefinition]?
+    /// AccountGroups are the groups AccountScopes fall in, so the page labels
+    /// them the way it labels Groups.
+    public var accountGroups: [ScopeGroupDefinition]?
     /// LoginPreset is what the device approval page preselects for
     /// `belt login`: the standard preset plus approvals:write (answering
     /// the person's own approvals from the CLI). Its Grants is what such a
@@ -2875,12 +2878,14 @@ public struct ScopesResponse: Codable, Sendable {
         groups: [ScopeGroupDefinition]? = nil,
         presets: [ScopePreset]? = nil,
         accountScopes: [ScopeDefinition]? = nil,
+        accountGroups: [ScopeGroupDefinition]? = nil,
         loginPreset: ScopePreset
     ) {
         self.scopes = scopes
         self.groups = groups
         self.presets = presets
         self.accountScopes = accountScopes
+        self.accountGroups = accountGroups
         self.loginPreset = loginPreset
     }
 
@@ -2889,6 +2894,7 @@ public struct ScopesResponse: Codable, Sendable {
         case groups = "groups"
         case presets = "presets"
         case accountScopes = "account_scopes"
+        case accountGroups = "account_groups"
         case loginPreset = "login_preset"
     }
 }
