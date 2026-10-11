@@ -30,7 +30,7 @@ do {
         text = try await SpeechToText(client: client, app: app, extraInput: extra).transcribe(audio)
         print("STT \(app): \(text.debugDescription)")
     }
-    let req = ApiAgentRunRequest(chatId: args.count > 3 ? args[3] : nil, agent: args[1], input: LLMInput(role: .user, text: text))
+    let req = ApiAgentRunRequest(chatId: args.count > 3 ? args[3] : nil, agent: args[1], input: MessageInput(text: text))
     var n = 0
     for try await msg in client.runAgentStream(req) {
         n += 1
