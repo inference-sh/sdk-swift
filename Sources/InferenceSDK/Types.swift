@@ -3503,6 +3503,9 @@ public struct AppVersionDTO: Codable, Sendable {
     /// package's inf.yml) and on a version with no package (a flow app).
     @Indirect public var sandbox: AppSandbox?
     public var checksum: String?
+    /// Warnings are what the deploy that created this version accepted but
+    /// the author should fix. Only the deploy's own response carries them.
+    public var warnings: [DeployWarning]?
 
     public init(
         id: String = "",
@@ -3526,7 +3529,8 @@ public struct AppVersionDTO: Codable, Sendable {
         requiredCredentials: [CredentialRequirement]? = nil,
         resources: AppResources,
         sandbox: AppSandbox? = nil,
-        checksum: String? = nil
+        checksum: String? = nil,
+        warnings: [DeployWarning]? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -3550,6 +3554,7 @@ public struct AppVersionDTO: Codable, Sendable {
         self.resources = resources
         self.sandbox = sandbox
         self.checksum = checksum
+        self.warnings = warnings
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3575,6 +3580,35 @@ public struct AppVersionDTO: Codable, Sendable {
         case resources = "resources"
         case sandbox = "sandbox"
         case checksum = "checksum"
+        case warnings = "warnings"
+    }
+}
+
+/// DeployWarning is something a deploy accepted but the author should fix:
+/// the app works, but asks for more than it needs or says less than clients
+/// use.
+public struct DeployWarning: Codable, Sendable {
+    /// Code identifies the check: readonly_broad_credential,
+    /// unused_credential, missing_annotations.
+    public var code: String
+    /// Function is the function the warning is about, when it is about one.
+    public var function: String?
+    public var message: String
+
+    public init(
+        code: String = "",
+        function: String? = nil,
+        message: String = ""
+    ) {
+        self.code = code
+        self.function = function
+        self.message = message
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case code = "code"
+        case function = "function"
+        case message = "message"
     }
 }
 
