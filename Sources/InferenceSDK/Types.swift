@@ -614,21 +614,29 @@ public struct HTTPToolConfig: Codable, Sendable {
     }
 }
 
+/// MCPToolConfig is a tool of an MCP server: the server by its slug (the
+/// agent's team's registration, its org's or the directory's) and the tool
+/// to call. CredentialID pins the connection the call signs in with; without
+/// it the runner's connection to the server's provider is used.
 public struct MCPToolConfig: Codable, Sendable {
-    public var credentialId: String?
+    public var server: String
     public var toolName: String
+    public var credentialId: String?
 
     public init(
-        credentialId: String? = nil,
-        toolName: String = ""
+        server: String = "",
+        toolName: String = "",
+        credentialId: String? = nil
     ) {
-        self.credentialId = credentialId
+        self.server = server
         self.toolName = toolName
+        self.credentialId = credentialId
     }
 
     enum CodingKeys: String, CodingKey {
-        case credentialId = "credential_id"
+        case server = "server"
         case toolName = "tool_name"
+        case credentialId = "credential_id"
     }
 }
 
@@ -794,20 +802,24 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
 }
 
 public struct MCPToolConfigDTO: Codable, Sendable {
-    public var credentialId: String
+    public var server: String
     public var toolName: String
+    public var credentialId: String?
 
     public init(
-        credentialId: String = "",
-        toolName: String = ""
+        server: String = "",
+        toolName: String = "",
+        credentialId: String? = nil
     ) {
-        self.credentialId = credentialId
+        self.server = server
         self.toolName = toolName
+        self.credentialId = credentialId
     }
 
     enum CodingKeys: String, CodingKey {
-        case credentialId = "credential_id"
+        case server = "server"
         case toolName = "tool_name"
+        case credentialId = "credential_id"
     }
 }
 
@@ -10340,7 +10352,6 @@ public struct MCPServerDTO: Codable, Sendable {
     public var iconUrl: String
     public var serverUrl: String
     public var authType: MCPServerAuthType
-    public var oauthClientId: String?
     public var defaultScopes: StringSlice?
     /// Headers are static HTTP headers sent on every request to the server,
     /// set by the team's admins (e.g. X-MCP-Toolsets, X-MCP-Readonly).
@@ -10372,7 +10383,6 @@ public struct MCPServerDTO: Codable, Sendable {
         iconUrl: String = "",
         serverUrl: String = "",
         authType: MCPServerAuthType,
-        oauthClientId: String? = nil,
         defaultScopes: StringSlice? = nil,
         headers: [String: String]? = nil,
         setup: MCPServerSetup? = nil,
@@ -10395,7 +10405,6 @@ public struct MCPServerDTO: Codable, Sendable {
         self.iconUrl = iconUrl
         self.serverUrl = serverUrl
         self.authType = authType
-        self.oauthClientId = oauthClientId
         self.defaultScopes = defaultScopes
         self.headers = headers
         self.setup = setup
@@ -10420,7 +10429,6 @@ public struct MCPServerDTO: Codable, Sendable {
         case iconUrl = "icon_url"
         case serverUrl = "server_url"
         case authType = "auth_type"
-        case oauthClientId = "oauth_client_id"
         case defaultScopes = "default_scopes"
         case headers = "headers"
         case setup = "setup"
@@ -17576,7 +17584,6 @@ public struct CredentialProvider: RawRepresentable, Codable, Hashable, Sendable 
     public static let salesforce = CredentialProvider(rawValue: "salesforce")
     public static let discord = CredentialProvider(rawValue: "discord")
     public static let gcp = CredentialProvider(rawValue: "gcp")
-    public static let mcp = CredentialProvider(rawValue: "mcp")
     public static let reddit = CredentialProvider(rawValue: "reddit")
 }
 
@@ -17587,7 +17594,6 @@ public struct CredentialType: RawRepresentable, Codable, Hashable, Sendable {
 
     public static let oAuth = CredentialType(rawValue: "oauth")
     public static let apiKey = CredentialType(rawValue: "api_key")
-    public static let mcp = CredentialType(rawValue: "mcp")
     public static let serviceAccount = CredentialType(rawValue: "service_account")
     public static let wif = CredentialType(rawValue: "wif")
 }
