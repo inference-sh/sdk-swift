@@ -15195,6 +15195,12 @@ public struct AuthSchemeClientAuth: RawRepresentable, Codable, Hashable, Sendabl
     public static let basic = AuthSchemeClientAuth(rawValue: "basic")
     /// AuthSchemeClientAuthBody sends them as form fields in the request body.
     public static let body = AuthSchemeClientAuth(rawValue: "body")
+    /// AuthSchemeClientAuthNone is a public client (RFC 8414
+    /// token_endpoint_auth_method "none"): the client id goes in the body,
+    /// there is no secret, and PKCE is what proves the client. Its OAuth app
+    /// is complete with a client id alone (a dynamically registered client,
+    /// or a Client ID Metadata Document URL).
+    public static let none = AuthSchemeClientAuth(rawValue: "none")
 }
 
 /// AuthSchemeTokenRequest is the token request's body encoding.
@@ -15463,6 +15469,27 @@ public struct AuthSchemeSpec: Codable, Sendable {
     /// include_granted_scopes in AddScopesParams). Without it the full list
     /// is asked for again.
     public var incrementalAddScopes: Bool?
+    /// Resource is the RFC 8707 resource indicator: the protected resource
+    /// the token is minted for (an MCP server's URL). Sent on the authorize,
+    /// code and refresh requests when the profile takes one. Empty = none.
+    public var resource: String?
+    /// Issuer is the authorization server's RFC 8414 issuer. With
+    /// AuthorizationResponseIssParameterSupported, the callback's iss must
+    /// name it (RFC 9207, against mix-up); an issuer alone still refuses a
+    /// callback naming another one.
+    public var issuer: String?
+    public var authorizationResponseIssParameterSupported: Bool?
+    /// Callback is the name of the redirect URI the app was registered with
+    /// (<app>/settings/secrets/oauth/<callback>). Empty = the slug. Schemes
+    /// whose clients are registered once for many slugs share one (an MCP
+    /// server's dynamically registered client and the Client ID Metadata
+    /// Document name the "mcp" callback); the flow's provider then comes
+    /// from the connect intent, never from the callback's path.
+    public var callback: String?
+    /// Profile names the authorization server's deviations from the specs
+    /// (authprovider.AuthServerProfile: endpoints placed by app fields,
+    /// scopes on refresh, actionable errors, admin consent). Empty = none.
+    public var profile: String?
     public var tokenEndpoint: String?
     /// RevocationEndpoint is the RFC 7009 endpoint, when the provider has
     /// one and Revoke names no style of its own: tokens are revoked there
@@ -15539,6 +15566,11 @@ public struct AuthSchemeSpec: Codable, Sendable {
         anotherAccountParams: [String: String]? = nil,
         requiredScopes: [String]? = nil,
         incrementalAddScopes: Bool? = nil,
+        resource: String? = nil,
+        issuer: String? = nil,
+        authorizationResponseIssParameterSupported: Bool? = nil,
+        callback: String? = nil,
+        profile: String? = nil,
         tokenEndpoint: String? = nil,
         revocationEndpoint: String? = nil,
         clientAuth: AuthSchemeClientAuth? = nil,
@@ -15582,6 +15614,11 @@ public struct AuthSchemeSpec: Codable, Sendable {
         self.anotherAccountParams = anotherAccountParams
         self.requiredScopes = requiredScopes
         self.incrementalAddScopes = incrementalAddScopes
+        self.resource = resource
+        self.issuer = issuer
+        self.authorizationResponseIssParameterSupported = authorizationResponseIssParameterSupported
+        self.callback = callback
+        self.profile = profile
         self.tokenEndpoint = tokenEndpoint
         self.revocationEndpoint = revocationEndpoint
         self.clientAuth = clientAuth
@@ -15627,6 +15664,11 @@ public struct AuthSchemeSpec: Codable, Sendable {
         case anotherAccountParams = "another_account_params"
         case requiredScopes = "required_scopes"
         case incrementalAddScopes = "incremental_add_scopes"
+        case resource = "resource"
+        case issuer = "issuer"
+        case authorizationResponseIssParameterSupported = "authorization_response_iss_parameter_supported"
+        case callback = "callback"
+        case profile = "profile"
         case tokenEndpoint = "token_endpoint"
         case revocationEndpoint = "revocation_endpoint"
         case clientAuth = "client_auth"
