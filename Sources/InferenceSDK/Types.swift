@@ -2009,19 +2009,25 @@ public struct DeviceAuthPollResponse: Codable, Sendable {
     /// CLI login that asked now carries admin power until then. No
     /// credential comes with it.
     public var adminUntil: String?
+    /// Interval is the polling interval in seconds the device is now held
+    /// to, set with status slow_down (RFC 8628 3.5: each one raises it by
+    /// five seconds).
+    public var interval: Int?
 
     public init(
         status: DeviceAuthStatus,
         apiKey: String? = nil,
         sessionToken: String? = nil,
         teamId: String? = nil,
-        adminUntil: String? = nil
+        adminUntil: String? = nil,
+        interval: Int? = nil
     ) {
         self.status = status
         self.apiKey = apiKey
         self.sessionToken = sessionToken
         self.teamId = teamId
         self.adminUntil = adminUntil
+        self.interval = interval
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2030,6 +2036,7 @@ public struct DeviceAuthPollResponse: Codable, Sendable {
         case sessionToken = "session_token"
         case teamId = "team_id"
         case adminUntil = "admin_until"
+        case interval = "interval"
     }
 }
 
@@ -6963,6 +6970,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// scope the operation takes (an API key, an app's OAuth token or a
     /// narrowed login granted less). The detail names the scope.
     public static let insufficientScope = ErrorCode(rawValue: "insufficient_scope")
+    /// ErrorCodeInvalidScope (400): a grant request (an OAuth authorization,
+    /// a device sign-in's approval) named only scopes this server does not
+    /// know. The detail names them.
+    public static let invalidScope = ErrorCode(rawValue: "invalid_scope")
     /// ErrorCodeImpersonationReasonRequired (403): a platform admin named a
     /// team they are not a member of without a live impersonation grant.
     /// Clients stop viewing as the team on it.
@@ -7023,6 +7034,9 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let invalidCode = ErrorCode(rawValue: "invalid_code")
     public static let alreadyProcessed = ErrorCode(rawValue: "already_processed")
     public static let expired = ErrorCode(rawValue: "expired")
+    /// A device sign-in started away from the approver is approved only
+    /// with the code typed from the device (400).
+    public static let codeConfirmationRequired = ErrorCode(rawValue: "code_confirmation_required")
     /// Run-time refusals. AppRetired (410): the app no longer runs.
     /// AppMaintenance (503, Retry-After): the owner paused it; the message is
     /// theirs. InvalidTransition (409): the task already moved on.
@@ -14045,6 +14059,10 @@ public struct ToolInvocationDTO: Codable, Sendable {
 public struct MetaItem: Codable, Sendable {
     public var type: MetaItemType
     public var tokens: Int?
+    /// CachedTokens and CacheWriteTokens are the parts of Tokens (on an input
+    /// text item) read from and written to the provider's prompt cache.
+    public var cachedTokens: Int?
+    public var cacheWriteTokens: Int?
     public var width: Int?
     public var height: Int?
     public var resolutionMp: Double?
@@ -14060,6 +14078,8 @@ public struct MetaItem: Codable, Sendable {
     public init(
         type: MetaItemType,
         tokens: Int? = nil,
+        cachedTokens: Int? = nil,
+        cacheWriteTokens: Int? = nil,
         width: Int? = nil,
         height: Int? = nil,
         resolutionMp: Double? = nil,
@@ -14074,6 +14094,8 @@ public struct MetaItem: Codable, Sendable {
     ) {
         self.type = type
         self.tokens = tokens
+        self.cachedTokens = cachedTokens
+        self.cacheWriteTokens = cacheWriteTokens
         self.width = width
         self.height = height
         self.resolutionMp = resolutionMp
@@ -14090,6 +14112,8 @@ public struct MetaItem: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case type = "type"
         case tokens = "tokens"
+        case cachedTokens = "cached_tokens"
+        case cacheWriteTokens = "cache_write_tokens"
         case width = "width"
         case height = "height"
         case resolutionMp = "resolution_mp"
@@ -16704,6 +16728,9 @@ public struct DeviceAuthStatus: RawRepresentable, Codable, Hashable, Sendable {
     public static let approved = DeviceAuthStatus(rawValue: "approved")
     public static let expired = DeviceAuthStatus(rawValue: "expired")
     public static let denied = DeviceAuthStatus(rawValue: "denied")
+    /// DeviceAuthStatusSlowDown: still pending, and the device polled sooner
+    /// than its interval, which is now five seconds longer (RFC 8628 3.5).
+    public static let slowDown = DeviceAuthStatus(rawValue: "slow_down")
     public static let valid = DeviceAuthStatus(rawValue: "valid")
     public static let invalid = DeviceAuthStatus(rawValue: "invalid")
     public static let loading = DeviceAuthStatus(rawValue: "loading")
@@ -18223,7 +18250,13 @@ public struct LLMUsage: Codable, Sendable {
     public var stopReason: String
     public var timeToFirstToken: Double
     public var tokensPerSecond: Double
+    /// PromptTokens counts every input token, cached ones included
+    /// (OpenAI, xAI and OpenRouter count them this way).
     public var promptTokens: Int
+    /// CachedTokens is how many of PromptTokens were read from the provider's
+    /// prompt cache; CacheWriteTokens how many were written to it.
+    public var cachedTokens: Int
+    public var cacheWriteTokens: Int
     public var completionTokens: Int
     public var totalTokens: Int
     public var reasoningTokens: Int
@@ -18234,6 +18267,8 @@ public struct LLMUsage: Codable, Sendable {
         timeToFirstToken: Double = 0,
         tokensPerSecond: Double = 0,
         promptTokens: Int = 0,
+        cachedTokens: Int = 0,
+        cacheWriteTokens: Int = 0,
         completionTokens: Int = 0,
         totalTokens: Int = 0,
         reasoningTokens: Int = 0,
@@ -18243,6 +18278,8 @@ public struct LLMUsage: Codable, Sendable {
         self.timeToFirstToken = timeToFirstToken
         self.tokensPerSecond = tokensPerSecond
         self.promptTokens = promptTokens
+        self.cachedTokens = cachedTokens
+        self.cacheWriteTokens = cacheWriteTokens
         self.completionTokens = completionTokens
         self.totalTokens = totalTokens
         self.reasoningTokens = reasoningTokens
@@ -18254,6 +18291,8 @@ public struct LLMUsage: Codable, Sendable {
         case timeToFirstToken = "time_to_first_token"
         case tokensPerSecond = "tokens_per_second"
         case promptTokens = "prompt_tokens"
+        case cachedTokens = "cached_tokens"
+        case cacheWriteTokens = "cache_write_tokens"
         case completionTokens = "completion_tokens"
         case totalTokens = "total_tokens"
         case reasoningTokens = "reasoning_tokens"
