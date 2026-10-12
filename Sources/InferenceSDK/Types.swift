@@ -1685,7 +1685,7 @@ public struct AppVersionInput: Codable, Sendable {
     public var env: [String: String]?
     public var kernel: String?
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredCredentials: [CredentialRequirement]?
+    public var requiredCredentials: JSONValue?
     @Indirect public var resources: AppResources?
 
     public init(
@@ -1699,7 +1699,7 @@ public struct AppVersionInput: Codable, Sendable {
         env: [String: String]? = nil,
         kernel: String? = nil,
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredCredentials: [CredentialRequirement]? = nil,
+        requiredCredentials: JSONValue? = nil,
         resources: AppResources? = nil
     ) {
         self.metadata = metadata
@@ -3139,7 +3139,7 @@ public struct AppFunction: Codable, Sendable {
     /// Credentials the function needs at run time, declared on the function
     /// in app code. Each must be covered by the app-wide list in inf.yml.
     /// Empty means the function gets the app-wide list.
-    public var credentials: [CredentialRequirement]?
+    public var credentials: JSONValue?
     /// Annotations are MCP tool hints (read-only, destructive, idempotent,
     /// open-world) declared on the function. Hints only: nothing trusts
     /// them for an unverified namespace.
@@ -3152,7 +3152,7 @@ public struct AppFunction: Codable, Sendable {
         outputSchema: JSONValue = .null,
         capabilities: [String]? = nil,
         kind: FunctionKind? = nil,
-        credentials: [CredentialRequirement]? = nil,
+        credentials: JSONValue? = nil,
         annotations: ToolAnnotations? = nil
     ) {
         self.name = name
@@ -3265,63 +3265,120 @@ public struct SecretRequirement: Codable, Sendable {
     }
 }
 
-/// CredentialRequirement is an entry under credentials: in inf.yml: keys an
-/// app needs that belong to a provider. Provider names whose credential
-/// supplies them; Secrets lists the keys to inject from it (an API key
-/// credential), Scopes what to ask for (an OAuth one).
+/// CredentialRequirement is an entry under credentials: in inf.yml: a
+/// credential the app uses, keyed by the credential's slug (what
+/// Credential.Provider stores). Secrets lists the keys to inject from it (an
+/// API key credential), Scopes what to ask for (an OAuth one), Capabilities
+/// the platform-defined grants it needs ("x.tweet.read", "google.sheets":
+/// an OAuth grant with the scopes it implies), each a capability of the
+/// entry's own provider. Provider seeds the catalog row for the company the
+/// first time it is seen and never overwrites it; Auth seeds the auth scheme
+/// when the slug is free.
 /// 
 /// 	credentials:
-/// 	  - provider: acme
-/// 	    name: Acme CRM
-/// 	    website: acme.com
+/// 	  slack:
+/// 	    capabilities: [slack.channels.write]
+/// 	  acme:
 /// 	    secrets: [ACME_API_KEY]
+/// 	    provider: {name: Acme CRM, website: acme.com}
 /// 
-/// Key is a capability of a provider the platform defines ("x.tweet.read",
-/// "google.sheets"): an OAuth grant with the scopes it implies. An entry sets
-/// Provider, Key, or both; with both, Key decides how it is resolved.
+/// The list form that preceded it is still read: `- provider: acme` names
+/// the slug, `- key: x.tweet.read` a capability (its slug is the part
+/// before the first dot), `name:` and `website:` seed the provider.
 public struct CredentialRequirement: Codable, Sendable {
-    public var provider: String?
-    /// Name and Website describe a provider the platform does not list: the
-    /// name its credential is shown under and the site its logo comes from.
-    public var name: String?
-    public var website: String?
-    public var key: String?
+    public var slug: String?
+    public var capabilities: [String]?
     public var description: String?
     public var optional: Bool?
     public var secrets: [String]?
     public var scopes: [String]?
+    /// Provider describes the company the credential belongs to, for a
+    /// catalog row that does not exist yet. Its slug defaults to the
+    /// credential slug.
+    @Indirect public var provider: ProviderSeed?
+    /// Auth is the credential's auth scheme, for a slug no row defines yet.
+    @Indirect public var auth: AuthSchemeSpec?
 
     public init(
-        provider: String? = nil,
-        name: String? = nil,
-        website: String? = nil,
-        key: String? = nil,
+        slug: String? = nil,
+        capabilities: [String]? = nil,
         description: String? = nil,
         optional: Bool? = nil,
         secrets: [String]? = nil,
-        scopes: [String]? = nil
+        scopes: [String]? = nil,
+        provider: ProviderSeed? = nil,
+        auth: AuthSchemeSpec? = nil
     ) {
-        self.provider = provider
-        self.name = name
-        self.website = website
-        self.key = key
+        self.slug = slug
+        self.capabilities = capabilities
         self.description = description
         self.optional = optional
         self.secrets = secrets
         self.scopes = scopes
+        self.provider = provider
+        self.auth = auth
     }
 
     enum CodingKeys: String, CodingKey {
-        case provider = "provider"
-        case name = "name"
-        case website = "website"
-        case key = "key"
+        case slug = "slug"
+        case capabilities = "capabilities"
         case description = "description"
         case optional = "optional"
         case secrets = "secrets"
         case scopes = "scopes"
+        case provider = "provider"
+        case auth = "auth"
     }
 }
+
+/// ProviderSeed is a provider (the company behind a credential) as an app
+/// declares it: enough to create its catalog row when none exists.
+public struct ProviderSeed: Codable, Sendable {
+    public var slug: String?
+    public var name: String?
+    public var description: String?
+    public var website: String?
+    public var logoUri: String?
+    public var docsUri: String?
+    public var tosUri: String?
+    public var policyUri: String?
+
+    public init(
+        slug: String? = nil,
+        name: String? = nil,
+        description: String? = nil,
+        website: String? = nil,
+        logoUri: String? = nil,
+        docsUri: String? = nil,
+        tosUri: String? = nil,
+        policyUri: String? = nil
+    ) {
+        self.slug = slug
+        self.name = name
+        self.description = description
+        self.website = website
+        self.logoUri = logoUri
+        self.docsUri = docsUri
+        self.tosUri = tosUri
+        self.policyUri = policyUri
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case name = "name"
+        case description = "description"
+        case website = "website"
+        case logoUri = "logo_uri"
+        case docsUri = "docs_uri"
+        case tosUri = "tos_uri"
+        case policyUri = "policy_uri"
+    }
+}
+
+/// CredentialRequirements is the credentials: list of a manifest. It reads
+/// both forms: a map keyed by credential slug (the current one) and a list
+/// of entries; it is always written as a list.
+public typealias CredentialRequirements = [CredentialRequirement]
 
 /// AppDTO is the API response for a full app.
 public struct AppDTO: Codable, Sendable {
@@ -3515,7 +3572,7 @@ public struct AppVersionDTO: Codable, Sendable {
     public var env: [String: String]?
     public var kernel: String
     public var requiredSecrets: [SecretRequirement]?
-    public var requiredCredentials: [CredentialRequirement]?
+    public var requiredCredentials: JSONValue?
     @Indirect public var resources: AppResources
     /// Sandbox is the version's declared sandbox exceptions. Absent on a
     /// version deployed before the API recorded them (engines then read the
@@ -3545,7 +3602,7 @@ public struct AppVersionDTO: Codable, Sendable {
         env: [String: String]? = nil,
         kernel: String = "",
         requiredSecrets: [SecretRequirement]? = nil,
-        requiredCredentials: [CredentialRequirement]? = nil,
+        requiredCredentials: JSONValue? = nil,
         resources: AppResources,
         sandbox: AppSandbox? = nil,
         checksum: String? = nil,
@@ -5682,6 +5739,31 @@ public struct ToolExplanationDTO: Codable, Sendable {
     }
 }
 
+/// ConnectTokens are tokens a provider minted while connecting, for grants
+/// that need no redirect (OAuth client credentials): the credential service
+/// saves them on the login it writes. They travel inside the process only.
+public struct ConnectTokens: Codable, Sendable {
+    @Indirect public var accessToken: JSONValue
+    @Indirect public var refreshToken: JSONValue
+    public var expiresAt: String?
+
+    public init(
+        accessToken: JSONValue = .null,
+        refreshToken: JSONValue = .null,
+        expiresAt: String? = nil
+    ) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.expiresAt = expiresAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "AccessToken"
+        case refreshToken = "RefreshToken"
+        case expiresAt = "ExpiresAt"
+    }
+}
+
 /// CredentialDTO is the API response for a credential (never exposes secrets).
 public struct CredentialDTO: Codable, Sendable {
     public var id: String
@@ -5804,10 +5886,47 @@ public struct CredentialDTO: Codable, Sendable {
     }
 }
 
+/// ProviderSummary is the company a credential slug belongs to: the
+/// providers row's identity, for grouping and display.
+public struct ProviderSummary: Codable, Sendable {
+    public var slug: String
+    public var name: String
+    public var iconUrl: String?
+    public var website: String?
+    public var docsUrl: String?
+
+    public init(
+        slug: String = "",
+        name: String = "",
+        iconUrl: String? = nil,
+        website: String? = nil,
+        docsUrl: String? = nil
+    ) {
+        self.slug = slug
+        self.name = name
+        self.iconUrl = iconUrl
+        self.website = website
+        self.docsUrl = docsUrl
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case name = "name"
+        case iconUrl = "icon_url"
+        case website = "website"
+        case docsUrl = "docs_url"
+    }
+}
+
 /// CredentialConfigDTO is the merged view: provider catalog + credential state.
 public struct CredentialConfigDTO: Codable, Sendable {
     public var slug: String
+    /// Provider is the credential slug (what Credential.Provider stores):
+    /// one way to authenticate. The company it belongs to is ProviderInfo.
     public var provider: String
+    /// ProviderInfo is the company this slug belongs to, for grouping: the
+    /// providers row its auth scheme names, else the slug's own identity.
+    @Indirect public var providerInfo: ProviderSummary?
     public var type: String
     public var name: String
     public var shortName: String
@@ -5842,6 +5961,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
     public init(
         slug: String = "",
         provider: String = "",
+        providerInfo: ProviderSummary? = nil,
         type: String = "",
         name: String = "",
         shortName: String = "",
@@ -5861,6 +5981,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
     ) {
         self.slug = slug
         self.provider = provider
+        self.providerInfo = providerInfo
         self.type = type
         self.name = name
         self.shortName = shortName
@@ -5882,6 +6003,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case slug = "slug"
         case provider = "provider"
+        case providerInfo = "provider_info"
         case type = "type"
         case name = "name"
         case shortName = "short_name"
@@ -10226,6 +10348,11 @@ public struct MCPServerDTO: Codable, Sendable {
     /// Setup is what the server's directory entry knows about setting it up.
     @Indirect public var setup: MCPServerSetup?
     public var documentationUrl: String
+    /// Credentials is what the server needs to be called (the same shape as
+    /// an app's inf.yml credentials). CredentialSlug is the first entry's
+    /// slug: the vault entry a call sends, so a page can link to it.
+    public var credentials: JSONValue?
+    public var credentialSlug: String?
     public var connectionStatus: String?
     /// ConnectionScope is who the caller's connection to this server belongs
     /// to (user, team, org, platform); empty when not connected.
@@ -10250,6 +10377,8 @@ public struct MCPServerDTO: Codable, Sendable {
         headers: [String: String]? = nil,
         setup: MCPServerSetup? = nil,
         documentationUrl: String = "",
+        credentials: JSONValue? = nil,
+        credentialSlug: String? = nil,
         connectionStatus: String? = nil,
         connectionScope: CredentialScope? = nil
     ) {
@@ -10271,6 +10400,8 @@ public struct MCPServerDTO: Codable, Sendable {
         self.headers = headers
         self.setup = setup
         self.documentationUrl = documentationUrl
+        self.credentials = credentials
+        self.credentialSlug = credentialSlug
         self.connectionStatus = connectionStatus
         self.connectionScope = connectionScope
     }
@@ -10294,6 +10425,8 @@ public struct MCPServerDTO: Codable, Sendable {
         case headers = "headers"
         case setup = "setup"
         case documentationUrl = "documentation_url"
+        case credentials = "credentials"
+        case credentialSlug = "credential_slug"
         case connectionStatus = "connection_status"
         case connectionScope = "connection_scope"
     }
@@ -12093,11 +12226,11 @@ public struct SetupAction: Codable, Sendable {
 /// CheckRequirementsRequest is the request body for checking requirements
 public struct CheckRequirementsRequest: Codable, Sendable {
     public var secrets: [SecretRequirement]?
-    public var credentials: [CredentialRequirement]?
+    public var credentials: JSONValue?
 
     public init(
         secrets: [SecretRequirement]? = nil,
-        credentials: [CredentialRequirement]? = nil
+        credentials: JSONValue? = nil
     ) {
         self.secrets = secrets
         self.credentials = credentials
@@ -12289,6 +12422,27 @@ public struct SecretDTO: Codable, Sendable {
         case scope = "scope"
         case credentialId = "credential_id"
     }
+}
+
+/// SensitiveString is a string type that prevents accidental exposure of secrets.
+/// It redacts in JSON/fmt output unless explicitly accessed via .Expose().
+/// 
+/// Encryption at rest is handled by the GORM "sensitive" serializer
+/// (api/internal/lib/secrets). Fields must be tagged: `gorm:"serializer:sensitive"`
+/// 
+/// Note: map-based GORM Updates (map[string]any{"value": ...}) bypass serializers.
+/// Always use struct-based operations for SensitiveString fields.
+/// 
+/// Redaction:
+///   - JSON serialization: always returns "" (empty string)
+///   - fmt.Sprintf with %s, %v, %#v: always returns "[REDACTED]"
+///   - Only .Expose() returns the actual value
+/// 
+/// Encryption is enabled when SECRETS_ENCRYPTION_KEY env var is set.
+/// Values are stored as "enc:v2:<encrypted_dek>:<encrypted_data>" in the database.
+/// Key rotation only re-encrypts the DEK, not the data.
+public struct SensitiveString: Codable, Sendable {
+    public init() {}
 }
 
 /// SocketAccess is where one end of a socket dials and the credential it
@@ -14946,6 +15100,554 @@ public struct GPUType: RawRepresentable, Codable, Hashable, Sendable {
     public static let nvidia = GPUType(rawValue: "nvidia")
     public static let amd = GPUType(rawValue: "amd")
     public static let apple = GPUType(rawValue: "apple")
+}
+
+/// AuthSchemeKind is how a provider authenticates: the kinds of an OpenAPI
+/// Security Scheme Object (oauth2, apiKey, http), named the same so a
+/// vendor's spec maps onto a scheme without translation.
+public struct AuthSchemeKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AuthSchemeOAuth2 is OAuth 2.0; Flow says which grant.
+    public static let authSchemeOAuth2 = AuthSchemeKind(rawValue: "oauth2")
+    /// AuthSchemeAPIKey is one or more keys a person pastes, sent as a
+    /// header or query parameter.
+    public static let authSchemeAPIKey = AuthSchemeKind(rawValue: "api_key")
+    /// AuthSchemeHTTP is a pasted secret sent as an HTTP auth scheme
+    /// (Authorization: Bearer or Basic).
+    public static let authSchemeHTTP = AuthSchemeKind(rawValue: "http")
+}
+
+/// AuthSchemeFlow is the OAuth 2.0 grant an oauth2 scheme uses.
+public struct AuthSchemeFlow: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AuthSchemeFlowAuthorizationCode is the user-consent flow: authorization
+    /// endpoint → code → token endpoint, optionally with PKCE. The default.
+    public static let authorizationCode = AuthSchemeFlow(rawValue: "authorization_code")
+    /// AuthSchemeFlowClientCredentials is server-to-server: the app's client
+    /// id and secret are exchanged at the token endpoint, no redirect, no
+    /// user. The login is the app's own.
+    public static let clientCredentials = AuthSchemeFlow(rawValue: "client_credentials")
+}
+
+/// AuthSchemeAPIKeyIn is where an api_key scheme's key travels.
+public struct AuthSchemeAPIKeyIn: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let header = AuthSchemeAPIKeyIn(rawValue: "header")
+    public static let query = AuthSchemeAPIKeyIn(rawValue: "query")
+}
+
+/// AuthSchemeHTTPScheme is the Authorization scheme of an http scheme.
+public struct AuthSchemeHTTPScheme: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let authSchemeHTTPBearer = AuthSchemeHTTPScheme(rawValue: "bearer")
+    public static let authSchemeHTTPBasic = AuthSchemeHTTPScheme(rawValue: "basic")
+}
+
+/// SecretField is one value a person pastes to connect an api_key or http
+/// scheme: its vault key and how the form asks for it. Several fields make
+/// a multi-secret provider (Kling's access and secret key).
+public struct SecretField: Codable, Sendable {
+    public var key: String
+    public var label: String?
+    public var placeholder: String?
+    public var sensitive: Bool?
+    public var optional: Bool?
+
+    public init(
+        key: String = "",
+        label: String? = nil,
+        placeholder: String? = nil,
+        sensitive: Bool? = nil,
+        optional: Bool? = nil
+    ) {
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.sensitive = sensitive
+        self.optional = optional
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case label = "label"
+        case placeholder = "placeholder"
+        case sensitive = "sensitive"
+        case optional = "optional"
+    }
+}
+
+/// AuthSchemeClientAuth is how client_id/client_secret reach the token
+/// endpoint. Most providers accept either; a few insist on one.
+public struct AuthSchemeClientAuth: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AuthSchemeClientAuthBasic sends them as an HTTP Basic Authorization
+    /// header (RFC 6749 §2.3.1, the default).
+    public static let basic = AuthSchemeClientAuth(rawValue: "basic")
+    /// AuthSchemeClientAuthBody sends them as form fields in the request body.
+    public static let body = AuthSchemeClientAuth(rawValue: "body")
+}
+
+/// AuthSchemeTokenRequest is the token request's body encoding.
+public struct AuthSchemeTokenRequest: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let form = AuthSchemeTokenRequest(rawValue: "form")
+    public static let json = AuthSchemeTokenRequest(rawValue: "json")
+}
+
+/// AuthSchemeRefresh is when an access token is refreshed.
+public struct AuthSchemeRefresh: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AuthSchemeRefreshWhenExpiring refreshes within five minutes of the
+    /// reported expiry; a token with no expiry is treated as long-lived
+    /// (Slack without token rotation, Notion).
+    public static let whenExpiring = AuthSchemeRefresh(rawValue: "")
+    /// AuthSchemeRefreshAlways refreshes on every read: the provider reports
+    /// no expiry but the token does expire (Salesforce's session timeout is
+    /// per org and not reported).
+    public static let always = AuthSchemeRefresh(rawValue: "always")
+}
+
+/// AuthSchemeRevokeStyle is how the token reaches the revoke endpoint.
+public struct AuthSchemeRevokeStyle: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let authSchemeRevokeBearer = AuthSchemeRevokeStyle(rawValue: "bearer")
+    public static let authSchemeRevokeQuery = AuthSchemeRevokeStyle(rawValue: "query")
+    public static let authSchemeRevokeForm = AuthSchemeRevokeStyle(rawValue: "form")
+}
+
+/// AuthSchemeRevoke is the optional token revocation on disconnect.
+public struct AuthSchemeRevoke: Codable, Sendable {
+    public var url: String
+    public var style: AuthSchemeRevokeStyle
+    /// ClientAuth also sends client_id and client_secret in the form
+    /// (Discord).
+    public var clientAuth: Bool?
+
+    public init(
+        url: String = "",
+        style: AuthSchemeRevokeStyle,
+        clientAuth: Bool? = nil
+    ) {
+        self.url = url
+        self.style = style
+        self.clientAuth = clientAuth
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url = "url"
+        case style = "style"
+        case clientAuth = "client_auth"
+    }
+}
+
+/// AuthSchemeAppKey is one key of the OAuth app a login goes through. The
+/// client id and secret are implied (PREFIX_CLIENT_ID, PREFIX_CLIENT_SECRET);
+/// listing them only overrides their label and placeholder. Other keys
+/// (bot_token, signing_secret, tenant_id) are optional extras the app holds,
+/// read back by name in templates as {app.<name>} and by hooks.
+public struct AuthSchemeAppKey: Codable, Sendable {
+    /// Name is the key's role: client_id, client_secret, bot_token, …
+    public var name: String
+    /// Key is the vault key; default PREFIX_<NAME>.
+    public var key: String?
+    public var label: String?
+    public var placeholder: String?
+    public var sensitive: Bool?
+    /// Optional is implied for every name but client_id and client_secret.
+    public var optional: Bool?
+
+    public init(
+        name: String = "",
+        key: String? = nil,
+        label: String? = nil,
+        placeholder: String? = nil,
+        sensitive: Bool? = nil,
+        optional: Bool? = nil
+    ) {
+        self.name = name
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.sensitive = sensitive
+        self.optional = optional
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case key = "key"
+        case label = "label"
+        case placeholder = "placeholder"
+        case sensitive = "sensitive"
+        case optional = "optional"
+    }
+}
+
+/// AuthSchemeLookup is a call made after the token exchange, with the new
+/// access token as bearer; its decoded response becomes a document root of
+/// its name for the identity, metadata and later lookups ({user.email},
+/// {resources.0.id}). userinfo_url is shorthand for the lookup named user.
+/// URL, body and headers are templates.
+public struct AuthSchemeLookup: Codable, Sendable {
+    public var name: String
+    public var url: String
+    /// GET (default) or POST
+    public var method: String?
+    /// Body is sent as is; a JSON body is the default content type
+    /// (Dropbox's "null", Linear's GraphQL query).
+    public var body: String?
+    public var contentType: String?
+    public var headers: [String: String]?
+
+    public init(
+        name: String = "",
+        url: String = "",
+        method: String? = nil,
+        body: String? = nil,
+        contentType: String? = nil,
+        headers: [String: String]? = nil
+    ) {
+        self.name = name
+        self.url = url
+        self.method = method
+        self.body = body
+        self.contentType = contentType
+        self.headers = headers
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case url = "url"
+        case method = "method"
+        case body = "body"
+        case contentType = "content_type"
+        case headers = "headers"
+    }
+}
+
+/// AuthSchemeCapability is something an app can ask for from this provider,
+/// satisfied by a connection holding its scopes. Scopes are in the scheme's
+/// own (friendly) names, the ones a credential stores.
+public struct AuthSchemeCapability: Codable, Sendable {
+    /// "google.gmail.send"
+    public var key: String
+    /// required scopes; none = any connection
+    public var scopes: [String]?
+    /// other capability keys this one implies
+    public var satisfies: [String]?
+    /// "Send Gmail"
+    public var displayName: String
+    /// "Send emails on your behalf"
+    public var description: String?
+
+    public init(
+        key: String = "",
+        scopes: [String]? = nil,
+        satisfies: [String]? = nil,
+        displayName: String = "",
+        description: String? = nil
+    ) {
+        self.key = key
+        self.scopes = scopes
+        self.satisfies = satisfies
+        self.displayName = displayName
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case scopes = "scopes"
+        case satisfies = "satisfies"
+        case displayName = "display_name"
+        case description = "description"
+    }
+}
+
+/// AuthSchemeSpec is one way to authenticate against a provider, as data.
+/// Everything a standard OAuth2 provider needs is a field; where a provider
+/// deviates in a way data cannot express, the spec names a hook and Go
+/// supplies it (authprovider.RegisterTokenResponseHook and friends).
+/// 
+/// Templates: URLs, headers, lookup bodies, identifier, name, metadata and
+/// env values are strings with {{path}} placeholders. A path is read from
+/// the flow's document, which grows as the flow goes:
+/// 
+/// 	client_id                  from the authorize step on
+/// 	vars.* (and each var bare)  what the vars hook produced, e.g. {{tenant}}
+/// 	access_token, token.*      after the token exchange (token.* is the
+/// 	                           decoded response)
+/// 	callback.*                 the other query params the callback carried
+/// 	                           (QuickBooks' realmId, Shopify's shop)
+/// 	<lookup>.*                 each lookup's response, by its name; user.*
+/// 	                           is the userinfo lookup
+/// 	expires_at, metadata.*, app.*   env only: the token's expiry (RFC 3339),
+/// 	                           the stored metadata, the app's extra keys
+/// 
+/// Array elements are indexed: {{resources.0.id}}. {{a|b}} takes the first
+/// path present. A template none of whose placeholders resolve renders "":
+/// omitted from env and metadata, blank as identifier or name.
+public struct AuthSchemeSpec: Codable, Sendable {
+    public var kind: AuthSchemeKind
+    /// Flow is the oauth2 grant; empty means authorization_code.
+    public var flow: AuthSchemeFlow?
+    /// Fields are what a person pastes (api_key and http kinds).
+    public var fields: [SecretField]?
+    /// In and ParamName say where an api_key key goes on a request: the
+    /// header or query parameter of that name. ValuePrefix is prepended to
+    /// the value ("Bearer "). Not needed to connect; read by injection.
+    public var `in`: AuthSchemeAPIKeyIn?
+    public var paramName: String?
+    public var valuePrefix: String?
+    /// Scheme and BearerFormat describe an http kind's Authorization header.
+    public var scheme: AuthSchemeHTTPScheme?
+    public var bearerFormat: String?
+    public var authorizationEndpoint: String?
+    /// requested by default; a connect request may override (RequiredScopes stay)
+    public var scopes: [String]?
+    /// ScopeAliases map the scheme's own scope names to what the provider
+    /// wants on the wire ("gmail.send" → "https://www.googleapis.com/auth/
+    /// gmail.send"). Credentials store the alias; the wire form is used only
+    /// in requests. A scope with no alias is sent as is.
+    public var scopeAliases: [String: String]?
+    /// default "scope" (Slack: "user_scope")
+    public var scopeParam: String?
+    /// default " " (Slack: ",")
+    public var scopeSeparator: String?
+    /// the provider takes no scope (Notion)
+    public var omitScopeParam: Bool?
+    public var pkce: Bool?
+    /// ClientIDParam is the name the client id travels under in the
+    /// authorize URL and the token body; default "client_id" (TikTok:
+    /// "client_key").
+    public var clientIdParam: String?
+    /// ExtraAuthorizeParams are appended to the authorize URL verbatim
+    /// (Google's access_type=offline). AddScopesParams override them when
+    /// re-authorizing for more scopes (Google's include_granted_scopes).
+    public var extraAuthorizeParams: [String: String]?
+    public var addScopesParams: [String: String]?
+    /// AccountHintParam is the authorize param that names the account to sign
+    /// in with (Google's and Microsoft's "login_hint"). When re-authorizing
+    /// for more scopes it carries the login's account identifier, so the
+    /// provider goes to that account instead of offering a chooser. Empty =
+    /// no hint sent.
+    public var accountHintParam: String?
+    /// AnotherAccountParams are authorize params for connecting an account
+    /// next to one already connected: the provider shows its account chooser
+    /// instead of signing the user back in to the account it remembers
+    /// (Google prompt=select_account). They override ExtraAuthorizeParams.
+    public var anotherAccountParams: [String: String]?
+    /// RequiredScopes are always requested, on a connect and when
+    /// re-authorizing for more scopes, whatever the caller asked for: the
+    /// scopes the identity lookup and token refresh need (Google's openid,
+    /// email and profile; X's users.read and offline.access). In the
+    /// scheme's own names, like Scopes. Empty = only what was asked for.
+    public var requiredScopes: [String]?
+    /// IncrementalAddScopes: re-authorizing for more scopes asks only for
+    /// the new ones (plus RequiredScopes), and the provider returns a token
+    /// that also covers what the login already holds (Google, with
+    /// include_granted_scopes in AddScopesParams). Without it the full list
+    /// is asked for again.
+    public var incrementalAddScopes: Bool?
+    public var tokenEndpoint: String?
+    /// RevocationEndpoint is the RFC 7009 endpoint, when the provider has
+    /// one and Revoke names no style of its own: tokens are revoked there
+    /// with a form POST.
+    public var revocationEndpoint: String?
+    /// empty = basic
+    public var clientAuth: AuthSchemeClientAuth?
+    /// empty = form
+    public var tokenRequest: AuthSchemeTokenRequest?
+    /// Headers go on every request to the provider (User-Agent for Reddit,
+    /// Notion-Version); values are templates ({{client_id}} for Twitch's
+    /// Client-Id).
+    public var headers: [String: String]?
+    /// TokenResponseHook names the Go reader for a token response that is
+    /// not the RFC 6749 shape (Slack's nested authed_user). Empty = standard.
+    public var tokenResponseHook: String?
+    public var refresh: AuthSchemeRefresh?
+    @Indirect public var revoke: AuthSchemeRevoke?
+    /// UserInfoURL is fetched with the new access token; the response is the
+    /// identity document (user.*). UserInfoURLPath instead reads that URL
+    /// from a path within the token response (Salesforce's "id"). Lookups
+    /// are further calls, each becoming a root of its name, in order, after
+    /// user. With none of these, the token response is all there is.
+    public var userinfoUrl: String?
+    public var userinfoUrlPath: String?
+    public var lookups: [AuthSchemeLookup]?
+    /// Identifier is the connected account's stable, human-readable id
+    /// ("{{user.email}}", "@{{user.data.username}}"); Name its display name.
+    public var identifier: String?
+    public var name: String?
+    /// AccountID is the account's id as the provider keeps it and never
+    /// changes it ("{{user.sub}}" for Google, "{{user.data.id}}" for X), as
+    /// opposed to Identifier, which the user may rename. Logins are matched
+    /// and chosen by it. Empty = Identifier, for providers whose identifier
+    /// already is such an id (Slack, Notion).
+    public var accountId: String?
+    /// IdentityHook names Go code that derives identifier and name when a
+    /// template cannot (Discord's discriminator rule). It wins over both.
+    public var identityHook: String?
+    /// Metadata is what the credential stores about the account, by key.
+    public var metadata: [String: String]?
+    /// Env is what a run reads, by variable. Empty = PREFIX_ACCESS_TOKEN and
+    /// PREFIX_ACCESS_TOKEN_EXPIRES_AT.
+    public var env: [String: String]?
+    /// AppKeys are the OAuth app's keys beyond the implied client id and
+    /// secret, and label overrides for those.
+    public var appKeys: [AuthSchemeAppKey]?
+    /// VarsHook names Go code that turns the app's extra keys into the
+    /// {var} values substituted into the URLs (Microsoft's tenant,
+    /// Salesforce's sandbox host).
+    public var varsHook: String?
+    public var capabilities: [AuthSchemeCapability]?
+
+    public init(
+        kind: AuthSchemeKind,
+        flow: AuthSchemeFlow? = nil,
+        fields: [SecretField]? = nil,
+        `in`: AuthSchemeAPIKeyIn? = nil,
+        paramName: String? = nil,
+        valuePrefix: String? = nil,
+        scheme: AuthSchemeHTTPScheme? = nil,
+        bearerFormat: String? = nil,
+        authorizationEndpoint: String? = nil,
+        scopes: [String]? = nil,
+        scopeAliases: [String: String]? = nil,
+        scopeParam: String? = nil,
+        scopeSeparator: String? = nil,
+        omitScopeParam: Bool? = nil,
+        pkce: Bool? = nil,
+        clientIdParam: String? = nil,
+        extraAuthorizeParams: [String: String]? = nil,
+        addScopesParams: [String: String]? = nil,
+        accountHintParam: String? = nil,
+        anotherAccountParams: [String: String]? = nil,
+        requiredScopes: [String]? = nil,
+        incrementalAddScopes: Bool? = nil,
+        tokenEndpoint: String? = nil,
+        revocationEndpoint: String? = nil,
+        clientAuth: AuthSchemeClientAuth? = nil,
+        tokenRequest: AuthSchemeTokenRequest? = nil,
+        headers: [String: String]? = nil,
+        tokenResponseHook: String? = nil,
+        refresh: AuthSchemeRefresh? = nil,
+        revoke: AuthSchemeRevoke? = nil,
+        userinfoUrl: String? = nil,
+        userinfoUrlPath: String? = nil,
+        lookups: [AuthSchemeLookup]? = nil,
+        identifier: String? = nil,
+        name: String? = nil,
+        accountId: String? = nil,
+        identityHook: String? = nil,
+        metadata: [String: String]? = nil,
+        env: [String: String]? = nil,
+        appKeys: [AuthSchemeAppKey]? = nil,
+        varsHook: String? = nil,
+        capabilities: [AuthSchemeCapability]? = nil
+    ) {
+        self.kind = kind
+        self.flow = flow
+        self.fields = fields
+        self.`in` = `in`
+        self.paramName = paramName
+        self.valuePrefix = valuePrefix
+        self.scheme = scheme
+        self.bearerFormat = bearerFormat
+        self.authorizationEndpoint = authorizationEndpoint
+        self.scopes = scopes
+        self.scopeAliases = scopeAliases
+        self.scopeParam = scopeParam
+        self.scopeSeparator = scopeSeparator
+        self.omitScopeParam = omitScopeParam
+        self.pkce = pkce
+        self.clientIdParam = clientIdParam
+        self.extraAuthorizeParams = extraAuthorizeParams
+        self.addScopesParams = addScopesParams
+        self.accountHintParam = accountHintParam
+        self.anotherAccountParams = anotherAccountParams
+        self.requiredScopes = requiredScopes
+        self.incrementalAddScopes = incrementalAddScopes
+        self.tokenEndpoint = tokenEndpoint
+        self.revocationEndpoint = revocationEndpoint
+        self.clientAuth = clientAuth
+        self.tokenRequest = tokenRequest
+        self.headers = headers
+        self.tokenResponseHook = tokenResponseHook
+        self.refresh = refresh
+        self.revoke = revoke
+        self.userinfoUrl = userinfoUrl
+        self.userinfoUrlPath = userinfoUrlPath
+        self.lookups = lookups
+        self.identifier = identifier
+        self.name = name
+        self.accountId = accountId
+        self.identityHook = identityHook
+        self.metadata = metadata
+        self.env = env
+        self.appKeys = appKeys
+        self.varsHook = varsHook
+        self.capabilities = capabilities
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case flow = "flow"
+        case fields = "fields"
+        case `in` = "in"
+        case paramName = "param_name"
+        case valuePrefix = "value_prefix"
+        case scheme = "scheme"
+        case bearerFormat = "bearer_format"
+        case authorizationEndpoint = "authorization_endpoint"
+        case scopes = "scopes"
+        case scopeAliases = "scope_aliases"
+        case scopeParam = "scope_param"
+        case scopeSeparator = "scope_separator"
+        case omitScopeParam = "omit_scope_param"
+        case pkce = "pkce"
+        case clientIdParam = "client_id_param"
+        case extraAuthorizeParams = "extra_authorize_params"
+        case addScopesParams = "add_scopes_params"
+        case accountHintParam = "account_hint_param"
+        case anotherAccountParams = "another_account_params"
+        case requiredScopes = "required_scopes"
+        case incrementalAddScopes = "incremental_add_scopes"
+        case tokenEndpoint = "token_endpoint"
+        case revocationEndpoint = "revocation_endpoint"
+        case clientAuth = "client_auth"
+        case tokenRequest = "token_request"
+        case headers = "headers"
+        case tokenResponseHook = "token_response_hook"
+        case refresh = "refresh"
+        case revoke = "revoke"
+        case userinfoUrl = "userinfo_url"
+        case userinfoUrlPath = "userinfo_url_path"
+        case lookups = "lookups"
+        case identifier = "identifier"
+        case name = "name"
+        case accountId = "account_id"
+        case identityHook = "identity_hook"
+        case metadata = "metadata"
+        case env = "env"
+        case appKeys = "app_keys"
+        case varsHook = "vars_hook"
+        case capabilities = "capabilities"
+    }
 }
 
 /// Visibility represents the visibility level of a resource
