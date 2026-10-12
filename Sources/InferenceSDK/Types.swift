@@ -16772,17 +16772,20 @@ public struct StreamDelta: Codable, Sendable {
 public struct LLMOutput: Codable, Sendable {
     public var response: String
     public var reasoning: String?
+    public var reasoningState: ReasoningState?
     public var toolCalls: [ToolCall]?
     @Indirect public var usage: LLMUsage?
 
     public init(
         response: String = "",
         reasoning: String? = nil,
+        reasoningState: ReasoningState? = nil,
         toolCalls: [ToolCall]? = nil,
         usage: LLMUsage? = nil
     ) {
         self.response = response
         self.reasoning = reasoning
+        self.reasoningState = reasoningState
         self.toolCalls = toolCalls
         self.usage = usage
     }
@@ -16790,10 +16793,23 @@ public struct LLMOutput: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case response = "response"
         case reasoning = "reasoning"
+        case reasoningState = "reasoning_state"
         case toolCalls = "tool_calls"
         case usage = "usage"
     }
 }
+
+/// ReasoningState is the opaque state a model hands back with a response for
+/// the next request to carry: a signature over its reasoning (Anthropic
+/// thinking, Gemini thought_signature) or the reasoning itself encrypted
+/// (OpenAI). The platform never reads it. An app writes its own entry under
+/// its own key and, replaying a conversation, places only the entries it
+/// wrote: another provider's signature in its request is refused. The agent
+/// loop stores every assistant message's state and sends all of it back, so a
+/// conversation that moves between models keeps each one's state for it.
+/// 
+/// Not on LLMDelta: the state is whole only on the final output.
+public typealias ReasoningState = [String: JSONValue]
 
 /// LLMDelta is a streaming delta for LLMOutput.
 public struct LLMDelta: Codable, Sendable {
@@ -17167,6 +17183,9 @@ public struct LLMContextMessage: Codable, Sendable {
     public var role: ChatMessageRole
     public var text: String?
     public var reasoning: String?
+    /// ReasoningState is what the model's output carried, on an assistant
+    /// message: see ReasoningState.
+    public var reasoningState: ReasoningState?
     public var images: [String]?
     public var files: [String]?
     public var tools: [Tool]?
@@ -17177,6 +17196,7 @@ public struct LLMContextMessage: Codable, Sendable {
         role: ChatMessageRole,
         text: String? = nil,
         reasoning: String? = nil,
+        reasoningState: ReasoningState? = nil,
         images: [String]? = nil,
         files: [String]? = nil,
         tools: [Tool]? = nil,
@@ -17186,6 +17206,7 @@ public struct LLMContextMessage: Codable, Sendable {
         self.role = role
         self.text = text
         self.reasoning = reasoning
+        self.reasoningState = reasoningState
         self.images = images
         self.files = files
         self.tools = tools
@@ -17197,6 +17218,7 @@ public struct LLMContextMessage: Codable, Sendable {
         case role = "role"
         case text = "text"
         case reasoning = "reasoning"
+        case reasoningState = "reasoning_state"
         case images = "images"
         case files = "files"
         case tools = "tools"
