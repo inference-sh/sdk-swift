@@ -5810,8 +5810,9 @@ public struct CredentialDTO: Codable, Sendable {
     public var metadata: [String: JSONValue]?
     public var isPrimary: Bool
     public var errorMessage: String?
-    /// Template: the catalogue template of an api_key provider (the empty
-    /// platform row teams connect their own key against), never a real key.
+    /// Template: retired. It marked the catalogue template of an api_key
+    /// provider; the platform api_key auth scheme carries that now and no
+    /// row is written with it. Always false; dropped in a later release.
     public var template: Bool
     /// Secrets are the secret rows linked to the credential (a key's values),
     /// by row and key, never by value. Filled on the vault's api_key configs
