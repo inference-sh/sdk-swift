@@ -17117,7 +17117,11 @@ public struct ResponseFormat: Codable, Sendable {
 /// 
 /// Which model runs is not a setting: the app is the model. An app that
 /// fronts several models (a router) declares its own `model` input.
+/// 
+/// Field order is schema order: the generated pydantic model, and the input
+/// form built from its JSON schema, list fields as they are declared here.
 public struct LLMSettings: Codable, Sendable {
+    public var systemPrompt: String
     public var contextSize: Int
     public var temperature: Double?
     public var topP: Double?
@@ -17131,12 +17135,12 @@ public struct LLMSettings: Codable, Sendable {
     public var maxTokens: Int?
     public var reasoningEffort: String?
     public var reasoningMaxTokens: Int?
-    public var systemPrompt: String
     public var tools: [Tool]?
     @Indirect public var toolChoice: ToolChoice?
     @Indirect public var responseFormat: ResponseFormat?
 
     public init(
+        systemPrompt: String = "",
         contextSize: Int = 0,
         temperature: Double? = nil,
         topP: Double? = nil,
@@ -17150,11 +17154,11 @@ public struct LLMSettings: Codable, Sendable {
         maxTokens: Int? = nil,
         reasoningEffort: String? = nil,
         reasoningMaxTokens: Int? = nil,
-        systemPrompt: String = "",
         tools: [Tool]? = nil,
         toolChoice: ToolChoice? = nil,
         responseFormat: ResponseFormat? = nil
     ) {
+        self.systemPrompt = systemPrompt
         self.contextSize = contextSize
         self.temperature = temperature
         self.topP = topP
@@ -17168,13 +17172,13 @@ public struct LLMSettings: Codable, Sendable {
         self.maxTokens = maxTokens
         self.reasoningEffort = reasoningEffort
         self.reasoningMaxTokens = reasoningMaxTokens
-        self.systemPrompt = systemPrompt
         self.tools = tools
         self.toolChoice = toolChoice
         self.responseFormat = responseFormat
     }
 
     enum CodingKeys: String, CodingKey {
+        case systemPrompt = "system_prompt"
         case contextSize = "context_size"
         case temperature = "temperature"
         case topP = "top_p"
@@ -17188,16 +17192,27 @@ public struct LLMSettings: Codable, Sendable {
         case maxTokens = "max_tokens"
         case reasoningEffort = "reasoning_effort"
         case reasoningMaxTokens = "reasoning_max_tokens"
-        case systemPrompt = "system_prompt"
         case tools = "tools"
         case toolChoice = "tool_choice"
         case responseFormat = "response_format"
     }
 }
 
-/// LLMInput is the input envelope for an LLM provider task: the settings plus
-/// the conversation, with the current turn split out of the context.
+/// LLMInput is the input envelope for an LLM provider task: the conversation,
+/// with the current turn split out of the context, plus the settings.
+/// 
+/// Field order is schema order (see LLMSettings): the turn comes first, the
+/// settings last, so an input form shows what to say before how to say it.
 public struct LLMInput: Codable, Sendable {
+    public var text: String?
+    public var images: [String]?
+    public var files: [String]?
+    public var attachments: [FileRef]?
+    public var context: [LLMContextMessage]?
+    public var role: ChatMessageRole?
+    public var reasoning: String?
+    public var toolCallId: String?
+    public var systemPrompt: String
     public var contextSize: Int
     public var temperature: Double?
     public var topP: Double?
@@ -17211,20 +17226,20 @@ public struct LLMInput: Codable, Sendable {
     public var maxTokens: Int?
     public var reasoningEffort: String?
     public var reasoningMaxTokens: Int?
-    public var systemPrompt: String
     public var tools: [Tool]?
     @Indirect public var toolChoice: ToolChoice?
     @Indirect public var responseFormat: ResponseFormat?
-    public var context: [LLMContextMessage]?
-    public var role: ChatMessageRole?
-    public var text: String?
-    public var reasoning: String?
-    public var attachments: [FileRef]?
-    public var images: [String]?
-    public var files: [String]?
-    public var toolCallId: String?
 
     public init(
+        text: String? = nil,
+        images: [String]? = nil,
+        files: [String]? = nil,
+        attachments: [FileRef]? = nil,
+        context: [LLMContextMessage]? = nil,
+        role: ChatMessageRole? = nil,
+        reasoning: String? = nil,
+        toolCallId: String? = nil,
+        systemPrompt: String = "",
         contextSize: Int = 0,
         temperature: Double? = nil,
         topP: Double? = nil,
@@ -17238,19 +17253,19 @@ public struct LLMInput: Codable, Sendable {
         maxTokens: Int? = nil,
         reasoningEffort: String? = nil,
         reasoningMaxTokens: Int? = nil,
-        systemPrompt: String = "",
         tools: [Tool]? = nil,
         toolChoice: ToolChoice? = nil,
-        responseFormat: ResponseFormat? = nil,
-        context: [LLMContextMessage]? = nil,
-        role: ChatMessageRole? = nil,
-        text: String? = nil,
-        reasoning: String? = nil,
-        attachments: [FileRef]? = nil,
-        images: [String]? = nil,
-        files: [String]? = nil,
-        toolCallId: String? = nil
+        responseFormat: ResponseFormat? = nil
     ) {
+        self.text = text
+        self.images = images
+        self.files = files
+        self.attachments = attachments
+        self.context = context
+        self.role = role
+        self.reasoning = reasoning
+        self.toolCallId = toolCallId
+        self.systemPrompt = systemPrompt
         self.contextSize = contextSize
         self.temperature = temperature
         self.topP = topP
@@ -17264,21 +17279,21 @@ public struct LLMInput: Codable, Sendable {
         self.maxTokens = maxTokens
         self.reasoningEffort = reasoningEffort
         self.reasoningMaxTokens = reasoningMaxTokens
-        self.systemPrompt = systemPrompt
         self.tools = tools
         self.toolChoice = toolChoice
         self.responseFormat = responseFormat
-        self.context = context
-        self.role = role
-        self.text = text
-        self.reasoning = reasoning
-        self.attachments = attachments
-        self.images = images
-        self.files = files
-        self.toolCallId = toolCallId
     }
 
     enum CodingKeys: String, CodingKey {
+        case text = "text"
+        case images = "images"
+        case files = "files"
+        case attachments = "attachments"
+        case context = "context"
+        case role = "role"
+        case reasoning = "reasoning"
+        case toolCallId = "tool_call_id"
+        case systemPrompt = "system_prompt"
         case contextSize = "context_size"
         case temperature = "temperature"
         case topP = "top_p"
@@ -17292,18 +17307,9 @@ public struct LLMInput: Codable, Sendable {
         case maxTokens = "max_tokens"
         case reasoningEffort = "reasoning_effort"
         case reasoningMaxTokens = "reasoning_max_tokens"
-        case systemPrompt = "system_prompt"
         case tools = "tools"
         case toolChoice = "tool_choice"
         case responseFormat = "response_format"
-        case context = "context"
-        case role = "role"
-        case text = "text"
-        case reasoning = "reasoning"
-        case attachments = "attachments"
-        case images = "images"
-        case files = "files"
-        case toolCallId = "tool_call_id"
     }
 }
 
