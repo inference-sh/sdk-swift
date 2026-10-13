@@ -5810,6 +5810,10 @@ public struct CredentialDTO: Codable, Sendable {
     public var metadata: [String: JSONValue]?
     public var isPrimary: Bool
     public var errorMessage: String?
+    /// Secrets are the secret rows linked to the credential (a key's values),
+    /// by row and key, never by value. Filled on the vault's api_key configs
+    /// and the admin provider tree.
+    public var secrets: [CredentialSecretRef]?
 
     public init(
         id: String = "",
@@ -5838,7 +5842,8 @@ public struct CredentialDTO: Codable, Sendable {
         vaultId: String? = nil,
         metadata: [String: JSONValue]? = nil,
         isPrimary: Bool = false,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        secrets: [CredentialSecretRef]? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -5867,6 +5872,7 @@ public struct CredentialDTO: Codable, Sendable {
         self.metadata = metadata
         self.isPrimary = isPrimary
         self.errorMessage = errorMessage
+        self.secrets = secrets
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5897,6 +5903,31 @@ public struct CredentialDTO: Codable, Sendable {
         case metadata = "metadata"
         case isPrimary = "is_primary"
         case errorMessage = "error_message"
+        case secrets = "secrets"
+    }
+}
+
+/// CredentialSecretRef names one secret linked to a credential: the row's
+/// id, the key it is stored under and when its value last changed.
+public struct CredentialSecretRef: Codable, Sendable {
+    public var id: String
+    public var key: String
+    public var updatedAt: String
+
+    public init(
+        id: String = "",
+        key: String = "",
+        updatedAt: String = ""
+    ) {
+        self.id = id
+        self.key = key
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case key = "key"
+        case updatedAt = "updated_at"
     }
 }
 
