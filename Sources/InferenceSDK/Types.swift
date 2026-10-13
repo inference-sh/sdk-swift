@@ -5810,10 +5810,6 @@ public struct CredentialDTO: Codable, Sendable {
     public var metadata: [String: JSONValue]?
     public var isPrimary: Bool
     public var errorMessage: String?
-    /// Template: retired. It marked the catalogue template of an api_key
-    /// provider; the platform api_key auth scheme carries that now and no
-    /// row is written with it. Always false; dropped in a later release.
-    public var template: Bool
     /// Secrets are the secret rows linked to the credential (a key's values),
     /// by row and key, never by value. Filled on the vault's api_key configs
     /// and the admin provider tree.
@@ -5847,7 +5843,6 @@ public struct CredentialDTO: Codable, Sendable {
         metadata: [String: JSONValue]? = nil,
         isPrimary: Bool = false,
         errorMessage: String? = nil,
-        template: Bool = false,
         secrets: [CredentialSecretRef]? = nil
     ) {
         self.id = id
@@ -5877,7 +5872,6 @@ public struct CredentialDTO: Codable, Sendable {
         self.metadata = metadata
         self.isPrimary = isPrimary
         self.errorMessage = errorMessage
-        self.template = template
         self.secrets = secrets
     }
 
@@ -5909,7 +5903,6 @@ public struct CredentialDTO: Codable, Sendable {
         case metadata = "metadata"
         case isPrimary = "is_primary"
         case errorMessage = "error_message"
-        case template = "template"
         case secrets = "secrets"
     }
 }
