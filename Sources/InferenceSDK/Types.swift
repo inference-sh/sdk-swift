@@ -10366,8 +10366,9 @@ public struct MCPServerDTO: Codable, Sendable {
     /// slug: the vault entry a call sends, so a page can link to it.
     public var credentials: JSONValue?
     public var credentialSlug: String?
+    /// Deprecated: Connection.Status. Kept for clients reading it.
     public var connectionStatus: String?
-    /// ConnectionScope is who the caller's connection to this server belongs
+    /// Deprecated: Connection.Scope. ConnectionScope is who the caller's connection to this server belongs
     /// to (user, team, org, platform); empty when not connected.
     public var connectionScope: CredentialScope?
     /// Connection is the whole of it: the login's status and scope above,
@@ -10448,8 +10449,9 @@ public struct MCPServerDTO: Codable, Sendable {
     }
 }
 
-/// ConnectionInfo is the caller's login for one requirement: its
-/// status (connected, expired, error; "" when none) and whose it is.
+/// ConnectionInfo is the caller's standing with a server: their login's
+/// status (connected, expired, error; "" when they hold none) and whose it
+/// is, and what the connection made with that login holds.
 public struct ConnectionInfo: Codable, Sendable {
     /// Status and Scope are the caller's login's for the server: whether
     /// they can call it, and whose the login is.
