@@ -10370,6 +10370,9 @@ public struct MCPServerDTO: Codable, Sendable {
     /// ConnectionScope is who the caller's connection to this server belongs
     /// to (user, team, org, platform); empty when not connected.
     public var connectionScope: CredentialScope?
+    /// Connection is the whole of it: the login's status and scope above,
+    /// and what the connection made with that login holds.
+    @Indirect public var connection: ConnectionInfo?
 
     public init(
         id: String = "",
@@ -10392,7 +10395,8 @@ public struct MCPServerDTO: Codable, Sendable {
         credentials: JSONValue? = nil,
         credentialSlug: String? = nil,
         connectionStatus: String? = nil,
-        connectionScope: CredentialScope? = nil
+        connectionScope: CredentialScope? = nil,
+        connection: ConnectionInfo? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -10415,6 +10419,7 @@ public struct MCPServerDTO: Codable, Sendable {
         self.credentialSlug = credentialSlug
         self.connectionStatus = connectionStatus
         self.connectionScope = connectionScope
+        self.connection = connection
     }
 
     enum CodingKeys: String, CodingKey {
@@ -10439,6 +10444,81 @@ public struct MCPServerDTO: Codable, Sendable {
         case credentialSlug = "credential_slug"
         case connectionStatus = "connection_status"
         case connectionScope = "connection_scope"
+        case connection = "connection"
+    }
+}
+
+/// ConnectionInfo is the caller's login for one requirement: its
+/// status (connected, expired, error; "" when none) and whose it is.
+public struct ConnectionInfo: Codable, Sendable {
+    /// Status and Scope are the caller's login's for the server: whether
+    /// they can call it, and whose the login is.
+    public var status: String?
+    public var scope: CredentialScope?
+    public var connectionId: String?
+    public var toolCount: Int?
+    public var toolsListedAt: String?
+    public var lastCalledAt: String?
+    public var lastError: String?
+
+    public init(
+        status: String? = nil,
+        scope: CredentialScope? = nil,
+        connectionId: String? = nil,
+        toolCount: Int? = nil,
+        toolsListedAt: String? = nil,
+        lastCalledAt: String? = nil,
+        lastError: String? = nil
+    ) {
+        self.status = status
+        self.scope = scope
+        self.connectionId = connectionId
+        self.toolCount = toolCount
+        self.toolsListedAt = toolsListedAt
+        self.lastCalledAt = lastCalledAt
+        self.lastError = lastError
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case scope = "scope"
+        case connectionId = "connection_id"
+        case toolCount = "tool_count"
+        case toolsListedAt = "tools_listed_at"
+        case lastCalledAt = "last_called_at"
+        case lastError = "last_error"
+    }
+}
+
+/// MCPConnectionFacts is what an MCP connection (a server reached through
+/// one login) has recorded: the catalogue it listed, its last call.
+public struct MCPConnectionFacts: Codable, Sendable {
+    public var connectionId: String?
+    public var toolCount: Int?
+    public var toolsListedAt: String?
+    public var lastCalledAt: String?
+    public var lastError: String?
+
+    public init(
+        connectionId: String? = nil,
+        toolCount: Int? = nil,
+        toolsListedAt: String? = nil,
+        lastCalledAt: String? = nil,
+        lastError: String? = nil
+    ) {
+        self.connectionId = connectionId
+        self.toolCount = toolCount
+        self.toolsListedAt = toolsListedAt
+        self.lastCalledAt = lastCalledAt
+        self.lastError = lastError
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case connectionId = "connection_id"
+        case toolCount = "tool_count"
+        case toolsListedAt = "tools_listed_at"
+        case lastCalledAt = "last_called_at"
+        case lastError = "last_error"
     }
 }
 
