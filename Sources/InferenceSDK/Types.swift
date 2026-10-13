@@ -5946,19 +5946,25 @@ public struct ProviderSummary: Codable, Sendable {
     public var iconUrl: String?
     public var website: String?
     public var docsUrl: String?
+    public var termsUrl: String?
+    public var privacyUrl: String?
 
     public init(
         slug: String = "",
         name: String = "",
         iconUrl: String? = nil,
         website: String? = nil,
-        docsUrl: String? = nil
+        docsUrl: String? = nil,
+        termsUrl: String? = nil,
+        privacyUrl: String? = nil
     ) {
         self.slug = slug
         self.name = name
         self.iconUrl = iconUrl
         self.website = website
         self.docsUrl = docsUrl
+        self.termsUrl = termsUrl
+        self.privacyUrl = privacyUrl
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5967,6 +5973,8 @@ public struct ProviderSummary: Codable, Sendable {
         case iconUrl = "icon_url"
         case website = "website"
         case docsUrl = "docs_url"
+        case termsUrl = "terms_url"
+        case privacyUrl = "privacy_url"
     }
 }
 
