@@ -12492,6 +12492,19 @@ public struct SecretDTO: Codable, Sendable {
     /// CredentialID is the credential this secret is attached to; empty for
     /// a plain secret.
     public var credentialId: String?
+    /// The four below are read from the credential a listing preloads; a
+    /// row read without it leaves them empty.
+    /// 
+    /// Provider is the slug of the credential the secret belongs to.
+    public var provider: String?
+    /// ProviderName is that credential's display name ("Anthropic").
+    public var providerName: String?
+    /// Label is the credential's account identifier: a key's label.
+    public var label: String?
+    /// CredentialDefault is whether the credential is its owner's default.
+    /// Always serialised: a linked non-default row and an unlabelled row
+    /// must not read the same.
+    public var credentialDefault: Bool
 
     public init(
         id: String = "",
@@ -12508,7 +12521,11 @@ public struct SecretDTO: Codable, Sendable {
         maskedValue: String = "",
         description: String? = nil,
         scope: SecretScope? = nil,
-        credentialId: String? = nil
+        credentialId: String? = nil,
+        provider: String? = nil,
+        providerName: String? = nil,
+        label: String? = nil,
+        credentialDefault: Bool = false
     ) {
         self.id = id
         self.shortId = shortId
@@ -12525,6 +12542,10 @@ public struct SecretDTO: Codable, Sendable {
         self.description = description
         self.scope = scope
         self.credentialId = credentialId
+        self.provider = provider
+        self.providerName = providerName
+        self.label = label
+        self.credentialDefault = credentialDefault
     }
 
     enum CodingKeys: String, CodingKey {
@@ -12543,6 +12564,10 @@ public struct SecretDTO: Codable, Sendable {
         case description = "description"
         case scope = "scope"
         case credentialId = "credential_id"
+        case provider = "provider"
+        case providerName = "provider_name"
+        case label = "label"
+        case credentialDefault = "credential_default"
     }
 }
 
