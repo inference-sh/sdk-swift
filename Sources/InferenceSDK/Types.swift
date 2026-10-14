@@ -825,29 +825,6 @@ public struct MCPToolConfigDTO: Codable, Sendable {
     }
 }
 
-/// AgentImages contains display images for an agent
-public struct AgentImages: Codable, Sendable {
-    public var card: String
-    public var thumbnail: String
-    public var banner: String
-
-    public init(
-        card: String = "",
-        thumbnail: String = "",
-        banner: String = ""
-    ) {
-        self.card = card
-        self.thumbnail = thumbnail
-        self.banner = banner
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case card = "card"
-        case thumbnail = "thumbnail"
-        case banner = "banner"
-    }
-}
-
 /// CoreAppConfigDTO references an app used as the agent's core
 public struct CoreAppConfigDTO: Codable, Sendable {
     public var id: String?
@@ -901,7 +878,7 @@ public struct AgentDTO: Codable, Sendable {
     public var name: String
     /// Title is the human-readable name; empty falls back to Name.
     public var title: String
-    @Indirect public var images: AgentImages
+    @Indirect public var images: ResourceImages
     public var versionId: String
     @Indirect public var version: AgentVersionDTO?
     /// Harness is what drives the agent: "inference" for our own loop, or an
@@ -930,7 +907,7 @@ public struct AgentDTO: Codable, Sendable {
         namespace: String = "",
         name: String = "",
         title: String = "",
-        images: AgentImages,
+        images: ResourceImages,
         versionId: String = "",
         version: AgentVersionDTO? = nil,
         harness: String = "",
@@ -1096,7 +1073,7 @@ public struct CreateAgentRequest: Codable, Sendable {
     public var id: String?
     public var name: String
     public var title: String?
-    @Indirect public var images: AgentImages?
+    @Indirect public var images: ResourceImages?
     public var visibility: Visibility?
     /// Harness runs the agent: "inference" (ours) or an external harness.
     public var harness: String?
@@ -1112,7 +1089,7 @@ public struct CreateAgentRequest: Codable, Sendable {
         id: String? = nil,
         name: String = "",
         title: String? = nil,
-        images: AgentImages? = nil,
+        images: ResourceImages? = nil,
         visibility: Visibility? = nil,
         harness: String? = nil,
         profileId: String? = nil,
@@ -1755,7 +1732,7 @@ public struct CreateAppRequest: Codable, Sendable {
     public var description: String?
     public var agentDescription: String?
     public var category: AppCategory?
-    @Indirect public var images: AppImages?
+    @Indirect public var images: ResourceImages?
     /// Tags replace the app's tags when given; omitted, a deploy takes them
     /// from the version's metadata.tags, and keeps the stored ones if that is
     /// empty too.
@@ -1771,7 +1748,7 @@ public struct CreateAppRequest: Codable, Sendable {
         description: String? = nil,
         agentDescription: String? = nil,
         category: AppCategory? = nil,
-        images: AppImages? = nil,
+        images: ResourceImages? = nil,
         tags: [String]? = nil,
         version: AppVersionInput? = nil,
         preserveCurrentVersion: Bool? = nil
@@ -3204,29 +3181,6 @@ public struct AppFunction: Codable, Sendable {
     }
 }
 
-/// AppImages holds developer-provided images for the app.
-public struct AppImages: Codable, Sendable {
-    public var card: String
-    public var thumbnail: String
-    public var banner: String
-
-    public init(
-        card: String = "",
-        thumbnail: String = "",
-        banner: String = ""
-    ) {
-        self.card = card
-        self.thumbnail = thumbnail
-        self.banner = banner
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case card = "card"
-        case thumbnail = "thumbnail"
-        case banner = "banner"
-    }
-}
-
 /// AppGPUResource describes GPU requirements.
 public struct AppGPUResource: Codable, Sendable {
     public var count: Int
@@ -3429,7 +3383,7 @@ public struct AppDTO: Codable, Sendable {
     public var description: String
     public var agentDescription: String
     public var category: AppCategory
-    @Indirect public var images: AppImages
+    @Indirect public var images: ResourceImages
     /// Tags name what the app does and its traits, as lowercase slugs
     /// (text-to-image, open-weights). GET /store/tags lists the ones in use
     /// with their titles.
@@ -3463,7 +3417,7 @@ public struct AppDTO: Codable, Sendable {
         description: String = "",
         agentDescription: String = "",
         category: AppCategory,
-        images: AppImages,
+        images: ResourceImages,
         tags: [String]? = nil,
         versionId: String = "",
         version: AppVersionDTO? = nil,
@@ -3935,7 +3889,7 @@ public struct PublicAppStoreDTO: Codable, Sendable {
     /// Title is the human-readable name; empty falls back to Name.
     public var title: String
     public var description: String
-    @Indirect public var images: AppImages
+    @Indirect public var images: ResourceImages
     public var isFeatured: Bool
     public var rank: Int
     public var hasApprovedVersion: Bool
@@ -3951,7 +3905,7 @@ public struct PublicAppStoreDTO: Codable, Sendable {
         name: String = "",
         title: String = "",
         description: String = "",
-        images: AppImages,
+        images: ResourceImages,
         isFeatured: Bool = false,
         rank: Int = 0,
         hasApprovedVersion: Bool = false,
@@ -3992,33 +3946,6 @@ public struct PublicAppStoreDTO: Codable, Sendable {
     }
 }
 
-/// ResourceImages is the display-image set every listable resource carries:
-/// a card image for grids, a thumbnail for dense rows, a banner for headers.
-/// AppImages and AgentImages predate this and hold the same three fields;
-/// they should collapse onto this type, but aliasing them changes what
-/// gotypegen emits for existing consumers, so that migration is separate.
-public struct ResourceImages: Codable, Sendable {
-    public var card: String
-    public var thumbnail: String
-    public var banner: String
-
-    public init(
-        card: String = "",
-        thumbnail: String = "",
-        banner: String = ""
-    ) {
-        self.card = card
-        self.thumbnail = thumbnail
-        self.banner = banner
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case card = "card"
-        case thumbnail = "thumbnail"
-        case banner = "banner"
-    }
-}
-
 /// ArtifactDTO is the API shape of an artifact entry.
 public struct ArtifactDTO: Codable, Sendable {
     public var id: String
@@ -4043,10 +3970,6 @@ public struct ArtifactDTO: Codable, Sendable {
     /// Images are the cover images shown in galleries and headers, same as
     /// apps and agents. The favicon stays the rendered page's tab icon.
     @Indirect public var images: ResourceImages
-    /// ImagesDark is the cover for a dark theme, set only by a capture of a
-    /// page that looks different in dark. Empty means Images serve both
-    /// themes.
-    @Indirect public var imagesDark: ResourceImages?
     /// VersionID points at the latest published version.
     public var versionId: String
     @Indirect public var version: ArtifactVersionDTO?
@@ -4084,7 +4007,6 @@ public struct ArtifactDTO: Codable, Sendable {
         favicon: String? = nil,
         type: ArtifactType,
         images: ResourceImages,
-        imagesDark: ResourceImages? = nil,
         versionId: String = "",
         version: ArtifactVersionDTO? = nil,
         sharedVersionId: String? = nil,
@@ -4111,7 +4033,6 @@ public struct ArtifactDTO: Codable, Sendable {
         self.favicon = favicon
         self.type = type
         self.images = images
-        self.imagesDark = imagesDark
         self.versionId = versionId
         self.version = version
         self.sharedVersionId = sharedVersionId
@@ -4140,7 +4061,6 @@ public struct ArtifactDTO: Codable, Sendable {
         case favicon = "favicon"
         case type = "type"
         case images = "images"
-        case imagesDark = "images_dark"
         case versionId = "version_id"
         case version = "version"
         case sharedVersionId = "shared_version_id"
@@ -4862,6 +4782,37 @@ public struct ResourceStatusDTO: Codable, Sendable {
         case id = "id"
         case status = "status"
         case updatedAt = "updated_at"
+    }
+}
+
+/// ResourceImages is the display-image set every listable resource carries
+/// (apps, agents, artifacts): a card image for grids, a thumbnail for dense
+/// rows, a banner for headers.
+public struct ResourceImages: Codable, Sendable {
+    public var card: String
+    public var thumbnail: String
+    public var banner: String
+    /// Dark holds the same slots for a dark theme. Nil means the slots above
+    /// serve both themes.
+    @Indirect public var dark: ResourceImages?
+
+    public init(
+        card: String = "",
+        thumbnail: String = "",
+        banner: String = "",
+        dark: ResourceImages? = nil
+    ) {
+        self.card = card
+        self.thumbnail = thumbnail
+        self.banner = banner
+        self.dark = dark
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case card = "card"
+        case thumbnail = "thumbnail"
+        case banner = "banner"
+        case dark = "dark"
     }
 }
 

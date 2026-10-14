@@ -223,7 +223,7 @@ final class ObserverTests: XCTestCase {
 
     func testAgentDisplayTitleAndRef() {
         func agent(_ namespace: String, _ name: String, _ title: String) -> AgentDTO {
-            AgentDTO(visibility: .private, namespace: namespace, name: name, title: title, images: AgentImages())
+            AgentDTO(visibility: .private, namespace: namespace, name: name, title: title, images: ResourceImages())
         }
         XCTAssertEqual(agent("okaris", "chief", "Chief").displayTitle, "Chief")
         XCTAssertEqual(agent("okaris", "chief", "").displayTitle, "chief")
