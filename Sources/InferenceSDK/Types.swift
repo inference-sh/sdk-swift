@@ -2297,6 +2297,10 @@ public struct SecretCreateRequest: Codable, Sendable {
     /// logo is looked up from. Ignored for a provider the platform knows.
     public var providerName: String?
     public var providerWebsite: String?
+    /// Label names this key among the owner's keys for Provider (prod,
+    /// personal): a new label adds a key beside the others, the same label
+    /// replaces that key's value. Empty: the owner's default key.
+    public var label: String?
 
     public init(
         key: String = "",
@@ -2305,7 +2309,8 @@ public struct SecretCreateRequest: Codable, Sendable {
         provider: String? = nil,
         connectionScope: CredentialScope? = nil,
         providerName: String? = nil,
-        providerWebsite: String? = nil
+        providerWebsite: String? = nil,
+        label: String? = nil
     ) {
         self.key = key
         self.value = value
@@ -2314,6 +2319,7 @@ public struct SecretCreateRequest: Codable, Sendable {
         self.connectionScope = connectionScope
         self.providerName = providerName
         self.providerWebsite = providerWebsite
+        self.label = label
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2324,6 +2330,7 @@ public struct SecretCreateRequest: Codable, Sendable {
         case connectionScope = "connection_scope"
         case providerName = "provider_name"
         case providerWebsite = "provider_website"
+        case label = "label"
     }
 }
 
@@ -2335,17 +2342,22 @@ public struct SecretProviderRequest: Codable, Sendable {
     public var connectionScope: CredentialScope?
     public var providerName: String?
     public var providerWebsite: String?
+    /// Label names the key among the owner's keys for Provider, as on
+    /// SecretCreateRequest. Empty: the owner's default key.
+    public var label: String?
 
     public init(
         provider: String = "",
         connectionScope: CredentialScope? = nil,
         providerName: String? = nil,
-        providerWebsite: String? = nil
+        providerWebsite: String? = nil,
+        label: String? = nil
     ) {
         self.provider = provider
         self.connectionScope = connectionScope
         self.providerName = providerName
         self.providerWebsite = providerWebsite
+        self.label = label
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2353,6 +2365,7 @@ public struct SecretProviderRequest: Codable, Sendable {
         case connectionScope = "connection_scope"
         case providerName = "provider_name"
         case providerWebsite = "provider_website"
+        case label = "label"
     }
 }
 
@@ -6030,6 +6043,10 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// order (Credential first). More than one when several accounts are
     /// connected.
     public var accounts: [CredentialDTO]?
+    /// MultiAccount: several accounts of this provider can be connected side
+    /// by side, each addressed by its account_id; the default (is_primary) is
+    /// used where none is named.
+    public var multiAccount: Bool
 
     public init(
         slug: String = "",
@@ -6050,7 +6067,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
         app: CredentialDTO? = nil,
         authSchemeId: String? = nil,
         credential: CredentialDTO? = nil,
-        accounts: [CredentialDTO]? = nil
+        accounts: [CredentialDTO]? = nil,
+        multiAccount: Bool = false
     ) {
         self.slug = slug
         self.provider = provider
@@ -6071,6 +6089,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.authSchemeId = authSchemeId
         self.credential = credential
         self.accounts = accounts
+        self.multiAccount = multiAccount
     }
 
     enum CodingKeys: String, CodingKey {
@@ -6093,6 +6112,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case authSchemeId = "auth_scheme_id"
         case credential = "credential"
         case accounts = "accounts"
+        case multiAccount = "multi_account"
     }
 }
 
