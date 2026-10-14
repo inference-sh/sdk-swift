@@ -4035,12 +4035,19 @@ public struct ArtifactDTO: Codable, Sendable {
     @Indirect public var version: ArtifactVersionDTO?
     /// SharedVersionID pins the version viewers see. Empty = always latest.
     public var sharedVersionId: String?
+    /// CoverVersionID is the version a captured cover shows. Empty means the
+    /// cover (if any) was set by a person or agent, and a capture never
+    /// replaces it.
+    public var coverVersionId: String?
     /// Capabilities declared by the latest version (runtime features the page
     /// may use). Reserved for the artifact runtime; opaque to the API.
     public var capabilities: [String: JSONValue]?
     public var views: Int
     /// URL is the canonical viewer URL for this artifact.
     public var url: String?
+    /// Access is the viewer's level on this artifact: read, interact (may
+    /// change its data) or write (may edit it). Set on single reads only.
+    public var access: Permission?
 
     public init(
         id: String = "",
@@ -4063,9 +4070,11 @@ public struct ArtifactDTO: Codable, Sendable {
         versionId: String = "",
         version: ArtifactVersionDTO? = nil,
         sharedVersionId: String? = nil,
+        coverVersionId: String? = nil,
         capabilities: [String: JSONValue]? = nil,
         views: Int = 0,
-        url: String? = nil
+        url: String? = nil,
+        access: Permission? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -4087,9 +4096,11 @@ public struct ArtifactDTO: Codable, Sendable {
         self.versionId = versionId
         self.version = version
         self.sharedVersionId = sharedVersionId
+        self.coverVersionId = coverVersionId
         self.capabilities = capabilities
         self.views = views
         self.url = url
+        self.access = access
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4113,9 +4124,11 @@ public struct ArtifactDTO: Codable, Sendable {
         case versionId = "version_id"
         case version = "version"
         case sharedVersionId = "shared_version_id"
+        case coverVersionId = "cover_version_id"
         case capabilities = "capabilities"
         case views = "views"
         case url = "url"
+        case access = "access"
     }
 }
 
@@ -15844,6 +15857,10 @@ public struct Permission: RawRepresentable, Codable, Hashable, Sendable {
 
     public static let permRead = Permission(rawValue: "read")
     public static let permWrite = Permission(rawValue: "write")
+    /// PermInteract changes what a page's people keep in it (an artifact's
+    /// shared data) without editing the page. Write covers interact, and
+    /// interact covers read; public and unlisted visibility grant read only.
+    public static let permInteract = Permission(rawValue: "interact")
     /// PermUse is execute intent: run an app, load a skill/knowledge into an
     /// agent context, invoke an MCP tool. Distinct from read — a public
     /// resource is readable by everyone, but whether this caller may USE it is
