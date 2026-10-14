@@ -4030,6 +4030,10 @@ public struct ArtifactDTO: Codable, Sendable {
     /// Images are the cover images shown in galleries and headers, same as
     /// apps and agents. The favicon stays the rendered page's tab icon.
     @Indirect public var images: ResourceImages
+    /// ImagesDark is the cover for a dark theme, set only by a capture of a
+    /// page that looks different in dark. Empty means Images serve both
+    /// themes.
+    @Indirect public var imagesDark: ResourceImages?
     /// VersionID points at the latest published version.
     public var versionId: String
     @Indirect public var version: ArtifactVersionDTO?
@@ -4067,6 +4071,7 @@ public struct ArtifactDTO: Codable, Sendable {
         favicon: String? = nil,
         type: ArtifactType,
         images: ResourceImages,
+        imagesDark: ResourceImages? = nil,
         versionId: String = "",
         version: ArtifactVersionDTO? = nil,
         sharedVersionId: String? = nil,
@@ -4093,6 +4098,7 @@ public struct ArtifactDTO: Codable, Sendable {
         self.favicon = favicon
         self.type = type
         self.images = images
+        self.imagesDark = imagesDark
         self.versionId = versionId
         self.version = version
         self.sharedVersionId = sharedVersionId
@@ -4121,6 +4127,7 @@ public struct ArtifactDTO: Codable, Sendable {
         case favicon = "favicon"
         case type = "type"
         case images = "images"
+        case imagesDark = "images_dark"
         case versionId = "version_id"
         case version = "version"
         case sharedVersionId = "shared_version_id"
