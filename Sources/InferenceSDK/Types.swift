@@ -2709,7 +2709,7 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// existed); an app's OAuth token or a bound session never does.
     public static let secretsReveal = Scope(rawValue: "secrets:reveal")
     /// Action-level scopes for credentials (connected accounts, vaults,
-    /// auth schemes, MCP servers).
+    /// auth providers, MCP servers).
     public static let credentialsRead = Scope(rawValue: "credentials:read")
     public static let credentialsWrite = Scope(rawValue: "credentials:write")
     /// Action-level scopes for Engines
@@ -3253,7 +3253,7 @@ public struct SecretRequirement: Codable, Sendable {
 /// the platform-defined grants it needs ("x.tweet.read", "google.sheets":
 /// an OAuth grant with the scopes it implies), each a capability of the
 /// entry's own provider. Provider seeds the catalog row for the company the
-/// first time it is seen and never overwrites it; Auth seeds the auth scheme
+/// first time it is seen and never overwrites it; Auth seeds the auth provider
 /// when the slug is free.
 /// 
 /// 	credentials:
@@ -3276,9 +3276,9 @@ public struct CredentialRequirement: Codable, Sendable {
     /// Provider describes the company the credential belongs to, for a
     /// catalog row that does not exist yet. Its slug defaults to the
     /// credential slug.
-    @Indirect public var provider: ProviderSeed?
-    /// Auth is the credential's auth scheme, for a slug no row defines yet.
-    @Indirect public var auth: AuthSchemeSpec?
+    @Indirect public var provider: CompanySeed?
+    /// Auth is the credential's auth provider, for a slug no row defines yet.
+    @Indirect public var auth: AuthMethod?
 
     public init(
         slug: String? = nil,
@@ -3287,8 +3287,8 @@ public struct CredentialRequirement: Codable, Sendable {
         optional: Bool? = nil,
         secrets: [String]? = nil,
         scopes: [String]? = nil,
-        provider: ProviderSeed? = nil,
-        auth: AuthSchemeSpec? = nil
+        provider: CompanySeed? = nil,
+        auth: AuthMethod? = nil
     ) {
         self.slug = slug
         self.capabilities = capabilities
@@ -3312,9 +3312,9 @@ public struct CredentialRequirement: Codable, Sendable {
     }
 }
 
-/// ProviderSeed is a provider (the company behind a credential) as an app
+/// CompanySeed is a provider (the company behind a credential) as an app
 /// declares it: enough to create its catalog row when none exists.
-public struct ProviderSeed: Codable, Sendable {
+public struct CompanySeed: Codable, Sendable {
     public var slug: String?
     public var name: String?
     public var description: String?
@@ -5915,9 +5915,9 @@ public struct CredentialSecretRef: Codable, Sendable {
     }
 }
 
-/// ProviderSummary is the company a credential slug belongs to: the
+/// CompanySummary is the company a credential slug belongs to: the
 /// providers row's identity, for grouping and display.
-public struct ProviderSummary: Codable, Sendable {
+public struct CompanySummary: Codable, Sendable {
     public var slug: String
     public var name: String
     public var iconUrl: String?
@@ -5962,8 +5962,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// one way to authenticate. The company it belongs to is ProviderInfo.
     public var provider: String
     /// ProviderInfo is the company this slug belongs to, for grouping: the
-    /// providers row its auth scheme names, else the slug's own identity.
-    @Indirect public var providerInfo: ProviderSummary?
+    /// providers row its auth provider names, else the slug's own identity.
+    @Indirect public var providerInfo: CompanySummary?
+    /// Company is ProviderInfo under its settled name (INF-1079); provider_info
+    /// stays one release.
+    @Indirect public var company: CompanySummary?
     public var type: String
     public var name: String
     public var shortName: String
@@ -5984,8 +5987,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// set up yet, or when it doesn't sign in through one. Credential is the
     /// login itself.
     @Indirect public var app: CredentialDTO?
-    /// AuthSchemeID is set when the provider is one the team defined
-    /// itself (models.AuthScheme), so the UI can offer edit and remove.
+    /// AuthProviderID is set when the provider is one the team defined
+    /// itself (models.AuthProvider), so the UI can offer edit and remove.
     public var authSchemeId: String?
     /// Credential is the login used where no account is named: the caller's
     /// own, else the workspace's default account.
@@ -6002,7 +6005,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     public init(
         slug: String = "",
         provider: String = "",
-        providerInfo: ProviderSummary? = nil,
+        providerInfo: CompanySummary? = nil,
+        company: CompanySummary? = nil,
         type: String = "",
         name: String = "",
         shortName: String = "",
@@ -6024,6 +6028,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.slug = slug
         self.provider = provider
         self.providerInfo = providerInfo
+        self.company = company
         self.type = type
         self.name = name
         self.shortName = shortName
@@ -6047,6 +6052,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case slug = "slug"
         case provider = "provider"
         case providerInfo = "provider_info"
+        case company = "company"
         case type = "type"
         case name = "name"
         case shortName = "short_name"
@@ -15249,53 +15255,53 @@ public struct GPUType: RawRepresentable, Codable, Hashable, Sendable {
     public static let apple = GPUType(rawValue: "apple")
 }
 
-/// AuthSchemeKind is how a provider authenticates: the kinds of an OpenAPI
+/// AuthMethodKind is how a provider authenticates: the kinds of an OpenAPI
 /// Security Scheme Object (oauth2, apiKey, http), named the same so a
 /// vendor's spec maps onto a scheme without translation.
-public struct AuthSchemeKind: RawRepresentable, Codable, Hashable, Sendable {
+public struct AuthMethodKind: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// AuthSchemeOAuth2 is OAuth 2.0; Flow says which grant.
-    public static let authSchemeOAuth2 = AuthSchemeKind(rawValue: "oauth2")
-    /// AuthSchemeAPIKey is one or more keys a person pastes, sent as a
+    /// AuthMethodOAuth2 is OAuth 2.0; Flow says which grant.
+    public static let authMethodOAuth2 = AuthMethodKind(rawValue: "oauth2")
+    /// AuthMethodAPIKey is one or more keys a person pastes, sent as a
     /// header or query parameter.
-    public static let authSchemeAPIKey = AuthSchemeKind(rawValue: "api_key")
-    /// AuthSchemeHTTP is a pasted secret sent as an HTTP auth scheme
+    public static let authMethodAPIKey = AuthMethodKind(rawValue: "api_key")
+    /// AuthMethodHTTP is a pasted secret sent as an HTTP auth provider
     /// (Authorization: Bearer or Basic).
-    public static let authSchemeHTTP = AuthSchemeKind(rawValue: "http")
+    public static let authMethodHTTP = AuthMethodKind(rawValue: "http")
 }
 
-/// AuthSchemeFlow is the OAuth 2.0 grant an oauth2 scheme uses.
-public struct AuthSchemeFlow: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodFlow is the OAuth 2.0 grant an oauth2 scheme uses.
+public struct AuthMethodFlow: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// AuthSchemeFlowAuthorizationCode is the user-consent flow: authorization
+    /// AuthMethodFlowAuthorizationCode is the user-consent flow: authorization
     /// endpoint → code → token endpoint, optionally with PKCE. The default.
-    public static let authorizationCode = AuthSchemeFlow(rawValue: "authorization_code")
-    /// AuthSchemeFlowClientCredentials is server-to-server: the app's client
+    public static let authorizationCode = AuthMethodFlow(rawValue: "authorization_code")
+    /// AuthMethodFlowClientCredentials is server-to-server: the app's client
     /// id and secret are exchanged at the token endpoint, no redirect, no
     /// user. The login is the app's own.
-    public static let clientCredentials = AuthSchemeFlow(rawValue: "client_credentials")
+    public static let clientCredentials = AuthMethodFlow(rawValue: "client_credentials")
 }
 
-/// AuthSchemeAPIKeyIn is where an api_key scheme's key travels.
-public struct AuthSchemeAPIKeyIn: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodAPIKeyIn is where an api_key scheme's key travels.
+public struct AuthMethodAPIKeyIn: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let header = AuthSchemeAPIKeyIn(rawValue: "header")
-    public static let query = AuthSchemeAPIKeyIn(rawValue: "query")
+    public static let header = AuthMethodAPIKeyIn(rawValue: "header")
+    public static let query = AuthMethodAPIKeyIn(rawValue: "query")
 }
 
-/// AuthSchemeHTTPScheme is the Authorization scheme of an http scheme.
-public struct AuthSchemeHTTPScheme: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodHTTPScheme is the Authorization scheme of an http scheme.
+public struct AuthMethodHTTPScheme: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let authSchemeHTTPBearer = AuthSchemeHTTPScheme(rawValue: "bearer")
-    public static let authSchemeHTTPBasic = AuthSchemeHTTPScheme(rawValue: "basic")
+    public static let authMethodHTTPBearer = AuthMethodHTTPScheme(rawValue: "bearer")
+    public static let authMethodHTTPBasic = AuthMethodHTTPScheme(rawValue: "basic")
 }
 
 /// SecretField is one value a person pastes to connect an api_key or http
@@ -15331,70 +15337,70 @@ public struct SecretField: Codable, Sendable {
     }
 }
 
-/// AuthSchemeClientAuth is how client_id/client_secret reach the token
+/// AuthMethodClientAuth is how client_id/client_secret reach the token
 /// endpoint. Most providers accept either; a few insist on one.
-public struct AuthSchemeClientAuth: RawRepresentable, Codable, Hashable, Sendable {
+public struct AuthMethodClientAuth: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// AuthSchemeClientAuthBasic sends them as an HTTP Basic Authorization
+    /// AuthMethodClientAuthBasic sends them as an HTTP Basic Authorization
     /// header (RFC 6749 §2.3.1, the default).
-    public static let basic = AuthSchemeClientAuth(rawValue: "basic")
-    /// AuthSchemeClientAuthBody sends them as form fields in the request body.
-    public static let body = AuthSchemeClientAuth(rawValue: "body")
-    /// AuthSchemeClientAuthNone is a public client (RFC 8414
+    public static let basic = AuthMethodClientAuth(rawValue: "basic")
+    /// AuthMethodClientAuthBody sends them as form fields in the request body.
+    public static let body = AuthMethodClientAuth(rawValue: "body")
+    /// AuthMethodClientAuthNone is a public client (RFC 8414
     /// token_endpoint_auth_method "none"): the client id goes in the body,
     /// there is no secret, and PKCE is what proves the client. Its OAuth app
     /// is complete with a client id alone (a dynamically registered client,
     /// or a Client ID Metadata Document URL).
-    public static let none = AuthSchemeClientAuth(rawValue: "none")
+    public static let none = AuthMethodClientAuth(rawValue: "none")
 }
 
-/// AuthSchemeTokenRequest is the token request's body encoding.
-public struct AuthSchemeTokenRequest: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodTokenRequest is the token request's body encoding.
+public struct AuthMethodTokenRequest: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let form = AuthSchemeTokenRequest(rawValue: "form")
-    public static let json = AuthSchemeTokenRequest(rawValue: "json")
+    public static let form = AuthMethodTokenRequest(rawValue: "form")
+    public static let json = AuthMethodTokenRequest(rawValue: "json")
 }
 
-/// AuthSchemeRefresh is when an access token is refreshed.
-public struct AuthSchemeRefresh: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodRefresh is when an access token is refreshed.
+public struct AuthMethodRefresh: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// AuthSchemeRefreshWhenExpiring refreshes within five minutes of the
+    /// AuthMethodRefreshWhenExpiring refreshes within five minutes of the
     /// reported expiry; a token with no expiry is treated as long-lived
     /// (Slack without token rotation, Notion).
-    public static let whenExpiring = AuthSchemeRefresh(rawValue: "")
-    /// AuthSchemeRefreshAlways refreshes on every read: the provider reports
+    public static let whenExpiring = AuthMethodRefresh(rawValue: "")
+    /// AuthMethodRefreshAlways refreshes on every read: the provider reports
     /// no expiry but the token does expire (Salesforce's session timeout is
     /// per org and not reported).
-    public static let always = AuthSchemeRefresh(rawValue: "always")
+    public static let always = AuthMethodRefresh(rawValue: "always")
 }
 
-/// AuthSchemeRevokeStyle is how the token reaches the revoke endpoint.
-public struct AuthSchemeRevokeStyle: RawRepresentable, Codable, Hashable, Sendable {
+/// AuthMethodRevokeStyle is how the token reaches the revoke endpoint.
+public struct AuthMethodRevokeStyle: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    public static let authSchemeRevokeBearer = AuthSchemeRevokeStyle(rawValue: "bearer")
-    public static let authSchemeRevokeQuery = AuthSchemeRevokeStyle(rawValue: "query")
-    public static let authSchemeRevokeForm = AuthSchemeRevokeStyle(rawValue: "form")
+    public static let authMethodRevokeBearer = AuthMethodRevokeStyle(rawValue: "bearer")
+    public static let authMethodRevokeQuery = AuthMethodRevokeStyle(rawValue: "query")
+    public static let authMethodRevokeForm = AuthMethodRevokeStyle(rawValue: "form")
 }
 
-/// AuthSchemeRevoke is the optional token revocation on disconnect.
-public struct AuthSchemeRevoke: Codable, Sendable {
+/// AuthMethodRevoke is the optional token revocation on disconnect.
+public struct AuthMethodRevoke: Codable, Sendable {
     public var url: String
-    public var style: AuthSchemeRevokeStyle
+    public var style: AuthMethodRevokeStyle
     /// ClientAuth also sends client_id and client_secret in the form
     /// (Discord).
     public var clientAuth: Bool?
 
     public init(
         url: String = "",
-        style: AuthSchemeRevokeStyle,
+        style: AuthMethodRevokeStyle,
         clientAuth: Bool? = nil
     ) {
         self.url = url
@@ -15409,12 +15415,12 @@ public struct AuthSchemeRevoke: Codable, Sendable {
     }
 }
 
-/// AuthSchemeAppKey is one key of the OAuth app a login goes through. The
+/// AuthMethodAppKey is one key of the OAuth app a login goes through. The
 /// client id and secret are implied (PREFIX_CLIENT_ID, PREFIX_CLIENT_SECRET);
 /// listing them only overrides their label and placeholder. Other keys
 /// (bot_token, signing_secret, tenant_id) are optional extras the app holds,
 /// read back by name in templates as {app.<name>} and by hooks.
-public struct AuthSchemeAppKey: Codable, Sendable {
+public struct AuthMethodAppKey: Codable, Sendable {
     /// Name is the key's role: client_id, client_secret, bot_token, …
     public var name: String
     /// Key is the vault key; default PREFIX_<NAME>.
@@ -15451,12 +15457,12 @@ public struct AuthSchemeAppKey: Codable, Sendable {
     }
 }
 
-/// AuthSchemeLookup is a call made after the token exchange, with the new
+/// AuthMethodLookup is a call made after the token exchange, with the new
 /// access token as bearer; its decoded response becomes a document root of
 /// its name for the identity, metadata and later lookups ({user.email},
 /// {resources.0.id}). userinfo_url is shorthand for the lookup named user.
 /// URL, body and headers are templates.
-public struct AuthSchemeLookup: Codable, Sendable {
+public struct AuthMethodLookup: Codable, Sendable {
     public var name: String
     public var url: String
     /// GET (default) or POST
@@ -15493,10 +15499,10 @@ public struct AuthSchemeLookup: Codable, Sendable {
     }
 }
 
-/// AuthSchemeCapability is something an app can ask for from this provider,
+/// AuthMethodCapability is something an app can ask for from this provider,
 /// satisfied by a connection holding its scopes. Scopes are in the scheme's
 /// own (friendly) names, the ones a credential stores.
-public struct AuthSchemeCapability: Codable, Sendable {
+public struct AuthMethodCapability: Codable, Sendable {
     /// "google.gmail.send"
     public var key: String
     /// required scopes; none = any connection
@@ -15531,10 +15537,10 @@ public struct AuthSchemeCapability: Codable, Sendable {
     }
 }
 
-/// AuthSchemeSpec is one way to authenticate against a provider, as data.
+/// AuthMethod is one way to authenticate against a provider, as data.
 /// Everything a standard OAuth2 provider needs is a field; where a provider
 /// deviates in a way data cannot express, the spec names a hook and Go
-/// supplies it (authprovider.RegisterTokenResponseHook and friends).
+/// supplies it (authmethod.RegisterTokenResponseHook and friends).
 /// 
 /// Templates: URLs, headers, lookup bodies, identifier, name, metadata and
 /// env values are strings with {{path}} placeholders. A path is read from
@@ -15554,20 +15560,20 @@ public struct AuthSchemeCapability: Codable, Sendable {
 /// Array elements are indexed: {{resources.0.id}}. {{a|b}} takes the first
 /// path present. A template none of whose placeholders resolve renders "":
 /// omitted from env and metadata, blank as identifier or name.
-public struct AuthSchemeSpec: Codable, Sendable {
-    public var kind: AuthSchemeKind
+public struct AuthMethod: Codable, Sendable {
+    public var kind: AuthMethodKind
     /// Flow is the oauth2 grant; empty means authorization_code.
-    public var flow: AuthSchemeFlow?
+    public var flow: AuthMethodFlow?
     /// Fields are what a person pastes (api_key and http kinds).
     public var fields: [SecretField]?
     /// In and ParamName say where an api_key key goes on a request: the
     /// header or query parameter of that name. ValuePrefix is prepended to
     /// the value ("Bearer "). Not needed to connect; read by injection.
-    public var `in`: AuthSchemeAPIKeyIn?
+    public var `in`: AuthMethodAPIKeyIn?
     public var paramName: String?
     public var valuePrefix: String?
     /// Scheme and BearerFormat describe an http kind's Authorization header.
-    public var scheme: AuthSchemeHTTPScheme?
+    public var scheme: AuthMethodHTTPScheme?
     public var bearerFormat: String?
     public var authorizationEndpoint: String?
     /// requested by default; a connect request may override (RequiredScopes stay)
@@ -15634,7 +15640,7 @@ public struct AuthSchemeSpec: Codable, Sendable {
     /// from the connect intent, never from the callback's path.
     public var callback: String?
     /// Profile names the authorization server's deviations from the specs
-    /// (authprovider.AuthServerProfile: endpoints placed by app fields,
+    /// (authmethod.AuthServerProfile: endpoints placed by app fields,
     /// scopes on refresh, actionable errors, admin consent). Empty = none.
     public var profile: String?
     public var tokenEndpoint: String?
@@ -15643,9 +15649,9 @@ public struct AuthSchemeSpec: Codable, Sendable {
     /// with a form POST.
     public var revocationEndpoint: String?
     /// empty = basic
-    public var clientAuth: AuthSchemeClientAuth?
+    public var clientAuth: AuthMethodClientAuth?
     /// empty = form
-    public var tokenRequest: AuthSchemeTokenRequest?
+    public var tokenRequest: AuthMethodTokenRequest?
     /// Headers go on every request to the provider (User-Agent for Reddit,
     /// Notion-Version); values are templates ({{client_id}} for Twitch's
     /// Client-Id).
@@ -15653,8 +15659,8 @@ public struct AuthSchemeSpec: Codable, Sendable {
     /// TokenResponseHook names the Go reader for a token response that is
     /// not the RFC 6749 shape (Slack's nested authed_user). Empty = standard.
     public var tokenResponseHook: String?
-    public var refresh: AuthSchemeRefresh?
-    @Indirect public var revoke: AuthSchemeRevoke?
+    public var refresh: AuthMethodRefresh?
+    @Indirect public var revoke: AuthMethodRevoke?
     /// UserInfoURL is fetched with the new access token; the response is the
     /// identity document (user.*). UserInfoURLPath instead reads that URL
     /// from a path within the token response (Salesforce's "id"). Lookups
@@ -15662,7 +15668,7 @@ public struct AuthSchemeSpec: Codable, Sendable {
     /// user. With none of these, the token response is all there is.
     public var userinfoUrl: String?
     public var userinfoUrlPath: String?
-    public var lookups: [AuthSchemeLookup]?
+    public var lookups: [AuthMethodLookup]?
     /// Identifier is the connected account's stable, human-readable id
     /// ("{{user.email}}", "@{{user.data.username}}"); Name its display name.
     public var identifier: String?
@@ -15683,21 +15689,21 @@ public struct AuthSchemeSpec: Codable, Sendable {
     public var env: [String: String]?
     /// AppKeys are the OAuth app's keys beyond the implied client id and
     /// secret, and label overrides for those.
-    public var appKeys: [AuthSchemeAppKey]?
+    public var appKeys: [AuthMethodAppKey]?
     /// VarsHook names Go code that turns the app's extra keys into the
     /// {var} values substituted into the URLs (Microsoft's tenant,
     /// Salesforce's sandbox host).
     public var varsHook: String?
-    public var capabilities: [AuthSchemeCapability]?
+    public var capabilities: [AuthMethodCapability]?
 
     public init(
-        kind: AuthSchemeKind,
-        flow: AuthSchemeFlow? = nil,
+        kind: AuthMethodKind,
+        flow: AuthMethodFlow? = nil,
         fields: [SecretField]? = nil,
-        `in`: AuthSchemeAPIKeyIn? = nil,
+        `in`: AuthMethodAPIKeyIn? = nil,
         paramName: String? = nil,
         valuePrefix: String? = nil,
-        scheme: AuthSchemeHTTPScheme? = nil,
+        scheme: AuthMethodHTTPScheme? = nil,
         bearerFormat: String? = nil,
         authorizationEndpoint: String? = nil,
         scopes: [String]? = nil,
@@ -15720,24 +15726,24 @@ public struct AuthSchemeSpec: Codable, Sendable {
         profile: String? = nil,
         tokenEndpoint: String? = nil,
         revocationEndpoint: String? = nil,
-        clientAuth: AuthSchemeClientAuth? = nil,
-        tokenRequest: AuthSchemeTokenRequest? = nil,
+        clientAuth: AuthMethodClientAuth? = nil,
+        tokenRequest: AuthMethodTokenRequest? = nil,
         headers: [String: String]? = nil,
         tokenResponseHook: String? = nil,
-        refresh: AuthSchemeRefresh? = nil,
-        revoke: AuthSchemeRevoke? = nil,
+        refresh: AuthMethodRefresh? = nil,
+        revoke: AuthMethodRevoke? = nil,
         userinfoUrl: String? = nil,
         userinfoUrlPath: String? = nil,
-        lookups: [AuthSchemeLookup]? = nil,
+        lookups: [AuthMethodLookup]? = nil,
         identifier: String? = nil,
         name: String? = nil,
         accountId: String? = nil,
         identityHook: String? = nil,
         metadata: [String: String]? = nil,
         env: [String: String]? = nil,
-        appKeys: [AuthSchemeAppKey]? = nil,
+        appKeys: [AuthMethodAppKey]? = nil,
         varsHook: String? = nil,
-        capabilities: [AuthSchemeCapability]? = nil
+        capabilities: [AuthMethodCapability]? = nil
     ) {
         self.kind = kind
         self.flow = flow
