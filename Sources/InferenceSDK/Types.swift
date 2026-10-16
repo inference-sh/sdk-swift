@@ -3646,7 +3646,7 @@ public struct AppVersionDTO: Codable, Sendable {
 /// use.
 public struct DeployWarning: Codable, Sendable {
     /// Code identifies the check: readonly_broad_credential,
-    /// unused_credential, missing_annotations.
+    /// unused_credential, missing_annotations, unapproved_platform_scope.
     public var code: String
     /// Function is the function the warning is about, when it is about one.
     public var function: String?
@@ -4099,6 +4099,8 @@ public struct ArtifactVersionDTO: Codable, Sendable {
     public var generatedBy: String?
     public var capabilities: [String: JSONValue]?
     public var createdByUserId: String?
+    /// Files are the pages and data served beside the index page.
+    public var files: [ArtifactVersionFileDTO]?
 
     public init(
         id: String = "",
@@ -4117,7 +4119,8 @@ public struct ArtifactVersionDTO: Codable, Sendable {
         origin: String? = nil,
         generatedBy: String? = nil,
         capabilities: [String: JSONValue]? = nil,
-        createdByUserId: String? = nil
+        createdByUserId: String? = nil,
+        files: [ArtifactVersionFileDTO]? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -4136,6 +4139,7 @@ public struct ArtifactVersionDTO: Codable, Sendable {
         self.generatedBy = generatedBy
         self.capabilities = capabilities
         self.createdByUserId = createdByUserId
+        self.files = files
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4156,6 +4160,57 @@ public struct ArtifactVersionDTO: Codable, Sendable {
         case generatedBy = "generated_by"
         case capabilities = "capabilities"
         case createdByUserId = "created_by_user_id"
+        case files = "files"
+    }
+}
+
+/// ArtifactVersionFileDTO is one file published beside a version's index.
+public struct ArtifactVersionFileDTO: Codable, Sendable {
+    public var path: String
+    public var sizeBytes: Int
+    public var contentType: String
+
+    public init(
+        path: String = "",
+        sizeBytes: Int = 0,
+        contentType: String = ""
+    ) {
+        self.path = path
+        self.sizeBytes = sizeBytes
+        self.contentType = contentType
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case sizeBytes = "size_bytes"
+        case contentType = "content_type"
+    }
+}
+
+/// ArtifactFileInput is one extra file in a publish, served at Path relative
+/// to the index page: another page (.html, .md), or css, js, json, svg, txt,
+/// xml, csv.
+public struct ArtifactFileInput: Codable, Sendable {
+    public var path: String
+    public var content: String
+    /// ContentEncoding is "base64" when Content is base64-encoded, as for the
+    /// main content.
+    public var contentEncoding: String?
+
+    public init(
+        path: String = "",
+        content: String = "",
+        contentEncoding: String? = nil
+    ) {
+        self.path = path
+        self.content = content
+        self.contentEncoding = contentEncoding
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case content = "content"
+        case contentEncoding = "content_encoding"
     }
 }
 
@@ -4176,6 +4231,9 @@ public struct ArtifactCreateRequest: Codable, Sendable {
     /// ContentEncoding is "base64" when Content is base64-encoded UTF-8. Use it
     /// from browsers and CLIs: edge firewalls reject raw <script> in JSON bodies.
     public var contentEncoding: String?
+    /// Files are published beside the index page. A publish is the whole
+    /// site: files of the previous version are not carried over.
+    public var files: [ArtifactFileInput]?
     public var label: String?
     public var notes: String?
     public var origin: String?
@@ -4199,6 +4257,7 @@ public struct ArtifactCreateRequest: Codable, Sendable {
         images: ResourceImages? = nil,
         content: String = "",
         contentEncoding: String? = nil,
+        files: [ArtifactFileInput]? = nil,
         label: String? = nil,
         notes: String? = nil,
         origin: String? = nil,
@@ -4215,6 +4274,7 @@ public struct ArtifactCreateRequest: Codable, Sendable {
         self.images = images
         self.content = content
         self.contentEncoding = contentEncoding
+        self.files = files
         self.label = label
         self.notes = notes
         self.origin = origin
@@ -4233,6 +4293,7 @@ public struct ArtifactCreateRequest: Codable, Sendable {
         case images = "images"
         case content = "content"
         case contentEncoding = "content_encoding"
+        case files = "files"
         case label = "label"
         case notes = "notes"
         case origin = "origin"
@@ -4282,6 +4343,9 @@ public struct ArtifactPublishRequest: Codable, Sendable {
     public var content: String
     /// ContentEncoding is "base64" when Content is base64-encoded UTF-8.
     public var contentEncoding: String?
+    /// Files are published beside the index page. A publish is the whole
+    /// site: files of the previous version are not carried over.
+    public var files: [ArtifactFileInput]?
     public var label: String?
     public var notes: String?
     public var origin: String?
@@ -4304,6 +4368,7 @@ public struct ArtifactPublishRequest: Codable, Sendable {
     public init(
         content: String = "",
         contentEncoding: String? = nil,
+        files: [ArtifactFileInput]? = nil,
         label: String? = nil,
         notes: String? = nil,
         origin: String? = nil,
@@ -4318,6 +4383,7 @@ public struct ArtifactPublishRequest: Codable, Sendable {
     ) {
         self.content = content
         self.contentEncoding = contentEncoding
+        self.files = files
         self.label = label
         self.notes = notes
         self.origin = origin
@@ -4334,6 +4400,7 @@ public struct ArtifactPublishRequest: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case content = "content"
         case contentEncoding = "content_encoding"
+        case files = "files"
         case label = "label"
         case notes = "notes"
         case origin = "origin"
@@ -5370,6 +5437,8 @@ public struct ChatMessageDTO: Codable, Sendable {
     public var tools: [Tool]?
     public var toolCallId: String?
     public var toolInvocations: [ToolInvocationDTO]?
+    /// CompactionMeta is what a compaction (role compaction) retired.
+    @Indirect public var compactionMeta: CompactionMeta?
 
     public init(
         id: String = "",
@@ -5392,7 +5461,8 @@ public struct ChatMessageDTO: Codable, Sendable {
         content: [ChatMessageContent]? = nil,
         tools: [Tool]? = nil,
         toolCallId: String? = nil,
-        toolInvocations: [ToolInvocationDTO]? = nil
+        toolInvocations: [ToolInvocationDTO]? = nil,
+        compactionMeta: CompactionMeta? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -5415,6 +5485,7 @@ public struct ChatMessageDTO: Codable, Sendable {
         self.tools = tools
         self.toolCallId = toolCallId
         self.toolInvocations = toolInvocations
+        self.compactionMeta = compactionMeta
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5439,6 +5510,7 @@ public struct ChatMessageDTO: Codable, Sendable {
         case tools = "tools"
         case toolCallId = "tool_call_id"
         case toolInvocations = "tool_invocations"
+        case compactionMeta = "compaction_meta"
     }
 }
 
@@ -5789,6 +5861,10 @@ public struct CredentialDTO: Codable, Sendable {
     public var accountIdentifier: String?
     public var accountName: String?
     public var scopes: StringSlice?
+    /// AllowedScopes, on an OAuth app row (grant credentials), is every
+    /// scope a login through it may request; absent when any scope may be
+    /// (a team's own client by default). Never set on a login.
+    public var allowedScopes: StringSlice?
     public var expiresAt: String?
     public var vaultId: String?
     public var metadata: [String: JSONValue]?
@@ -5822,6 +5898,7 @@ public struct CredentialDTO: Codable, Sendable {
         accountIdentifier: String? = nil,
         accountName: String? = nil,
         scopes: StringSlice? = nil,
+        allowedScopes: StringSlice? = nil,
         expiresAt: String? = nil,
         vaultId: String? = nil,
         metadata: [String: JSONValue]? = nil,
@@ -5851,6 +5928,7 @@ public struct CredentialDTO: Codable, Sendable {
         self.accountIdentifier = accountIdentifier
         self.accountName = accountName
         self.scopes = scopes
+        self.allowedScopes = allowedScopes
         self.expiresAt = expiresAt
         self.vaultId = vaultId
         self.metadata = metadata
@@ -5882,6 +5960,7 @@ public struct CredentialDTO: Codable, Sendable {
         case accountIdentifier = "account_identifier"
         case accountName = "account_name"
         case scopes = "scopes"
+        case allowedScopes = "allowed_scopes"
         case expiresAt = "expires_at"
         case vaultId = "vault_id"
         case metadata = "metadata"
@@ -5959,14 +6038,16 @@ public struct CompanySummary: Codable, Sendable {
 public struct CredentialConfigDTO: Codable, Sendable {
     public var slug: String
     /// Provider is the credential slug (what Credential.Provider stores):
-    /// one way to authenticate. The company it belongs to is ProviderInfo.
+    /// one way to authenticate. The company it belongs to is Company.
     public var provider: String
-    /// ProviderInfo is the company this slug belongs to, for grouping: the
-    /// providers row its auth provider names, else the slug's own identity.
-    @Indirect public var providerInfo: CompanySummary?
-    /// Company is ProviderInfo under its settled name (INF-1079); provider_info
-    /// stays one release.
+    /// Company is the company this slug belongs to, for grouping: the
+    /// companies row its auth provider names, else the slug's own identity.
     @Indirect public var company: CompanySummary?
+    /// ProviderInfo is Company under its pre-INF-1079 name. Deprecated; it
+    /// stays while released belt CLIs (v1.25.x) and the api-key scripts that
+    /// read /credentials/configs still use it, and goes once a CLI that reads
+    /// Company has shipped.
+    @Indirect public var providerInfo: CompanySummary?
     public var type: String
     public var name: String
     public var shortName: String
@@ -6005,8 +6086,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     public init(
         slug: String = "",
         provider: String = "",
-        providerInfo: CompanySummary? = nil,
         company: CompanySummary? = nil,
+        providerInfo: CompanySummary? = nil,
         type: String = "",
         name: String = "",
         shortName: String = "",
@@ -6027,8 +6108,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     ) {
         self.slug = slug
         self.provider = provider
-        self.providerInfo = providerInfo
         self.company = company
+        self.providerInfo = providerInfo
         self.type = type
         self.name = name
         self.shortName = shortName
@@ -6051,8 +6132,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case slug = "slug"
         case provider = "provider"
-        case providerInfo = "provider_info"
         case company = "company"
+        case providerInfo = "provider_info"
         case type = "type"
         case name = "name"
         case shortName = "short_name"
@@ -6414,6 +6495,8 @@ public struct EngineDTO: Codable, Sendable {
     public var apiUrl: String
     public var status: EngineStatus
     public var engineVersion: String
+    /// EnginePin is the version the engine is held on; empty follows stable.
+    public var enginePin: String?
     @Indirect public var systemInfo: SystemInfo?
     public var workers: [WorkerDTO]?
 
@@ -6434,6 +6517,7 @@ public struct EngineDTO: Codable, Sendable {
         apiUrl: String = "",
         status: EngineStatus,
         engineVersion: String = "",
+        enginePin: String? = nil,
         systemInfo: SystemInfo? = nil,
         workers: [WorkerDTO]? = nil
     ) {
@@ -6453,6 +6537,7 @@ public struct EngineDTO: Codable, Sendable {
         self.apiUrl = apiUrl
         self.status = status
         self.engineVersion = engineVersion
+        self.enginePin = enginePin
         self.systemInfo = systemInfo
         self.workers = workers
     }
@@ -6474,8 +6559,63 @@ public struct EngineDTO: Codable, Sendable {
         case apiUrl = "api_url"
         case status = "status"
         case engineVersion = "engine_version"
+        case enginePin = "engine_pin"
         case systemInfo = "system_info"
         case workers = "workers"
+    }
+}
+
+/// EngineUpdateRequest names the release an engine should install: "stable",
+/// "canary", or a version such as v1.9.3. Empty is stable.
+public struct EngineUpdateRequest: Codable, Sendable {
+    public var version: String?
+
+    public init(
+        version: String? = nil
+    ) {
+        self.version = version
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case version = "version"
+    }
+}
+
+/// EngineRelease is one published engine build.
+public struct EngineRelease: Codable, Sendable {
+    public var version: String
+    public var releaseDate: String?
+
+    public init(
+        version: String = "",
+        releaseDate: String? = nil
+    ) {
+        self.version = version
+        self.releaseDate = releaseDate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case version = "version"
+        case releaseDate = "release_date"
+    }
+}
+
+/// EngineReleasesResponse is the head of each engine release channel.
+public struct EngineReleasesResponse: Codable, Sendable {
+    @Indirect public var stable: EngineRelease?
+    @Indirect public var canary: EngineRelease?
+
+    public init(
+        stable: EngineRelease? = nil,
+        canary: EngineRelease? = nil
+    ) {
+        self.stable = stable
+        self.canary = canary
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case stable = "stable"
+        case canary = "canary"
     }
 }
 
@@ -19016,6 +19156,38 @@ public struct ContextInjection: Codable, Sendable {
         case ttlTurns = "ttl_turns"
         case dedupKey = "dedup_key"
         case items = "items"
+    }
+}
+
+/// CompactionMeta is stored on ChatMessage for context compaction markers.
+public struct CompactionMeta: Codable, Sendable {
+    public var compactedUpToOrder: Int
+    public var compactedCount: Int
+    public var estimatedTokens: Int
+    /// "extractive" or "llm"
+    public var method: String?
+    public var analysis: String?
+
+    public init(
+        compactedUpToOrder: Int = 0,
+        compactedCount: Int = 0,
+        estimatedTokens: Int = 0,
+        method: String? = nil,
+        analysis: String? = nil
+    ) {
+        self.compactedUpToOrder = compactedUpToOrder
+        self.compactedCount = compactedCount
+        self.estimatedTokens = estimatedTokens
+        self.method = method
+        self.analysis = analysis
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case compactedUpToOrder = "compacted_up_to_order"
+        case compactedCount = "compacted_count"
+        case estimatedTokens = "estimated_tokens"
+        case method = "method"
+        case analysis = "analysis"
     }
 }
 
