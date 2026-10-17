@@ -6065,11 +6065,6 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// Company is the company this slug belongs to, for grouping: the
     /// companies row its auth provider names, else the slug's own identity.
     @Indirect public var company: CompanySummary?
-    /// ProviderInfo is Company under its pre-INF-1079 name. Deprecated; it
-    /// stays while released belt CLIs (v1.25.x) and the api-key scripts that
-    /// read /credentials/configs still use it, and goes once a CLI that reads
-    /// Company has shipped.
-    @Indirect public var providerInfo: CompanySummary?
     public var type: String
     public var name: String
     public var shortName: String
@@ -6092,7 +6087,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
     @Indirect public var app: CredentialDTO?
     /// AuthProviderID is set when the provider is one the team defined
     /// itself (models.AuthProvider), so the UI can offer edit and remove.
-    public var authSchemeId: String?
+    public var authProviderId: String?
     /// Credential is the login used where no account is named: the caller's
     /// own, else the workspace's default account.
     @Indirect public var credential: CredentialDTO?
@@ -6109,7 +6104,6 @@ public struct CredentialConfigDTO: Codable, Sendable {
         slug: String = "",
         provider: String = "",
         company: CompanySummary? = nil,
-        providerInfo: CompanySummary? = nil,
         type: String = "",
         name: String = "",
         shortName: String = "",
@@ -6123,7 +6117,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         hasManaged: Bool = false,
         connectionScope: CredentialScope,
         app: CredentialDTO? = nil,
-        authSchemeId: String? = nil,
+        authProviderId: String? = nil,
         credential: CredentialDTO? = nil,
         accounts: [CredentialDTO]? = nil,
         multiAccount: Bool = false
@@ -6131,7 +6125,6 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.slug = slug
         self.provider = provider
         self.company = company
-        self.providerInfo = providerInfo
         self.type = type
         self.name = name
         self.shortName = shortName
@@ -6145,7 +6138,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.hasManaged = hasManaged
         self.connectionScope = connectionScope
         self.app = app
-        self.authSchemeId = authSchemeId
+        self.authProviderId = authProviderId
         self.credential = credential
         self.accounts = accounts
         self.multiAccount = multiAccount
@@ -6155,7 +6148,6 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case slug = "slug"
         case provider = "provider"
         case company = "company"
-        case providerInfo = "provider_info"
         case type = "type"
         case name = "name"
         case shortName = "short_name"
@@ -6169,7 +6161,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case hasManaged = "has_managed"
         case connectionScope = "connection_scope"
         case app = "app"
-        case authSchemeId = "auth_scheme_id"
+        case authProviderId = "auth_provider_id"
         case credential = "credential"
         case accounts = "accounts"
         case multiAccount = "multi_account"
