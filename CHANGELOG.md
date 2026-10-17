@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0
+
+Breaking (INF-1079, matching api-v1313):
+- `CredentialConfigDTO.providerInfo` is gone: read `company`.
+- `CredentialConfigDTO.authSchemeId` is `authProviderId` (`auth_provider_id`).
+
+Changed:
+- Generated types follow the API: engine release targets, `EngineDTO` capabilities (`EngineCapability`, `EngineCapabilities`).
+
 ## Unreleased
 
 Added:
