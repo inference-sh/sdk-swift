@@ -4501,19 +4501,33 @@ public struct ArtifactDataRequest: Codable, Sendable {
     public var docId: String?
     /// Data is the document body for set and update.
     public var data: [String: JSONValue]?
-    /// Limit caps a list; the server clamps it.
+    /// Limit caps a list; the server clamps it to 200.
     public var limit: Int?
+    /// Cursor continues a list from the next_cursor of the page before.
+    public var cursor: String?
+    /// Order is the list order: -updated_at (the default), updated_at,
+    /// -created_at or created_at.
+    public var order: String?
+    /// Where keeps only documents whose top-level fields equal these values
+    /// (string, number, boolean, or null for a missing field).
+    public var `where`: [String: JSONValue]?
 
     public init(
         collection: String = "",
         docId: String? = nil,
         data: [String: JSONValue]? = nil,
-        limit: Int? = nil
+        limit: Int? = nil,
+        cursor: String? = nil,
+        order: String? = nil,
+        `where`: [String: JSONValue]? = nil
     ) {
         self.collection = collection
         self.docId = docId
         self.data = data
         self.limit = limit
+        self.cursor = cursor
+        self.order = order
+        self.`where` = `where`
     }
 
     enum CodingKeys: String, CodingKey {
@@ -4521,6 +4535,9 @@ public struct ArtifactDataRequest: Codable, Sendable {
         case docId = "doc_id"
         case data = "data"
         case limit = "limit"
+        case cursor = "cursor"
+        case order = "order"
+        case `where` = "where"
     }
 }
 
@@ -4529,21 +4546,26 @@ public struct ArtifactDataListResponse: Codable, Sendable {
     public var collection: String
     public var documents: [ArtifactDataDTO]?
     public var count: Int
+    /// NextCursor fetches the page after this one; empty on the last page.
+    public var nextCursor: String?
 
     public init(
         collection: String = "",
         documents: [ArtifactDataDTO]? = nil,
-        count: Int = 0
+        count: Int = 0,
+        nextCursor: String? = nil
     ) {
         self.collection = collection
         self.documents = documents
         self.count = count
+        self.nextCursor = nextCursor
     }
 
     enum CodingKeys: String, CodingKey {
         case collection = "collection"
         case documents = "documents"
         case count = "count"
+        case nextCursor = "next_cursor"
     }
 }
 
@@ -6497,6 +6519,8 @@ public struct EngineDTO: Codable, Sendable {
     public var engineVersion: String
     /// EnginePin is the version the engine is held on; empty follows stable.
     public var enginePin: String?
+    /// Capabilities are what the engine last reported it can do.
+    public var capabilities: EngineCapabilities?
     @Indirect public var systemInfo: SystemInfo?
     public var workers: [WorkerDTO]?
 
@@ -6518,6 +6542,7 @@ public struct EngineDTO: Codable, Sendable {
         status: EngineStatus,
         engineVersion: String = "",
         enginePin: String? = nil,
+        capabilities: EngineCapabilities? = nil,
         systemInfo: SystemInfo? = nil,
         workers: [WorkerDTO]? = nil
     ) {
@@ -6538,6 +6563,7 @@ public struct EngineDTO: Codable, Sendable {
         self.status = status
         self.engineVersion = engineVersion
         self.enginePin = enginePin
+        self.capabilities = capabilities
         self.systemInfo = systemInfo
         self.workers = workers
     }
@@ -6560,6 +6586,7 @@ public struct EngineDTO: Codable, Sendable {
         case status = "status"
         case engineVersion = "engine_version"
         case enginePin = "engine_pin"
+        case capabilities = "capabilities"
         case systemInfo = "system_info"
         case workers = "workers"
     }
@@ -6936,6 +6963,21 @@ public struct WorkerRAM: Codable, Sendable {
         case total = "total"
     }
 }
+
+/// EngineCapability is something an engine can do beyond the base contract
+/// every engine meets. An engine reports the ones it has (EngineTelemetry);
+/// a task lists the ones it needs (Task.Requires); the scheduler only sends
+/// a task to an engine that has every one it needs.
+public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let egressGateway = EngineCapability(rawValue: "egress_gateway")
+}
+
+/// EngineCapabilities is a set of capabilities, kept as a list. Nil and
+/// empty are the same: nothing beyond the base contract.
+public typealias EngineCapabilities = [EngineCapability]
 
 /// EntitlementDTO for API responses
 public struct EntitlementDTO: Codable, Sendable {
