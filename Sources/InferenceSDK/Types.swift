@@ -13606,6 +13606,26 @@ public struct TaskLog: Codable, Sendable {
 }
 
 /// TaskDTO is the full API response for a task.
+/// TaskEgress is what a task's sandbox sent to and received from the
+/// internet through the engine's egress gateway, in bytes.
+public struct TaskEgress: Codable, Sendable {
+    public var bytesOut: Int
+    public var bytesIn: Int
+
+    public init(
+        bytesOut: Int = 0,
+        bytesIn: Int = 0
+    ) {
+        self.bytesOut = bytesOut
+        self.bytesIn = bytesIn
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case bytesOut = "bytes_out"
+        case bytesIn = "bytes_in"
+    }
+}
+
 public struct TaskDTO: Codable, Sendable {
     public var id: String
     public var shortId: String
@@ -13649,6 +13669,10 @@ public struct TaskDTO: Codable, Sendable {
     public var events: [TaskEvent]?
     public var logs: [TaskLog]?
     public var usageEvents: [UsageEventDTO]?
+    /// Egress is what the task's sandbox moved through the engine's egress
+    /// gateway, reported by the engine when the task ended. Absent for a
+    /// task that ran without the gateway.
+    @Indirect public var egress: TaskEgress?
     public var sessionId: String?
     public var sessionTimeout: Int?
 
@@ -13695,6 +13719,7 @@ public struct TaskDTO: Codable, Sendable {
         events: [TaskEvent]? = nil,
         logs: [TaskLog]? = nil,
         usageEvents: [UsageEventDTO]? = nil,
+        egress: TaskEgress? = nil,
         sessionId: String? = nil,
         sessionTimeout: Int? = nil
     ) {
@@ -13740,6 +13765,7 @@ public struct TaskDTO: Codable, Sendable {
         self.events = events
         self.logs = logs
         self.usageEvents = usageEvents
+        self.egress = egress
         self.sessionId = sessionId
         self.sessionTimeout = sessionTimeout
     }
@@ -13787,6 +13813,7 @@ public struct TaskDTO: Codable, Sendable {
         case events = "events"
         case logs = "logs"
         case usageEvents = "usage_events"
+        case egress = "egress"
         case sessionId = "session_id"
         case sessionTimeout = "session_timeout"
     }
