@@ -3279,6 +3279,25 @@ public struct CredentialRequirement: Codable, Sendable {
     @Indirect public var provider: CompanySeed?
     /// Auth is the credential's auth provider, for a slug no row defines yet.
     @Indirect public var auth: AuthMethod?
+    /// The rest describe the platform api_key scheme a platform app's deploy
+    /// catalogues for the slug: set on the scheme it creates, and filled into
+    /// an existing one only where that is still empty (an admin's edit
+    /// stands). Any other deploy ignores them.
+    /// 
+    /// DisplayName is the scheme's name ("Claude Code"); at most
+    /// MaxCredentialDisplayName characters.
+    public var displayName: String?
+    /// ConnectionScope is who a connection belongs to: team (empty) or user.
+    public var connectionScope: CredentialScope?
+    /// Instructions tell a person how to get the key (markdown, at most
+    /// MaxAuthProviderInstructions characters).
+    public var instructions: String?
+    /// DocsURL is the scheme's documentation link.
+    public var docsUrl: String?
+    /// ExpiresAfterDays is how long a saved key lasts: it counts as expired
+    /// this many days after it is saved. 0 is never; at most
+    /// MaxExpiresAfterDays.
+    public var expiresAfterDays: Int?
 
     public init(
         slug: String? = nil,
@@ -3288,7 +3307,12 @@ public struct CredentialRequirement: Codable, Sendable {
         secrets: [String]? = nil,
         scopes: [String]? = nil,
         provider: CompanySeed? = nil,
-        auth: AuthMethod? = nil
+        auth: AuthMethod? = nil,
+        displayName: String? = nil,
+        connectionScope: CredentialScope? = nil,
+        instructions: String? = nil,
+        docsUrl: String? = nil,
+        expiresAfterDays: Int? = nil
     ) {
         self.slug = slug
         self.capabilities = capabilities
@@ -3298,6 +3322,11 @@ public struct CredentialRequirement: Codable, Sendable {
         self.scopes = scopes
         self.provider = provider
         self.auth = auth
+        self.displayName = displayName
+        self.connectionScope = connectionScope
+        self.instructions = instructions
+        self.docsUrl = docsUrl
+        self.expiresAfterDays = expiresAfterDays
     }
 
     enum CodingKeys: String, CodingKey {
@@ -3309,6 +3338,11 @@ public struct CredentialRequirement: Codable, Sendable {
         case scopes = "scopes"
         case provider = "provider"
         case auth = "auth"
+        case displayName = "display_name"
+        case connectionScope = "connection_scope"
+        case instructions = "instructions"
+        case docsUrl = "docs_url"
+        case expiresAfterDays = "expires_after_days"
     }
 }
 
@@ -6071,9 +6105,16 @@ public struct CredentialConfigDTO: Codable, Sendable {
     public var description: String
     public var iconUrl: String?
     public var howItWorks: [String]?
+    /// Instructions tell a person how to get what this credential asks for
+    /// (markdown, links allowed): the auth scheme's.
+    public var instructions: String?
     public var docsUrl: String?
     public var secretFields: [SecretFieldConfig]?
     public var allowsByok: Bool
+    /// ExpiresAfterDays is how long a saved key lasts, in days: a key counts
+    /// as expired that long after it is saved (its credential's expires_at).
+    /// 0 is never.
+    public var expiresAfterDays: Int?
     public var available: Bool
     public var hasManaged: Bool
     /// ConnectionScope is who a new connection belongs to by default: the
@@ -6110,9 +6151,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
         description: String = "",
         iconUrl: String? = nil,
         howItWorks: [String]? = nil,
+        instructions: String? = nil,
         docsUrl: String? = nil,
         secretFields: [SecretFieldConfig]? = nil,
         allowsByok: Bool = false,
+        expiresAfterDays: Int? = nil,
         available: Bool = false,
         hasManaged: Bool = false,
         connectionScope: CredentialScope,
@@ -6131,9 +6174,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.description = description
         self.iconUrl = iconUrl
         self.howItWorks = howItWorks
+        self.instructions = instructions
         self.docsUrl = docsUrl
         self.secretFields = secretFields
         self.allowsByok = allowsByok
+        self.expiresAfterDays = expiresAfterDays
         self.available = available
         self.hasManaged = hasManaged
         self.connectionScope = connectionScope
@@ -6154,9 +6199,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case description = "description"
         case iconUrl = "icon_url"
         case howItWorks = "how_it_works"
+        case instructions = "instructions"
         case docsUrl = "docs_url"
         case secretFields = "secret_fields"
         case allowsByok = "allows_byok"
+        case expiresAfterDays = "expires_after_days"
         case available = "available"
         case hasManaged = "has_managed"
         case connectionScope = "connection_scope"
@@ -6175,19 +6222,23 @@ public struct SecretFieldConfig: Codable, Sendable {
     public var placeholder: String
     public var sensitive: Bool
     public var optional: Bool
+    /// Pattern is the scheme field's pattern (shared.SecretField.Pattern).
+    public var pattern: String?
 
     public init(
         key: String = "",
         label: String = "",
         placeholder: String = "",
         sensitive: Bool = false,
-        optional: Bool = false
+        optional: Bool = false,
+        pattern: String? = nil
     ) {
         self.key = key
         self.label = label
         self.placeholder = placeholder
         self.sensitive = sensitive
         self.optional = optional
+        self.pattern = pattern
     }
 
     enum CodingKeys: String, CodingKey {
@@ -6196,6 +6247,7 @@ public struct SecretFieldConfig: Codable, Sendable {
         case placeholder = "placeholder"
         case sensitive = "sensitive"
         case optional = "optional"
+        case pattern = "pattern"
     }
 }
 
@@ -7284,6 +7336,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let methodNotAllowed = ErrorCode(rawValue: "method_not_allowed")
     public static let rateLimited = ErrorCode(rawValue: "rate_limited")
     public static let internalError = ErrorCode(rawValue: "internal_error")
+    /// ErrorCodeRequirementsNotMet (412): the run needs a secret or a
+    /// credential the caller has not set up. Meta "errors" lists each
+    /// RequirementError, its action saying how to set it up.
+    public static let requirementsNotMet = ErrorCode(rawValue: "requirements_not_met")
     /// ErrorCodeTeamRoleRequired: the caller's team role or org-admin status
     /// does not allow the action. Meta is TeamRoleRequiredMeta when a
     /// capability gate refused it.
@@ -12495,6 +12551,9 @@ public struct SetupAction: Codable, Sendable {
     /// ProviderWebsite is where the logo of a provider the platform does not
     /// list comes from; sent back when the keys are saved.
     public var providerWebsite: String?
+    /// Instructions tell a person how to get what the provider's scheme
+    /// asks for (markdown, links allowed).
+    public var instructions: String?
 
     public init(
         type: SetupActionType,
@@ -12503,7 +12562,8 @@ public struct SetupAction: Codable, Sendable {
         scopes: [String]? = nil,
         scopeDescriptions: [String: String]? = nil,
         secrets: [String]? = nil,
-        providerWebsite: String? = nil
+        providerWebsite: String? = nil,
+        instructions: String? = nil
     ) {
         self.type = type
         self.provider = provider
@@ -12512,6 +12572,7 @@ public struct SetupAction: Codable, Sendable {
         self.scopeDescriptions = scopeDescriptions
         self.secrets = secrets
         self.providerWebsite = providerWebsite
+        self.instructions = instructions
     }
 
     enum CodingKeys: String, CodingKey {
@@ -12522,6 +12583,7 @@ public struct SetupAction: Codable, Sendable {
         case scopeDescriptions = "scope_descriptions"
         case secrets = "secrets"
         case providerWebsite = "provider_website"
+        case instructions = "instructions"
     }
 }
 
@@ -15487,19 +15549,25 @@ public struct SecretField: Codable, Sendable {
     public var placeholder: String?
     public var sensitive: Bool?
     public var optional: Bool?
+    /// Pattern, when set, is a regular expression (RE2) a saved value must
+    /// match, so a pasted login link or the wrong key is refused on save
+    /// instead of failing the first run ("^sk-ant-oat01-").
+    public var pattern: String?
 
     public init(
         key: String = "",
         label: String? = nil,
         placeholder: String? = nil,
         sensitive: Bool? = nil,
-        optional: Bool? = nil
+        optional: Bool? = nil,
+        pattern: String? = nil
     ) {
         self.key = key
         self.label = label
         self.placeholder = placeholder
         self.sensitive = sensitive
         self.optional = optional
+        self.pattern = pattern
     }
 
     enum CodingKeys: String, CodingKey {
@@ -15508,6 +15576,7 @@ public struct SecretField: Codable, Sendable {
         case placeholder = "placeholder"
         case sensitive = "sensitive"
         case optional = "optional"
+        case pattern = "pattern"
     }
 }
 
@@ -18221,6 +18290,10 @@ public struct TaskStatus: RawRepresentable, Codable, Hashable, Sendable {
     public static let completed = TaskStatus(rawValue: 10)
     public static let failed = TaskStatus(rawValue: 11)
     public static let cancelled = TaskStatus(rawValue: 12)
+    /// TaskStatusRejected is a run admission refused (no balance, no payment
+    /// method). The task is written already ended, keeping what was asked
+    /// for; it never ran and no status leads to it.
+    public static let rejected = TaskStatus(rawValue: 13)
 }
 
 /// Infra defines where a task should run.
@@ -18925,6 +18998,7 @@ public struct InterruptResourceType: RawRepresentable, Codable, Hashable, Sendab
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
+    public static let interruptResourceTurn = InterruptResourceType(rawValue: "turn")
     public static let interruptResourceToolInvocation = InterruptResourceType(rawValue: "tool_invocation")
     public static let interruptResourceHookEvent = InterruptResourceType(rawValue: "hook_event")
 }

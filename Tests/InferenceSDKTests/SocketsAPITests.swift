@@ -187,5 +187,12 @@ final class SocketsAPITests: XCTestCase {
         } catch let error as TaskRunError {
             XCTAssertEqual(error.localizedDescription, "task cancelled")
         }
+
+        do {
+            _ = try await client(task: try task(status: 13, error: "insufficient balance")).tasks.watch("task-1")
+            XCTFail("a rejected task must throw")
+        } catch let error as TaskRunError {
+            XCTAssertEqual(error.localizedDescription, "task rejected: insufficient balance")
+        }
     }
 }

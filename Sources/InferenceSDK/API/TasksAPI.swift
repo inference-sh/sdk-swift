@@ -66,11 +66,14 @@ public struct TaskRunOptions: Sendable {
 public enum TaskRunError: Error, LocalizedError, Sendable {
     case failed(String)
     case cancelled
+    /// Refused at admission (no balance or payment method); it never ran.
+    case rejected(String)
 
     public var errorDescription: String? {
         switch self {
         case .failed(let message): return message
         case .cancelled: return "task cancelled"
+        case .rejected(let message): return "task rejected: \(message)"
         }
     }
 }
@@ -140,7 +143,8 @@ public struct TasksAPI: Sendable {
 
     /// POST /apps/run, then wait for the task to reach a terminal status:
     /// completed returns the task, failed throws `TaskRunError.failed` with the
-    /// task's error, cancelled throws `TaskRunError.cancelled`. `wait: false`
+    /// task's error, cancelled throws `TaskRunError.cancelled`, rejected throws
+    /// `TaskRunError.rejected` with the refusal message. `wait: false`
     /// returns the created task immediately. `stream: true` (default) follows
     /// GET /tasks/{id}/stream as NDJSON; `stream: false` polls
     /// GET /tasks/{id}/status and fetches the full task on each change.
@@ -153,8 +157,8 @@ public struct TasksAPI: Sendable {
     }
 
     /// Follows a task that is already running until it reaches a terminal
-    /// status, with `run`'s outcomes: completed returns the task, failed and
-    /// cancelled throw. A task that has already ended is reported once through
+    /// status, with `run`'s outcomes: completed returns the task, failed,
+    /// cancelled and rejected throw. A task that has already ended is reported once through
     /// `onUpdate` and settles at once. `options.wait` is not read. Cancel the
     /// Swift task to stop watching (js: `watch(task).stop()`).
     public func watch(_ taskId: String, options: TaskRunOptions = TaskRunOptions()) async throws -> TaskDTO {
@@ -305,7 +309,7 @@ public struct TasksAPI: Sendable {
                 "dispatched": .dispatched, "preparing": .preparing, "serving": .serving,
                 "setting_up": .settingUp, "running": .running, "cancelling": .cancelling,
                 "uploading": .uploading, "completed": .completed, "failed": .failed,
-                "cancelled": .cancelled,
+                "cancelled": .cancelled, "rejected": .rejected,
             ]
             return map[s.lowercased()] ?? .unknown
         default:
@@ -313,12 +317,13 @@ public struct TasksAPI: Sendable {
         }
     }
 
-    /// failed/cancelled → the matching TaskRunError; anything else → nil.
+    /// failed/cancelled/rejected → the matching TaskRunError; anything else → nil.
     /// Shared by the stream and poll paths so the mapping cannot drift.
     private static func terminalError(_ status: TaskStatus, _ error: String?) -> TaskRunError? {
         switch status {
         case .failed: return .failed(error ?? "task failed")
         case .cancelled: return .cancelled
+        case .rejected: return .rejected(error ?? "insufficient balance")
         default: return nil
         }
     }

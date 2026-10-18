@@ -405,8 +405,8 @@ public extension ChatMessageStatus {
 }
 
 public extension TaskStatus {
-    /// completed, failed or cancelled.
-    var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled }
+    /// completed, failed, cancelled or rejected.
+    var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled || self == .rejected }
 }
 
 public extension TaskResultDTO {
