@@ -135,7 +135,7 @@ let task = try await client.tasks.run(ApiAppRunRequest(
 print(task.output)
 ```
 
-`run` returns the finished task. A failed task throws `TaskRunError.failed`, a cancelled one `TaskRunError.cancelled`.
+`run` returns the finished task. A failed task throws `TaskRunError.failed`, a cancelled one `TaskRunError.cancelled`, a rejected one (no balance or payment method) `TaskRunError.rejected`.
 
 ## Running Apps
 
