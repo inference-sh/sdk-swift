@@ -542,20 +542,17 @@ public struct ToolAuthType: RawRepresentable, Codable, Hashable, Sendable {
 public struct ToolAuthConfig: Codable, Sendable {
     public var type: ToolAuthType
     public var provider: String?
-    public var credentialId: String?
     public var secret: String?
     public var header: String?
 
     public init(
         type: ToolAuthType,
         provider: String? = nil,
-        credentialId: String? = nil,
         secret: String? = nil,
         header: String? = nil
     ) {
         self.type = type
         self.provider = provider
-        self.credentialId = credentialId
         self.secret = secret
         self.header = header
     }
@@ -563,7 +560,6 @@ public struct ToolAuthConfig: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case type = "type"
         case provider = "provider"
-        case credentialId = "credential_id"
         case secret = "secret"
         case header = "header"
     }
@@ -616,29 +612,23 @@ public struct HTTPToolConfig: Codable, Sendable {
 
 /// MCPToolConfig is a tool of an MCP server: the server by its slug (the
 /// agent's team's registration, its org's or the directory's) and the tool
-/// to call. CredentialID pins the connection the call signs in with; without
-/// it the runner's connection to the server's provider is used. A tool
-/// written with only a connection is saved with the server that
-/// connection's provider is declared by.
+/// to call. Each call signs in with the runner's connection to the
+/// server's provider (Credential.ToolConnection).
 public struct MCPToolConfig: Codable, Sendable {
     public var server: String?
     public var toolName: String
-    public var credentialId: String?
 
     public init(
         server: String? = nil,
-        toolName: String = "",
-        credentialId: String? = nil
+        toolName: String = ""
     ) {
         self.server = server
         self.toolName = toolName
-        self.credentialId = credentialId
     }
 
     enum CodingKeys: String, CodingKey {
         case server = "server"
         case toolName = "tool_name"
-        case credentialId = "credential_id"
     }
 }
 
@@ -806,22 +796,18 @@ public struct HTTPToolConfigDTO: Codable, Sendable {
 public struct MCPToolConfigDTO: Codable, Sendable {
     public var server: String
     public var toolName: String
-    public var credentialId: String?
 
     public init(
         server: String = "",
-        toolName: String = "",
-        credentialId: String? = nil
+        toolName: String = ""
     ) {
         self.server = server
         self.toolName = toolName
-        self.credentialId = credentialId
     }
 
     enum CodingKeys: String, CodingKey {
         case server = "server"
         case toolName = "tool_name"
-        case credentialId = "credential_id"
     }
 }
 
