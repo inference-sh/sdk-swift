@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0
+
+Breaking (INF-1012, matching the API):
+- `ToolAuthConfig.credentialId`, `MCPToolConfig.credentialId` and `MCPToolConfigDTO.credentialId` are gone: an agent tool no longer pins a connection; it signs in with the caller's own login to the provider at run time.
+
 ## 0.19.0
 
 Breaking (INF-1079, matching api-v1313):
