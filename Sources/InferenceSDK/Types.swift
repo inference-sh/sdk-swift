@@ -121,6 +121,7 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var agent: Bool?
     public var remote: Bool?
     public var knowledge: Bool?
+    public var wait: Bool?
 
     public init(
         plan: Bool? = nil,
@@ -133,7 +134,8 @@ public struct InternalToolsConfig: Codable, Sendable {
         artifact: Bool? = nil,
         agent: Bool? = nil,
         remote: Bool? = nil,
-        knowledge: Bool? = nil
+        knowledge: Bool? = nil,
+        wait: Bool? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -146,6 +148,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         self.agent = agent
         self.remote = remote
         self.knowledge = knowledge
+        self.wait = wait
     }
 
     enum CodingKeys: String, CodingKey {
@@ -160,6 +163,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         case agent = "agent"
         case remote = "remote"
         case knowledge = "knowledge"
+        case wait = "wait"
     }
 }
 
@@ -193,6 +197,9 @@ public struct AgentTool: Codable, Sendable {
     public var description: String
     public var type: ToolType
     public var requireApproval: Bool?
+    /// ApprovalTimeout is how many seconds a call of this tool waits for its
+    /// approval before it is refused. 0 waits until someone answers.
+    public var approvalTimeout: Int?
     @Indirect public var app: AppToolConfig?
     @Indirect public var agent: AgentToolConfig?
     @Indirect public var hook: HookToolConfig?
@@ -208,6 +215,7 @@ public struct AgentTool: Codable, Sendable {
         description: String = "",
         type: ToolType,
         requireApproval: Bool? = nil,
+        approvalTimeout: Int? = nil,
         app: AppToolConfig? = nil,
         agent: AgentToolConfig? = nil,
         hook: HookToolConfig? = nil,
@@ -222,6 +230,7 @@ public struct AgentTool: Codable, Sendable {
         self.description = description
         self.type = type
         self.requireApproval = requireApproval
+        self.approvalTimeout = approvalTimeout
         self.app = app
         self.agent = agent
         self.hook = hook
@@ -238,6 +247,7 @@ public struct AgentTool: Codable, Sendable {
         case description = "description"
         case type = "type"
         case requireApproval = "require_approval"
+        case approvalTimeout = "approval_timeout"
         case app = "app"
         case agent = "agent"
         case hook = "hook"
@@ -350,6 +360,7 @@ public struct AgentToolDTO: Codable, Sendable {
     public var description: String
     public var type: ToolType
     public var requireApproval: Bool?
+    public var approvalTimeout: Int?
     @Indirect public var app: AppToolConfigDTO?
     @Indirect public var agent: AgentToolConfigDTO?
     @Indirect public var hook: HookToolConfigDTO?
@@ -364,6 +375,7 @@ public struct AgentToolDTO: Codable, Sendable {
         description: String = "",
         type: ToolType,
         requireApproval: Bool? = nil,
+        approvalTimeout: Int? = nil,
         app: AppToolConfigDTO? = nil,
         agent: AgentToolConfigDTO? = nil,
         hook: HookToolConfigDTO? = nil,
@@ -377,6 +389,7 @@ public struct AgentToolDTO: Codable, Sendable {
         self.description = description
         self.type = type
         self.requireApproval = requireApproval
+        self.approvalTimeout = approvalTimeout
         self.app = app
         self.agent = agent
         self.hook = hook
@@ -392,6 +405,7 @@ public struct AgentToolDTO: Codable, Sendable {
         case description = "description"
         case type = "type"
         case requireApproval = "require_approval"
+        case approvalTimeout = "approval_timeout"
         case app = "app"
         case agent = "agent"
         case hook = "hook"
@@ -18949,6 +18963,7 @@ public struct InterruptReason: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
+    public static let wait = InterruptReason(rawValue: "wait")
     public static let toolApproval = InterruptReason(rawValue: "tool_approval")
     public static let clientTool = InterruptReason(rawValue: "client_tool")
     public static let widget = InterruptReason(rawValue: "widget")
