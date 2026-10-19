@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.22.0
+
+Added (matching api-v1324):
+- `InternalToolsConfig.wait`: the wait tool, which pauses a run until a time and then continues the chat. `InterruptReason.wait` is the reason on the interrupt it pauses with.
+- `AgentTool.approvalTimeout` and `AgentToolDTO.approvalTimeout`: seconds a call waits for approval before it is refused; nil or 0 waits until someone answers.
+
 ## 0.21.0
 
 Breaking (INF-1012, matching the API):
