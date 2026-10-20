@@ -9520,6 +9520,51 @@ public struct InstanceTypeBootTime: Codable, Sendable {
     }
 }
 
+/// InstancePriceHistoryPointDTO is one day's cheapest hourly prices, in cents,
+/// for a GPU type. List prices rarely move; the in-stock price does, as stock
+/// comes and goes. A price with no listing (or no stock) that day is omitted.
+public struct InstancePriceHistoryPointDTO: Codable, Sendable {
+    /// YYYY-MM-DD, UTC
+    public var day: String
+    /// OnDemand and Spot are the cheapest listed prices, in stock or not.
+    public var onDemand: Int?
+    public var spot: Int?
+    /// OnDemandInStock and SpotInStock are the cheapest prices that had stock.
+    public var onDemandInStock: Int?
+    public var spotInStock: Int?
+    public var providers: Int
+    /// Regions is the number of provider regions with on-demand stock.
+    public var regions: Int
+
+    public init(
+        day: String = "",
+        onDemand: Int? = nil,
+        spot: Int? = nil,
+        onDemandInStock: Int? = nil,
+        spotInStock: Int? = nil,
+        providers: Int = 0,
+        regions: Int = 0
+    ) {
+        self.day = day
+        self.onDemand = onDemand
+        self.spot = spot
+        self.onDemandInStock = onDemandInStock
+        self.spotInStock = spotInStock
+        self.providers = providers
+        self.regions = regions
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case day = "day"
+        case onDemand = "on_demand"
+        case spot = "spot"
+        case onDemandInStock = "on_demand_in_stock"
+        case spotInStock = "spot_in_stock"
+        case providers = "providers"
+        case regions = "regions"
+    }
+}
+
 public struct InterruptDTO: Codable, Sendable {
     public var id: String
     public var shortId: String
