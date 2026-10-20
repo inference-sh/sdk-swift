@@ -9,6 +9,10 @@ public enum InferenceError: Error, LocalizedError, Sendable {
     case http(status: Int, body: String)
     case noAssistantMessage
     case transport(String)
+    /// A response that doesn't fit the SDK's types, usually because the API
+    /// changed and this build's generated types are older: `type` is what
+    /// was being read, `path` the field (`items[0].version.tools[0].mcp.credential_id`).
+    case decoding(type: String, path: String, reason: String)
 
     /// The RFC 9457 problem details of an HTTP error, when the API sent them.
     public var problem: (code: String?, title: String?, detail: String?)? {
@@ -26,6 +30,8 @@ public enum InferenceError: Error, LocalizedError, Sendable {
             return "HTTP \(status): \(body)"
         case .noAssistantMessage: return "No assistant message in response (message was queued?)"
         case .transport(let s): return s
+        case .decoding(let type, let path, let reason):
+            return "Couldn't read the API's \(type): \(reason)\(path.isEmpty ? "" : " at \(path)"). This app may need an update."
         }
     }
 }
@@ -190,7 +196,12 @@ public struct InferenceClient: Sendable {
     /// Unwraps the V3 envelope and forwards its messages. Internal so the chat
     /// endpoint extensions (Agent/AgentAPI.swift) share the same path.
     func decode<T: Decodable>(_ data: Data) throws -> T {
-        let envelope = try Self.decoder.decode(Envelope<T>.self, from: data)
+        let envelope: Envelope<T>
+        do {
+            envelope = try Self.decoder.decode(Envelope<T>.self, from: data)
+        } catch let error as DecodingError {
+            throw InferenceError(error, reading: T.self)
+        }
         if let onMessage, let messages = envelope.messages, !messages.isEmpty { onMessage(messages) }
         return envelope.data
     }
@@ -736,5 +747,33 @@ final class LineSessionRouter: NSObject, URLSessionDataDelegate, @unchecked Send
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         sink(task, remove: true)?.didComplete(error: error)
+    }
+}
+
+extension InferenceError {
+    /// Names the field instead of Foundation's "The data couldn't be read
+    /// because it is missing." The envelope's `data.` prefix is dropped.
+    init<T>(_ error: DecodingError, reading: T.Type) {
+        func path(_ context: DecodingError.Context, _ key: CodingKey? = nil) -> String {
+            let keys = context.codingPath + (key.map { [$0] } ?? [])
+            var out = ""
+            for k in keys {
+                if let i = k.intValue { out += "[\(i)]" } else { out += (out.isEmpty ? "" : ".") + k.stringValue }
+            }
+            return out.hasPrefix("data.") ? String(out.dropFirst(5)) : out == "data" ? "" : out
+        }
+        let type = String(describing: T.self)
+        switch error {
+        case .keyNotFound(let key, let context):
+            self = .decoding(type: type, path: path(context), reason: "`\(key.stringValue)` missing")
+        case .valueNotFound(_, let context):
+            self = .decoding(type: type, path: path(context), reason: "null where a value is required")
+        case .typeMismatch(let expected, let context):
+            self = .decoding(type: type, path: path(context), reason: "not a \(expected)")
+        case .dataCorrupted(let context):
+            self = .decoding(type: type, path: path(context), reason: context.debugDescription)
+        @unknown default:
+            self = .decoding(type: type, path: "", reason: String(describing: error))
+        }
     }
 }
