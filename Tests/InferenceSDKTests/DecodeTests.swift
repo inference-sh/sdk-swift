@@ -221,3 +221,25 @@ final class DecodeTests: XCTestCase {
         XCTAssertLessThan(MemoryLayout<AgentChatState>.size, 1024)
     }
 }
+
+/// A response that doesn't fit the types names the field, not Foundation's
+/// "The data couldn't be read because it is missing."
+final class DecodingErrorTests: XCTestCase {
+    struct Tool: Decodable { let credentialId: String; enum CodingKeys: String, CodingKey { case credentialId = "credential_id" } }
+    struct Page: Decodable { let items: [Tool] }
+
+    func testMissingKeyNamesTheField() throws {
+        let client = InferenceClient(baseURL: URL(string: "https://example.invalid")!, apiKey: "k")
+        let data = Data(#"{"data":{"items":[{}]}}"#.utf8)
+        XCTAssertThrowsError(try client.decode(data) as Page) { error in
+            guard case .decoding(let type, let path, let reason)? = error as? InferenceError else {
+                return XCTFail("\(error)")
+            }
+            XCTAssertEqual(type, "Page")
+            XCTAssertEqual(path, "items[0]")
+            XCTAssertEqual(reason, "`credential_id` missing")
+            XCTAssertEqual((error as? InferenceError)?.errorDescription,
+                           "Couldn't read the API's Page: `credential_id` missing at items[0]. This app may need an update.")
+        }
+    }
+}
