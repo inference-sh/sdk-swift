@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0
+
+Breaking (matching api-v1337 and later):
+- `AuthResponse.otpMethod` (`otp_method`) is gone: read `otpMethods` (`otp_methods`), the ordered `[SecondFactor]` a sign-in may be finished with when `otpRequired` is set.
+
+Added:
+- `UserDTO.twoFactorEnabled` (`two_factor_enabled`): the account's two-step verification switch. `totpEnabled` stays as a mirror of it for now; read `twoFactorEnabled`.
+- `SecondFactor` (`totp`, `passkey`, `recovery`, `email`), `SecondFactorOverview`, `SecondFactorMethodDTO`, recovery-code and passkey ceremony types behind the `/auth/second-factor`, `/auth/totp` and `/auth/passkey` routes.
+
 ## 0.22.0
 
 Added (matching api-v1324):

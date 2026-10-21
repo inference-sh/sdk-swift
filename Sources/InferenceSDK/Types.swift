@@ -1890,8 +1890,9 @@ public struct AuthResponse: Codable, Sendable {
     public var sessionId: String
     public var isNew: Bool?
     public var otpRequired: Bool?
-    /// "email" or "totp"
-    public var otpMethod: String?
+    /// OTPMethods are the second factors the sign-in may be finished with,
+    /// the default first (POST /auth/otp/verify with method).
+    public var otpMethods: [SecondFactor]?
     /// pre-session 2FA token
     public var challengeToken: String?
     public var redirectTo: String?
@@ -1902,7 +1903,7 @@ public struct AuthResponse: Codable, Sendable {
         sessionId: String = "",
         isNew: Bool? = nil,
         otpRequired: Bool? = nil,
-        otpMethod: String? = nil,
+        otpMethods: [SecondFactor]? = nil,
         challengeToken: String? = nil,
         redirectTo: String? = nil,
         provider: String? = nil
@@ -1911,7 +1912,7 @@ public struct AuthResponse: Codable, Sendable {
         self.sessionId = sessionId
         self.isNew = isNew
         self.otpRequired = otpRequired
-        self.otpMethod = otpMethod
+        self.otpMethods = otpMethods
         self.challengeToken = challengeToken
         self.redirectTo = redirectTo
         self.provider = provider
@@ -1922,7 +1923,7 @@ public struct AuthResponse: Codable, Sendable {
         case sessionId = "session_id"
         case isNew = "is_new"
         case otpRequired = "otp_required"
-        case otpMethod = "otp_method"
+        case otpMethods = "otp_methods"
         case challengeToken = "challenge_token"
         case redirectTo = "redirect_to"
         case provider = "provider"
@@ -7408,6 +7409,11 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// works as an ordinary member. An admin who has one but whose session
     /// has not proved it gets otp_required instead: re-authenticate with it.
     public static let adminAuthenticatorRequired = ErrorCode(rawValue: "admin_authenticator_required")
+    /// ErrorCodeLastAuthenticator (409): the change would leave two-step
+    /// verification on with no method to prove it (removing the last
+    /// authenticator app or passkey), or turn it on with none enrolled.
+    /// Turn two-step verification off first, or enroll a method.
+    public static let lastAuthenticator = ErrorCode(rawValue: "last_authenticator")
     /// Entitlements. LimitExceeded (402) and FeatureNotAvailable (403) carry
     /// EntitlementErrorMeta. EntitlementUnavailable (500) means the plan could
     /// not be checked and the request is retriable.
@@ -14866,7 +14872,11 @@ public struct UserDTO: Codable, Sendable {
     public var avatarUrl: String
     public var bannedAt: String?
     public var banNote: String?
+    /// TOTPEnabled mirrors TwoFactorEnabled for clients built before it
+    /// (the Swift SDK decodes it as required). Read TwoFactorEnabled.
     public var totpEnabled: Bool
+    /// TwoFactorEnabled is the account's two-step verification switch.
+    public var twoFactorEnabled: Bool
     @Indirect public var metadata: UserMetadataDTO?
 
     public init(
@@ -14886,6 +14896,7 @@ public struct UserDTO: Codable, Sendable {
         bannedAt: String? = nil,
         banNote: String? = nil,
         totpEnabled: Bool = false,
+        twoFactorEnabled: Bool = false,
         metadata: UserMetadataDTO? = nil
     ) {
         self.id = id
@@ -14904,6 +14915,7 @@ public struct UserDTO: Codable, Sendable {
         self.bannedAt = bannedAt
         self.banNote = banNote
         self.totpEnabled = totpEnabled
+        self.twoFactorEnabled = twoFactorEnabled
         self.metadata = metadata
     }
 
@@ -14924,6 +14936,7 @@ public struct UserDTO: Codable, Sendable {
         case bannedAt = "banned_at"
         case banNote = "ban_note"
         case totpEnabled = "totp_enabled"
+        case twoFactorEnabled = "two_factor_enabled"
         case metadata = "metadata"
     }
 }
@@ -17875,6 +17888,28 @@ public struct MCPServerAuthType: RawRepresentable, Codable, Hashable, Sendable {
     public static let mcpServerAuthOAuth = MCPServerAuthType(rawValue: "oauth")
     public static let mcpServerAuthAPIKey = MCPServerAuthType(rawValue: "api_key")
     public static let mcpServerAuthNone = MCPServerAuthType(rawValue: "none")
+}
+
+/// SecondFactor is one way a person proves their second factor. It names
+/// what a session proved (AuthSession.SecondFactor), what a login challenge
+/// offers, the method a verify request picks, and the kind of an enrolled
+/// method (SecondFactorMethod.Kind: the enrollable ones).
+public struct SecondFactor: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// SecondFactorTOTP: a code from an enrolled authenticator app.
+    public static let totp = SecondFactor(rawValue: "totp")
+    /// SecondFactorPasskey: a WebAuthn assertion from an enrolled passkey.
+    public static let passkey = SecondFactor(rawValue: "passkey")
+    /// SecondFactorRecovery: one of the account's single-use recovery codes.
+    /// Not enrolled on its own: issued once an authenticator exists.
+    public static let recovery = SecondFactor(rawValue: "recovery")
+    /// SecondFactorEmail: a code emailed to the account. The weakest: the
+    /// same mailbox a magic link lands in, so it is offered only to an
+    /// account with two-step verification off (a platform admin's first
+    /// sign-in, re-auth before they enroll).
+    public static let email = SecondFactor(rawValue: "email")
 }
 
 /// TeamInviteStatus represents the status of a team invitation
