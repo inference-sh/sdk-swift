@@ -13,7 +13,7 @@
   "name": "name",
   "full_name": "full name",
   "avatar_url": "https://example.com/avatar.png",
-  "totp_enabled": true,
+  "totp_enabled": true, "two_factor_enabled": true,
   "metadata": {
    "user_id": "id_user_id",
    "completed_onboarding": true,
