@@ -2755,6 +2755,12 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// ScopeStoreSubmit submits a resource version to the store on its
     /// publisher's behalf. Held like ScopeStorePricing.
     public static let storeSubmit = Scope(rawValue: "store:submit")
+    /// ScopeContentWrite writes the site's content (/content): blog and docs
+    /// pages, menus and the platform media library. Held like
+    /// ScopeStorePricing: only in the platform's workspace, by its members,
+    /// their keys and runs, and its own keys. Reads of published content take
+    /// no scope.
+    public static let contentWrite = Scope(rawValue: "content:write")
 }
 
 /// ScopeGroup identifies a category of scopes for UI grouping
@@ -2783,6 +2789,7 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let approvals = ScopeGroup(rawValue: "approvals")
     public static let admin = ScopeGroup(rawValue: "admin")
     public static let store = ScopeGroup(rawValue: "store")
+    public static let content = ScopeGroup(rawValue: "content")
 }
 
 /// ScopeDefinition describes a single scope for UI rendering
@@ -14873,7 +14880,10 @@ public struct UserDTO: Codable, Sendable {
     public var bannedAt: String?
     public var banNote: String?
     /// TOTPEnabled mirrors TwoFactorEnabled for clients built before it
-    /// (the Swift SDK decodes it as required). Read TwoFactorEnabled.
+    /// (the Swift SDK decodes it as required).
+    /// 
+    /// Deprecated: read TwoFactorEnabled. Kept until no Swift app build older
+    /// than sdk-swift 0.23.0 is in use, since those fail to decode /me without it.
     public var totpEnabled: Bool
     /// TwoFactorEnabled is the account's two-step verification switch.
     public var twoFactorEnabled: Bool
@@ -16292,6 +16302,9 @@ public struct ChatStatus: RawRepresentable, Codable, Hashable, Sendable {
     public static let busy = ChatStatus(rawValue: "busy")
     public static let idle = ChatStatus(rawValue: "idle")
     public static let awaitingInput = ChatStatus(rawValue: "awaiting_input")
+    /// ChatStatusWaiting: the run is paused on the agent's own wait call. A
+    /// message ends the wait early; nobody has to act on it.
+    public static let waiting = ChatStatus(rawValue: "waiting")
     public static let completed = ChatStatus(rawValue: "completed")
 }
 
@@ -19473,6 +19486,7 @@ public struct ToolInvocationStatus: RawRepresentable, Codable, Hashable, Sendabl
     public static let inProgress = ToolInvocationStatus(rawValue: "in_progress")
     public static let awaitingInput = ToolInvocationStatus(rawValue: "awaiting_input")
     public static let awaitingApproval = ToolInvocationStatus(rawValue: "awaiting_approval")
+    public static let waiting = ToolInvocationStatus(rawValue: "waiting")
     public static let completed = ToolInvocationStatus(rawValue: "completed")
     public static let failed = ToolInvocationStatus(rawValue: "failed")
     public static let cancelled = ToolInvocationStatus(rawValue: "cancelled")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0
+
+Added (matching api-v1349):
+- `ChatStatus.waiting`: the run is paused on the agent's own wait call. It resumes at the deadline or when a message arrives; nobody has to act on it. Before, such a chat read `awaitingInput`.
+- `ToolInvocationStatus.waiting`: the wait tool call while it waits. It ends `completed`, `failed` or `cancelled`.
+- `Scope.contentWrite` (`content:write`) and `ScopeGroup.content`.
+
 ## 0.23.0
 
 Breaking (matching api-v1337 and later):
