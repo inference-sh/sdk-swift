@@ -16476,6 +16476,9 @@ public struct ChatEventType: RawRepresentable, Codable, Hashable, Sendable {
     public init(rawValue: String) { self.rawValue = rawValue }
 
     public static let hook = ChatEventType(rawValue: "hook")
+    /// ChatEventTypeRunFailed marks the point a run ended in failure; the
+    /// content's text is the run's error.
+    public static let runFailed = ChatEventType(rawValue: "run_failed")
 }
 
 /// ChatEvent is the payload of an event-role message: system info shown in the
