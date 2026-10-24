@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.0
+
+Added (matching api-v1360):
+- `ChatEventType.runFailed` and `ChatEventType.runEnded`: the event rows a failed run and a run that ended without a reply leave in the chat.
+- `ChatRunEvent` (`runId`, `state`, `reason`, `run`) and `RunEndReason` (`outputLimit`, `noReply`); `ChatEvent.run` carries it.
+- `Infra.remote`: an agent whose model app is a harness model app, answered by a remote.
+
 ## 0.24.0
 
 Added (matching api-v1349):
