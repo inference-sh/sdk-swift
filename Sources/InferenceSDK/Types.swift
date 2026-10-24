@@ -3134,7 +3134,6 @@ public struct AppPricing: Codable, Sendable {
     }
 }
 
-/// AppFunction represents a callable entry point within an app version.
 public struct AppFunction: Codable, Sendable {
     public var name: String
     public var description: String?
@@ -16479,6 +16478,46 @@ public struct ChatEventType: RawRepresentable, Codable, Hashable, Sendable {
     /// ChatEventTypeRunFailed marks the point a run ended in failure; the
     /// content's text is the run's error.
     public static let runFailed = ChatEventType(rawValue: "run_failed")
+    /// ChatEventTypeRunEnded marks the point a run completed or was stopped;
+    /// the event's run says how, and the content's text, when set, why.
+    public static let runEnded = ChatEventType(rawValue: "run_ended")
+}
+
+/// RunEndReason is why a run that completed ended the way it did, when its
+/// last turn did not end with a reply.
+public struct RunEndReason: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// RunEndReasonOutputLimit: the model's last turn hit its output limit
+    /// (max_tokens) before it replied or called a tool.
+    public static let outputLimit = RunEndReason(rawValue: "output_limit")
+    /// RunEndReasonNoReply: the model ended its last turn with no reply and
+    /// no tool call.
+    public static let noReply = RunEndReason(rawValue: "no_reply")
+}
+
+/// ChatRunEvent is how a run ended, on a run_ended event.
+public struct ChatRunEvent: Codable, Sendable {
+    public var runId: String
+    public var state: AgentRunState
+    public var reason: RunEndReason?
+
+    public init(
+        runId: String = "",
+        state: AgentRunState,
+        reason: RunEndReason? = nil
+    ) {
+        self.runId = runId
+        self.state = state
+        self.reason = reason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case runId = "run_id"
+        case state = "state"
+        case reason = "reason"
+    }
 }
 
 /// ChatEvent is the payload of an event-role message: system info shown in the
@@ -16486,18 +16525,22 @@ public struct ChatEventType: RawRepresentable, Codable, Hashable, Sendable {
 public struct ChatEvent: Codable, Sendable {
     public var type: ChatEventType
     @Indirect public var hook: ChatHookEvent?
+    @Indirect public var run: ChatRunEvent?
 
     public init(
         type: ChatEventType,
-        hook: ChatHookEvent? = nil
+        hook: ChatHookEvent? = nil,
+        run: ChatRunEvent? = nil
     ) {
         self.type = type
         self.hook = hook
+        self.run = run
     }
 
     enum CodingKeys: String, CodingKey {
         case type = "type"
         case hook = "hook"
+        case run = "run"
     }
 }
 
@@ -18427,6 +18470,11 @@ public struct Infra: RawRepresentable, Codable, Hashable, Sendable {
     public static let `private` = Infra(rawValue: "private")
     public static let cloud = Infra(rawValue: "cloud")
     public static let privateFirst = Infra(rawValue: "private_first")
+    /// InfraRemote is a model call a harness on the caller's own remote
+    /// answers (an agent whose model app is a harness model app). The
+    /// scheduler never takes it: the remote model service sends it to the
+    /// remote's daemon, whose frames end it.
+    public static let remote = Infra(rawValue: "remote")
 }
 
 /// TaskLogType defines the type of task log.
