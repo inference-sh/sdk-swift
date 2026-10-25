@@ -6324,8 +6324,6 @@ public struct SortOrder: Codable, Sendable {
 /// CursorListRequest represents a cursor-based list request with all options
 public struct CursorListRequest: Codable, Sendable {
     public var cursor: String
-    /// Page number for offset-based pagination (used when Cursor is empty)
-    public var page: Int?
     public var limit: Int
     public var direction: String
     @Indirect public var search: SearchRequest?
@@ -6344,7 +6342,6 @@ public struct CursorListRequest: Codable, Sendable {
 
     public init(
         cursor: String = "",
-        page: Int? = nil,
         limit: Int = 0,
         direction: String = "",
         search: SearchRequest? = nil,
@@ -6357,7 +6354,6 @@ public struct CursorListRequest: Codable, Sendable {
         includePrivate: Bool? = nil
     ) {
         self.cursor = cursor
-        self.page = page
         self.limit = limit
         self.direction = direction
         self.search = search
@@ -6372,7 +6368,6 @@ public struct CursorListRequest: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case cursor = "cursor"
-        case page = "page"
         case limit = "limit"
         case direction = "direction"
         case search = "search"
@@ -6396,7 +6391,6 @@ public struct CursorListResponse<T: Codable & Sendable>: Codable, Sendable {
     public var hasNext: Bool
     public var hasPrevious: Bool
     public var itemsPerPage: Int
-    public var totalItems: Int
 
     public init(
         items: [T]? = nil,
@@ -6404,8 +6398,7 @@ public struct CursorListResponse<T: Codable & Sendable>: Codable, Sendable {
         prevCursor: String = "",
         hasNext: Bool = false,
         hasPrevious: Bool = false,
-        itemsPerPage: Int = 0,
-        totalItems: Int = 0
+        itemsPerPage: Int = 0
     ) {
         self.items = items
         self.nextCursor = nextCursor
@@ -6413,7 +6406,6 @@ public struct CursorListResponse<T: Codable & Sendable>: Codable, Sendable {
         self.hasNext = hasNext
         self.hasPrevious = hasPrevious
         self.itemsPerPage = itemsPerPage
-        self.totalItems = totalItems
     }
 
     enum CodingKeys: String, CodingKey {
@@ -6423,7 +6415,6 @@ public struct CursorListResponse<T: Codable & Sendable>: Codable, Sendable {
         case hasNext = "has_next"
         case hasPrevious = "has_previous"
         case itemsPerPage = "items_per_page"
-        case totalItems = "total_items"
     }
 }
 
