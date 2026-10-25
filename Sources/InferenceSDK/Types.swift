@@ -15837,8 +15837,8 @@ public struct AuthMethodLookup: Codable, Sendable {
 }
 
 /// AuthMethodCapability is something an app can ask for from this provider,
-/// satisfied by a connection holding its scopes. Scopes are in the scheme's
-/// own (friendly) names, the ones a credential stores.
+/// satisfied by a connection holding its scopes. Scopes are the provider's
+/// own names (Wire form), the ones a credential stores.
 public struct AuthMethodCapability: Codable, Sendable {
     /// "google.gmail.send"
     public var key: String
@@ -15915,10 +15915,11 @@ public struct AuthMethod: Codable, Sendable {
     public var authorizationEndpoint: String?
     /// requested by default; a connect request may override (RequiredScopes stay)
     public var scopes: [String]?
-    /// ScopeAliases map the scheme's own scope names to what the provider
-    /// wants on the wire ("gmail.send" → "https://www.googleapis.com/auth/
-    /// gmail.send"). Credentials store the alias; the wire form is used only
-    /// in requests. A scope with no alias is sent as is.
+    /// ScopeAliases are shorthand a caller may write for a provider scope
+    /// ("gmail.send" → "https://www.googleapis.com/auth/gmail.send"). They
+    /// are accepted on input only: credentials, capabilities and allowed
+    /// lists hold the provider's own name (Wire), and every comparison is
+    /// in that form. A scope with no alias is the provider's name as is.
     public var scopeAliases: [String: String]?
     /// default "scope" (Slack: "user_scope")
     public var scopeParam: String?
@@ -15951,7 +15952,7 @@ public struct AuthMethod: Codable, Sendable {
     /// re-authorizing for more scopes, whatever the caller asked for: the
     /// scopes the identity lookup and token refresh need (Google's openid,
     /// email and profile; X's users.read and offline.access). In the
-    /// scheme's own names, like Scopes. Empty = only what was asked for.
+    /// provider's own names, like Scopes. Empty = only what was asked for.
     public var requiredScopes: [String]?
     /// IncrementalAddScopes: re-authorizing for more scopes asks only for
     /// the new ones (plus RequiredScopes), and the provider returns a token
