@@ -16494,21 +16494,27 @@ public struct ChatRunEvent: Codable, Sendable {
     public var runId: String
     public var state: AgentRunState
     public var reason: RunEndReason?
+    /// DurationMs is how long the run took, from its start to its end. The
+    /// event message's created_at is when it ended.
+    public var durationMs: Int?
 
     public init(
         runId: String = "",
         state: AgentRunState,
-        reason: RunEndReason? = nil
+        reason: RunEndReason? = nil,
+        durationMs: Int? = nil
     ) {
         self.runId = runId
         self.state = state
         self.reason = reason
+        self.durationMs = durationMs
     }
 
     enum CodingKeys: String, CodingKey {
         case runId = "run_id"
         case state = "state"
         case reason = "reason"
+        case durationMs = "duration_ms"
     }
 }
 
