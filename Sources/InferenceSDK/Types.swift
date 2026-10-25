@@ -1233,6 +1233,8 @@ public struct AgentRunDTO: Codable, Sendable {
     public var state: AgentRunState
     public var error: String?
     public var output: JSONValue?
+    /// FinishedAt is when the run reached a terminal state; nil while it runs.
+    public var finishedAt: String?
     public var interruptReason: InterruptReason?
     public var interruptToolId: String?
     public var interruptMeta: JSONValue?
@@ -1263,6 +1265,7 @@ public struct AgentRunDTO: Codable, Sendable {
         state: AgentRunState,
         error: String? = nil,
         output: JSONValue? = nil,
+        finishedAt: String? = nil,
         interruptReason: InterruptReason? = nil,
         interruptToolId: String? = nil,
         interruptMeta: JSONValue? = nil,
@@ -1290,6 +1293,7 @@ public struct AgentRunDTO: Codable, Sendable {
         self.state = state
         self.error = error
         self.output = output
+        self.finishedAt = finishedAt
         self.interruptReason = interruptReason
         self.interruptToolId = interruptToolId
         self.interruptMeta = interruptMeta
@@ -1319,6 +1323,7 @@ public struct AgentRunDTO: Codable, Sendable {
         case state = "state"
         case error = "error"
         case output = "output"
+        case finishedAt = "finished_at"
         case interruptReason = "interrupt_reason"
         case interruptToolId = "interrupt_tool_id"
         case interruptMeta = "interrupt_meta"
