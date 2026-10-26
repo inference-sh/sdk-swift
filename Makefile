@@ -22,7 +22,7 @@ AUDIO_FILE ?=
 SEND ?=
 STAY ?= 5
 
-.PHONY: build test test-linux e2e live dictate audio-e2e clean
+.PHONY: main build test test-linux e2e live dictate audio-e2e clean
 
 build:
 	swift build
@@ -61,3 +61,7 @@ audio-e2e:
 
 clean:
 	rm -rf .build
+
+# Work happens on dev; main is what's promoted. Fast-forwards main to dev.
+main:
+	git push origin dev:main
