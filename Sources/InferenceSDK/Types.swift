@@ -14603,6 +14603,9 @@ public struct ToolInvocationDTO: Codable, Sendable {
     public var toolInvocationId: String
     public var type: ToolType
     public var displayName: String?
+    /// Action is what the model said the call does, as an imperative phrase
+    /// ("Fetch unread emails from alice@x.com"). Empty when it left it out.
+    public var action: String?
     public var executionId: String?
     @Indirect public var function: ToolInvocationFunction
     public var status: ToolInvocationStatus
@@ -14625,6 +14628,7 @@ public struct ToolInvocationDTO: Codable, Sendable {
         toolInvocationId: String = "",
         type: ToolType,
         displayName: String? = nil,
+        action: String? = nil,
         executionId: String? = nil,
         function: ToolInvocationFunction,
         status: ToolInvocationStatus,
@@ -14646,6 +14650,7 @@ public struct ToolInvocationDTO: Codable, Sendable {
         self.toolInvocationId = toolInvocationId
         self.type = type
         self.displayName = displayName
+        self.action = action
         self.executionId = executionId
         self.function = function
         self.status = status
@@ -14669,6 +14674,7 @@ public struct ToolInvocationDTO: Codable, Sendable {
         case toolInvocationId = "tool_invocation_id"
         case type = "type"
         case displayName = "display_name"
+        case action = "action"
         case executionId = "execution_id"
         case function = "function"
         case status = "status"
