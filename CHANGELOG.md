@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.26.0
+
+Breaking (matching api-v1366):
+- `CursorListRequest.page` and `CursorListResponse.totalItems` are gone: lists are cursor-only. Page with `cursor` and `hasMore`.
+
+Added (matching api-v1369):
+- `ToolInvocationDTO.action`: the phrase the model wrote for the call ("Fetch unread emails from alice@x.com"). Empty when it left it out.
+- `AgentRunDTO.finishedAt`: when the run reached a terminal state.
+- `ChatRunEvent.durationMs`: how long the run took, from its start to its end.
+
+Changed:
+- Auth scheme scopes are the provider's own scope names; scope aliases are optional shorthand for them.
+
 ## 0.25.0
 
 Added (matching api-v1360):
