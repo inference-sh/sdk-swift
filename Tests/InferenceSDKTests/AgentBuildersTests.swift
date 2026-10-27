@@ -89,8 +89,8 @@ final class AgentBuildersTests: XCTestCase {
     }
 
     func testBuiltinHook() throws {
-        let hook = lifecycleHook(.turnStart).builtin(.beltSuggest).build()
-        XCTAssertEqual(try json(hook), ["event": "agent.turn_start", "type": "builtin", "handler": "belt:suggest"])
+        let hook = lifecycleHook(.turnStart).builtin(.suggest).build()
+        XCTAssertEqual(try json(hook), ["event": "agent.turn_start", "type": "builtin", "handler": "suggest"])
     }
 
     // MARK: learningHooks
@@ -103,6 +103,6 @@ final class AgentBuildersTests: XCTestCase {
         let hooks = learningHooks(suggest: true, learn: true)
         XCTAssertEqual(hooks.map(\.event), [.turnStart, .agentComplete, .preCompact])
         XCTAssertEqual(hooks.map(\.type), [.hookHandlerBuiltin, .hookHandlerBuiltin, .hookHandlerBuiltin])
-        XCTAssertEqual(hooks.map(\.handler), ["belt:suggest", "belt:extract", "belt:extract"])
+        XCTAssertEqual(hooks.map(\.handler), ["suggest", "extract", "extract"])
     }
 }

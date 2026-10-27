@@ -91,7 +91,7 @@ public struct LifecycleHookBuilder: Sendable {
     /// Handle the event with a task (an agent ref).
     public func task(_ agentRef: String) -> Self { handler(.hookHandlerTask, agentRef) }
 
-    /// Handle the event with a builtin the platform runs itself (e.g. belt:suggest).
+    /// Handle the event with a builtin the platform runs itself (e.g. suggest).
     public func builtin(_ name: BuiltinHook) -> Self { handler(.hookHandlerBuiltin, name.rawValue) }
 
     /// Run the handler without blocking the turn.
@@ -121,11 +121,11 @@ public func lifecycleHook(_ event: HookEvent) -> LifecycleHookBuilder { Lifecycl
 public func learningHooks(suggest: Bool = false, learn: Bool = false) -> [LifecycleHookConfig] {
     var hooks: [LifecycleHookConfig] = []
     if suggest {
-        hooks.append(lifecycleHook(.turnStart).builtin(.beltSuggest).build())
+        hooks.append(lifecycleHook(.turnStart).builtin(.suggest).build())
     }
     if learn {
         for event in [HookEvent.agentComplete, .preCompact] {
-            hooks.append(lifecycleHook(event).builtin(.beltExtract).build())
+            hooks.append(lifecycleHook(event).builtin(.extract).build())
         }
     }
     return hooks

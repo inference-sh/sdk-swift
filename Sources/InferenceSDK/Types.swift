@@ -16563,6 +16563,9 @@ public struct ChatHookEvent: Codable, Sendable {
     public var decision: HookDecision?
     public var reason: String?
     public var injected: Bool?
+    /// InjectionIDs are the injection messages the run wrote, so a reader
+    /// shows what the hook added with the run instead of as rows of its own.
+    public var injectionIds: [String]?
     public var error: String?
     public var durationMs: Int
 
@@ -16573,6 +16576,7 @@ public struct ChatHookEvent: Codable, Sendable {
         decision: HookDecision? = nil,
         reason: String? = nil,
         injected: Bool? = nil,
+        injectionIds: [String]? = nil,
         error: String? = nil,
         durationMs: Int = 0
     ) {
@@ -16582,6 +16586,7 @@ public struct ChatHookEvent: Codable, Sendable {
         self.decision = decision
         self.reason = reason
         self.injected = injected
+        self.injectionIds = injectionIds
         self.error = error
         self.durationMs = durationMs
     }
@@ -16593,6 +16598,7 @@ public struct ChatHookEvent: Codable, Sendable {
         case decision = "decision"
         case reason = "reason"
         case injected = "injected"
+        case injectionIds = "injection_ids"
         case error = "error"
         case durationMs = "duration_ms"
     }
@@ -19261,16 +19267,16 @@ public struct BuiltinHook: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
-    /// BuiltinHookBeltSuggest searches the team's skills, knowledge and apps
+    /// BuiltinHookSuggest searches the team's skills, knowledge and apps
     /// for what the turn is about and injects the matches, so an agent picks up
     /// procedural knowledge it was never prompted with.
-    public static let beltSuggest = BuiltinHook(rawValue: "belt:suggest")
-    /// BuiltinHookBeltExtract reviews the conversation for reusable knowledge
+    public static let suggest = BuiltinHook(rawValue: "suggest")
+    /// BuiltinHookExtract reviews the conversation for reusable knowledge
     /// and saves it to the team's registry, deduplicated against what is
-    /// there, so belt:suggest can hand it back later. It runs in the
+    /// there, so suggest can hand it back later. It runs in the
     /// background: on agent.complete every tenth user turn, and before
     /// compaction drops the turns it would have learned from.
-    public static let beltExtract = BuiltinHook(rawValue: "belt:extract")
+    public static let extract = BuiltinHook(rawValue: "extract")
 }
 
 /// BuiltinHookDefinition describes a builtin hook and where it may be used.
