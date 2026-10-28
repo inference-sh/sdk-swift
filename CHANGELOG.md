@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.0
+
+Breaking (matching api-v1375):
+- The builtin hooks are `suggest` and `extract`, not `belt:suggest` and `belt:extract`. `BuiltinHook.beltSuggest` and `.beltExtract` are now `.suggest` and `.extract`.
+
+Added (matching api-v1375):
+- `ChatHookEvent.injectionIds`: the injection messages a hook run wrote.
+
 ## 0.26.0
 
 Breaking (matching api-v1366):
