@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.1
+
+Added (matching api-v1378):
+- `ChatDTO.projectId`: the project a chat is filed in. `ApiAgentRunRequest.projectId` files the chat a run starts in a project.
+
 ## 0.27.0
 
 Breaking (matching api-v1375):

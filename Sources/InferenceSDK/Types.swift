@@ -1543,6 +1543,10 @@ public struct ApiAgentRunRequest: Codable, Sendable {
     @Indirect public var input: MessageInput
     public var context: [String: String]?
     public var stream: Bool?
+    /// ProjectID files the chat this message starts in a project. Ignored
+    /// when the message posts into an existing chat (chat_id): a chat moves
+    /// with POST /chats/{id}/project.
+    public var projectId: String?
 
     public init(
         chatId: String? = nil,
@@ -1553,7 +1557,8 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         agentName: String? = nil,
         input: MessageInput,
         context: [String: String]? = nil,
-        stream: Bool? = nil
+        stream: Bool? = nil,
+        projectId: String? = nil
     ) {
         self.chatId = chatId
         self.agent = agent
@@ -1564,6 +1569,7 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         self.input = input
         self.context = context
         self.stream = stream
+        self.projectId = projectId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1576,6 +1582,7 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         case input = "input"
         case context = "context"
         case stream = "stream"
+        case projectId = "project_id"
     }
 }
 
@@ -5354,6 +5361,8 @@ public struct ChatDTO: Codable, Sendable {
     public var teamId: String
     @Indirect public var team: TeamRelationDTO?
     public var visibility: Visibility
+    public var projectId: String?
+    @Indirect public var project: ProjectDTO?
     public var parentId: String?
     @Indirect public var parent: ChatDTO?
     public var children: [ChatDTO]?
@@ -5395,6 +5404,8 @@ public struct ChatDTO: Codable, Sendable {
         teamId: String = "",
         team: TeamRelationDTO? = nil,
         visibility: Visibility,
+        projectId: String? = nil,
+        project: ProjectDTO? = nil,
         parentId: String? = nil,
         parent: ChatDTO? = nil,
         children: [ChatDTO]? = nil,
@@ -5426,6 +5437,8 @@ public struct ChatDTO: Codable, Sendable {
         self.teamId = teamId
         self.team = team
         self.visibility = visibility
+        self.projectId = projectId
+        self.project = project
         self.parentId = parentId
         self.parent = parent
         self.children = children
@@ -5459,6 +5472,8 @@ public struct ChatDTO: Codable, Sendable {
         case teamId = "team_id"
         case team = "team"
         case visibility = "visibility"
+        case projectId = "project_id"
+        case project = "project"
         case parentId = "parent_id"
         case parent = "parent"
         case children = "children"
