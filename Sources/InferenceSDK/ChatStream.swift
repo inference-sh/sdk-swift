@@ -46,6 +46,7 @@ public extension InferenceClient {
                 req.httpMethod = "GET"
                 req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+                req.setValue(self.clientSource, forHTTPHeaderField: "X-Client-Source")
                 // For a data task this is an INACTIVITY timeout (resets on every
                 // byte). The server heartbeats every 10s (go/api common/stream),
                 // so 45s of silence means the TCP connection is dead — surface it

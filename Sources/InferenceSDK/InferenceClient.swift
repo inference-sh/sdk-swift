@@ -61,6 +61,12 @@ public struct InferenceClient: Sendable {
     public var onFailure: (@Sendable (InferenceError) -> Void)?
     /// URLSession plumbing. Internal so tests can swap in a stub.
     var transport: HTTPTransport = .shared
+    /// Sent as `X-Client-Source` on every API request: the app the requests
+    /// come from, as `name/version`. The server records it on the chats a
+    /// request starts, and treats `mac`, `ios`, `watch`, `web` and `cli` as a
+    /// person's own sessions; anything else, this default included, as the
+    /// API.
+    public var clientSource = "inference-sdk-swift"
 
     public init(baseURL: URL = URL(string: "https://api.inference.sh")!, apiKey: String,
                 onMessage: (@Sendable ([ResponseMessage]) -> Void)? = nil) {
@@ -155,6 +161,7 @@ public struct InferenceClient: Sendable {
         // Authorization is added at send time (send / openLineStream), from `auth`.
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(accept, forHTTPHeaderField: "Accept")
+        req.setValue(clientSource, forHTTPHeaderField: "X-Client-Source")
         // One connection per call. A reused keep-alive connection that the
         // server has already closed surfaces as "connection reset" on the next
         // POST, and a POST is not safe to retry blindly.
