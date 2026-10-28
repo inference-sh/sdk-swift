@@ -1612,18 +1612,25 @@ public struct ToolResultRequest: Codable, Sendable {
     /// The tool message carries them; images reach the model as image input
     /// when it accepts images.
     public var attachments: [FileRef]?
+    /// Error, when set, says the call failed: it completes as failed and the
+    /// model reads Error in place of Result. A client sets it when it has no
+    /// handler for the tool or the handler failed.
+    public var error: String?
 
     public init(
         result: String = "",
-        attachments: [FileRef]? = nil
+        attachments: [FileRef]? = nil,
+        error: String? = nil
     ) {
         self.result = result
         self.attachments = attachments
+        self.error = error
     }
 
     enum CodingKeys: String, CodingKey {
         case result = "result"
         case attachments = "attachments"
+        case error = "error"
     }
 }
 
