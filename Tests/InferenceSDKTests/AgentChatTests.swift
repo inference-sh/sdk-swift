@@ -8,7 +8,7 @@ import XCTest
 final class AgentChatTests: XCTestCase {
     private func chat(_ id: String) -> ChatDTO {
         ChatDTO(id: id, visibility: .private, status: .idle, agentId: "agent-1", agentVersionId: "version-1",
-                agentData: ChatData())
+                agentData: ChatData(), origin: .ui)
     }
 
     private func message(_ role: ChatMessageRole, _ content: [ChatMessageContent], order: Int = 1) -> ChatMessageDTO {

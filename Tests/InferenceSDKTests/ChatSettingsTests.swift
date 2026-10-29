@@ -7,7 +7,7 @@ import XCTest
 final class ChatSettingsTests: XCTestCase {
     private func chat(_ id: String) -> ChatDTO {
         ChatDTO(id: id, visibility: .private, status: .idle, name: "old",
-                agentData: ChatData(memory: ["k": "v"], allowAllTools: false))
+                agentData: ChatData(memory: ["k": "v"], allowAllTools: false), origin: .ui)
     }
 
     func testMergeChatSettings() {
