@@ -18267,11 +18267,11 @@ public struct CredentialScope: RawRepresentable, Codable, Hashable, Sendable {
     /// CredentialScopeOrg: shared across all teams of an org. In the enum for
     /// end-to-end typing (connect-level pickers); connects with it are refused
     /// until the org domain lands (INF-795 Phase 2). Resolution order once
-    /// live: agent > user > team > org > platform.
+    /// live: user > team > org > platform. Credentials an agent uses are
+    /// composed by vaults (INF-737), not by a scope.
     public static let org = CredentialScope(rawValue: "org")
     public static let team = CredentialScope(rawValue: "team")
     public static let user = CredentialScope(rawValue: "user")
-    public static let agent = CredentialScope(rawValue: "agent")
 }
 
 /// CredentialGrant is which layer a credential row is. OAuth has two: the
