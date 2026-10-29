@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.28.0
+
+Breaking (matching api-v1383):
+- `ChatDTO.origin` is required: `ChatDTO(...)` takes `origin:` (e.g. `.ui`).
+
+Added (matching api-v1383):
+- `ChatDTO.origin` (`ChatOrigin`): how the chat came to be (ui, api, trigger, integration, openAIClient, embed, hook, subagent, branch). `GET /chats` filters on it. `ChatData.client` names the app a chat was started from.
+- `InferenceClient.clientSource` (default `inference-sdk-swift`), sent as `X-Client-Source` on every request.
+
 ## 0.27.1
 
 Added (matching api-v1378):
