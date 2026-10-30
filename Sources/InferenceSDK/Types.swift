@@ -2691,6 +2691,8 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     public static let teams = Scope(rawValue: "teams")
     public static let billing = Scope(rawValue: "billing")
     public static let artifacts = Scope(rawValue: "artifacts")
+    public static let forms = Scope(rawValue: "forms")
+    public static let bounties = Scope(rawValue: "bounties")
     /// Action-level scopes for Agents
     public static let agentsRead = Scope(rawValue: "agents:read")
     public static let agentsWrite = Scope(rawValue: "agents:write")
@@ -2747,6 +2749,15 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Artifacts (published HTML/Markdown pages)
     public static let artifactsRead = Scope(rawValue: "artifacts:read")
     public static let artifactsWrite = Scope(rawValue: "artifacts:write")
+    /// Action-level scopes for Forms: read sees forms, write creates and
+    /// manages them and reads their answers, execute submits answers.
+    public static let formsRead = Scope(rawValue: "forms:read")
+    public static let formsWrite = Scope(rawValue: "forms:write")
+    public static let formsExecute = Scope(rawValue: "forms:execute")
+    /// Action-level scopes for Bounties: read lists the programs, execute
+    /// claims one (only the account holder's own sign-in).
+    public static let bountiesRead = Scope(rawValue: "bounties:read")
+    public static let bountiesExecute = Scope(rawValue: "bounties:execute")
     /// Action-level scopes for User profile
     public static let userRead = Scope(rawValue: "user:read")
     public static let userWrite = Scope(rawValue: "user:write")
@@ -2803,6 +2814,8 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let apiKeys = ScopeGroup(rawValue: "apikeys")
     public static let knowledge = ScopeGroup(rawValue: "knowledge")
     public static let artifacts = ScopeGroup(rawValue: "artifacts")
+    public static let forms = ScopeGroup(rawValue: "forms")
+    public static let bounties = ScopeGroup(rawValue: "bounties")
     public static let user = ScopeGroup(rawValue: "user")
     public static let settings = ScopeGroup(rawValue: "settings")
     public static let approvals = ScopeGroup(rawValue: "approvals")
@@ -6597,6 +6610,9 @@ public struct EngineDTO: Codable, Sendable {
     public var enginePin: String?
     /// Capabilities are what the engine last reported it can do.
     public var capabilities: EngineCapabilities?
+    /// LastUpdate is the last update the engine was asked for and how it
+    /// went; nil when it was never asked.
+    @Indirect public var lastUpdate: UpdateStatus?
     @Indirect public var systemInfo: SystemInfo?
     public var workers: [WorkerDTO]?
 
@@ -6619,6 +6635,7 @@ public struct EngineDTO: Codable, Sendable {
         engineVersion: String = "",
         enginePin: String? = nil,
         capabilities: EngineCapabilities? = nil,
+        lastUpdate: UpdateStatus? = nil,
         systemInfo: SystemInfo? = nil,
         workers: [WorkerDTO]? = nil
     ) {
@@ -6640,6 +6657,7 @@ public struct EngineDTO: Codable, Sendable {
         self.engineVersion = engineVersion
         self.enginePin = enginePin
         self.capabilities = capabilities
+        self.lastUpdate = lastUpdate
         self.systemInfo = systemInfo
         self.workers = workers
     }
@@ -6663,6 +6681,7 @@ public struct EngineDTO: Codable, Sendable {
         case engineVersion = "engine_version"
         case enginePin = "engine_pin"
         case capabilities = "capabilities"
+        case lastUpdate = "last_update"
         case systemInfo = "system_info"
         case workers = "workers"
     }
@@ -12707,6 +12726,9 @@ public struct CheckRequirementsResponse: Codable, Sendable {
     }
 }
 
+/// ResourceShareDTO is one share: an acl_entries row naming a person, a team
+/// or an org (INF-1133). UserID, TeamID or OrgID repeats the grantee for
+/// clients that read those.
 public struct ResourceShareDTO: Codable, Sendable {
     public var id: String
     public var shortId: String
@@ -12715,10 +12737,11 @@ public struct ResourceShareDTO: Codable, Sendable {
     public var deletedAt: String?
     public var resourceId: String
     public var resourceType: String
-    /// UserID names the person a share is to; TeamID, with UserID empty,
-    /// the resource's whole team.
+    public var granteeType: ACLGrantee
+    public var granteeId: String
     public var userId: String
     public var teamId: String?
+    public var orgId: String?
     @Indirect public var user: UserRelationDTO?
     public var permission: Permission
 
@@ -12730,8 +12753,11 @@ public struct ResourceShareDTO: Codable, Sendable {
         deletedAt: String? = nil,
         resourceId: String = "",
         resourceType: String = "",
+        granteeType: ACLGrantee,
+        granteeId: String = "",
         userId: String = "",
         teamId: String? = nil,
+        orgId: String? = nil,
         user: UserRelationDTO? = nil,
         permission: Permission
     ) {
@@ -12742,8 +12768,11 @@ public struct ResourceShareDTO: Codable, Sendable {
         self.deletedAt = deletedAt
         self.resourceId = resourceId
         self.resourceType = resourceType
+        self.granteeType = granteeType
+        self.granteeId = granteeId
         self.userId = userId
         self.teamId = teamId
+        self.orgId = orgId
         self.user = user
         self.permission = permission
     }
@@ -12756,34 +12785,46 @@ public struct ResourceShareDTO: Codable, Sendable {
         case deletedAt = "deleted_at"
         case resourceId = "resource_id"
         case resourceType = "resource_type"
+        case granteeType = "grantee_type"
+        case granteeId = "grantee_id"
         case userId = "user_id"
         case teamId = "team_id"
+        case orgId = "org_id"
         case user = "user"
         case permission = "permission"
     }
 }
 
 /// ShareRequest is POST /{resource}/{id}/share: a share to one person
-/// (user_id) or to the resource's whole team (team: true), at a permission
-/// (read when empty).
+/// (user_id), to a team (team: true for the resource's own team, or team_id
+/// for another team of its org) or to the resource's whole org (org: true),
+/// at a permission (read when empty).
 public struct ShareRequest: Codable, Sendable {
     public var userId: String?
     public var team: Bool?
+    public var teamId: String?
+    public var org: Bool?
     public var permission: Permission
 
     public init(
         userId: String? = nil,
         team: Bool? = nil,
+        teamId: String? = nil,
+        org: Bool? = nil,
         permission: Permission
     ) {
         self.userId = userId
         self.team = team
+        self.teamId = teamId
+        self.org = org
         self.permission = permission
     }
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case team = "team"
+        case teamId = "team_id"
+        case org = "org"
         case permission = "permission"
     }
 }
@@ -14713,6 +14754,73 @@ public struct ToolInvocationDTO: Codable, Sendable {
     }
 }
 
+/// UpdateState is where the last update a remote or an engine was asked for
+/// stands.
+public struct UpdateState: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// UpdateRequested: the request was sent and nothing has answered it yet.
+    /// An engine older than engine_update_result never answers, so its update stays here.
+    public static let updateRequested = UpdateState(rawValue: "requested")
+    /// UpdateInstalling: a different release is being installed. The machine
+    /// finishes its running work and restarts on it.
+    public static let updateInstalling = UpdateState(rawValue: "installing")
+    /// UpdateInstalled: the machine reconnected on To.
+    public static let updateInstalled = UpdateState(rawValue: "installed")
+    /// UpdateCurrent: the machine already runs To; nothing was installed.
+    public static let updateCurrent = UpdateState(rawValue: "current")
+    /// UpdateRefused: the binary cannot replace itself (a development build,
+    /// an install a package manager owns, or a directory the machine's user
+    /// cannot write to). Error says what to do on the machine.
+    public static let updateRefused = UpdateState(rawValue: "refused")
+    /// UpdateFailed: the release could not be checked, downloaded or
+    /// installed. Error says why. The machine keeps the version it has.
+    public static let updateFailed = UpdateState(rawValue: "failed")
+}
+
+/// UpdateStatus is the last update a remote or an engine was asked for and
+/// what came of it. An engine restarts after every update request, whatever
+/// the outcome; a remote restarts only once its install succeeded.
+public struct UpdateStatus: Codable, Sendable {
+    public var state: UpdateState
+    /// Target is what was asked for: stable, canary or a version (engines).
+    /// Remotes always update to the latest release and leave it empty.
+    public var target: String?
+    /// From is the version the machine ran when asked; To the version it
+    /// installs or found itself already on.
+    public var from: String?
+    public var to: String?
+    public var error: String?
+    /// At is when State was reached.
+    public var at: String
+
+    public init(
+        state: UpdateState,
+        target: String? = nil,
+        from: String? = nil,
+        to: String? = nil,
+        error: String? = nil,
+        at: String = ""
+    ) {
+        self.state = state
+        self.target = target
+        self.from = from
+        self.to = to
+        self.error = error
+        self.at = at
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case state = "state"
+        case target = "target"
+        case from = "from"
+        case to = "to"
+        case error = "error"
+        case at = "at"
+    }
+}
+
 /// MetaItem represents metadata about an input or output item
 public struct MetaItem: Codable, Sendable {
     public var type: MetaItemType
@@ -16246,6 +16354,19 @@ public struct Permission: RawRepresentable, Codable, Hashable, Sendable {
     public static let permUse = Permission(rawValue: "use")
 }
 
+/// ACLGrantee is who an ACL entry is for (models.ACLEntry, INF-1130).
+public struct ACLGrantee: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let user = ACLGrantee(rawValue: "user")
+    public static let team = ACLGrantee(rawValue: "team")
+    public static let org = ACLGrantee(rawValue: "org")
+    /// ACLGranteeEveryone: every caller. Only a platform-scope credential
+    /// may carry one (the acl service's rule).
+    public static let everyone = ACLGrantee(rawValue: "everyone")
+}
+
 public struct SubscriptionStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
@@ -16551,6 +16672,46 @@ public struct ChatEventType: RawRepresentable, Codable, Hashable, Sendable {
     /// ChatEventTypeRunEnded marks the point a run completed or was stopped;
     /// the event's run says how, and the content's text, when set, why.
     public static let runEnded = ChatEventType(rawValue: "run_ended")
+    /// ChatEventTypeBackground marks background work a harness left running
+    /// ending; the event's background says what and how. A turn the harness
+    /// then starts about it answers this message.
+    public static let background = ChatEventType(rawValue: "background")
+}
+
+/// ChatBackgroundEvent is background work ending, on a background event.
+public struct ChatBackgroundEvent: Codable, Sendable {
+    public var taskId: String
+    public var kind: BackgroundKind?
+    public var command: String?
+    public var status: BackgroundStatus
+    public var exitCode: Int?
+    /// ToolInvocationID is the tool call that started it.
+    public var toolInvocationId: String?
+
+    public init(
+        taskId: String = "",
+        kind: BackgroundKind? = nil,
+        command: String? = nil,
+        status: BackgroundStatus,
+        exitCode: Int? = nil,
+        toolInvocationId: String? = nil
+    ) {
+        self.taskId = taskId
+        self.kind = kind
+        self.command = command
+        self.status = status
+        self.exitCode = exitCode
+        self.toolInvocationId = toolInvocationId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case taskId = "task_id"
+        case kind = "kind"
+        case command = "command"
+        case status = "status"
+        case exitCode = "exit_code"
+        case toolInvocationId = "tool_invocation_id"
+    }
 }
 
 /// RunEndReason is why a run that completed ended the way it did, when its
@@ -16602,21 +16763,26 @@ public struct ChatEvent: Codable, Sendable {
     public var type: ChatEventType
     @Indirect public var hook: ChatHookEvent?
     @Indirect public var run: ChatRunEvent?
+    /// Background is set on a background event.
+    @Indirect public var background: ChatBackgroundEvent?
 
     public init(
         type: ChatEventType,
         hook: ChatHookEvent? = nil,
-        run: ChatRunEvent? = nil
+        run: ChatRunEvent? = nil,
+        background: ChatBackgroundEvent? = nil
     ) {
         self.type = type
         self.hook = hook
         self.run = run
+        self.background = background
     }
 
     enum CodingKeys: String, CodingKey {
         case type = "type"
         case hook = "hook"
         case run = "run"
+        case background = "background"
     }
 }
 
@@ -18793,6 +18959,8 @@ public struct AgentEventType: RawRepresentable, Codable, Hashable, Sendable {
     public static let agentEventContextCompacted = AgentEventType(rawValue: "context.compacted")
     /// Errors
     public static let agentEventError = AgentEventType(rawValue: "error")
+    public static let agentEventBackgroundStarted = AgentEventType(rawValue: "background.started")
+    public static let agentEventBackgroundCompleted = AgentEventType(rawValue: "background.completed")
     public static let agentEventSubagentStarted = AgentEventType(rawValue: "subagent.started")
     public static let agentEventSubagentUpdated = AgentEventType(rawValue: "subagent.updated")
     public static let agentEventSubagentCompleted = AgentEventType(rawValue: "subagent.completed")
@@ -18885,19 +19053,38 @@ public struct RunStateChangedPayload: Codable, Sendable {
 public struct TurnStartedPayload: Codable, Sendable {
     public var turnIndex: Int
     public var model: String?
+    /// Origin is what started the turn: empty for a prompt, TurnOriginBackground
+    /// for one the agent started itself when background work it left running
+    /// finished (TaskID names it).
+    public var origin: TurnOrigin?
+    public var taskId: String?
 
     public init(
         turnIndex: Int = 0,
-        model: String? = nil
+        model: String? = nil,
+        origin: TurnOrigin? = nil,
+        taskId: String? = nil
     ) {
         self.turnIndex = turnIndex
         self.model = model
+        self.origin = origin
+        self.taskId = taskId
     }
 
     enum CodingKeys: String, CodingKey {
         case turnIndex = "turn_index"
         case model = "model"
+        case origin = "origin"
+        case taskId = "task_id"
     }
+}
+
+/// TurnOrigin is what started a turn.
+public struct TurnOrigin: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let background = TurnOrigin(rawValue: "background")
 }
 
 public struct TurnCompletedPayload: Codable, Sendable {
@@ -19032,6 +19219,10 @@ public struct ApprovalRequiredPayload: Codable, Sendable {
     public var toolName: String
     public var arguments: StringEncodedMap?
     public var reason: InterruptReason
+    /// Input is set when the agent asks the person questions rather than
+    /// for permission (Reason is then input). The answer is the resolution's
+    /// values, one per Input.Schema property; a deny declines to answer.
+    @Indirect public var input: InputForm?
     /// SubagentID is set when a subagent asks: its tool call, not the
     /// agent's.
     public var subagentId: String?
@@ -19041,12 +19232,14 @@ public struct ApprovalRequiredPayload: Codable, Sendable {
         toolName: String = "",
         arguments: StringEncodedMap? = nil,
         reason: InterruptReason,
+        input: InputForm? = nil,
         subagentId: String? = nil
     ) {
         self.toolInvocationId = toolInvocationId
         self.toolName = toolName
         self.arguments = arguments
         self.reason = reason
+        self.input = input
         self.subagentId = subagentId
     }
 
@@ -19055,6 +19248,7 @@ public struct ApprovalRequiredPayload: Codable, Sendable {
         case toolName = "tool_name"
         case arguments = "arguments"
         case reason = "reason"
+        case input = "input"
         case subagentId = "subagent_id"
     }
 }
@@ -19225,9 +19419,68 @@ public struct InterruptReason: RawRepresentable, Codable, Hashable, Sendable {
     public static let auth = InterruptReason(rawValue: "auth")
     public static let confirmation = InterruptReason(rawValue: "confirmation")
     public static let hookGate = InterruptReason(rawValue: "hook_gate")
+    public static let input = InterruptReason(rawValue: "input")
+}
+
+/// BackgroundKind is what kind of background work a task is.
+public struct BackgroundKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// BackgroundCommand is a shell command left running.
+    public static let backgroundCommand = BackgroundKind(rawValue: "command")
+    /// BackgroundMonitor watches something (a command's output, a file) and
+    /// reports what it sees until it is stopped or times out.
+    public static let backgroundMonitor = BackgroundKind(rawValue: "monitor")
+}
+
+/// BackgroundStatus is how background work ended.
+public struct BackgroundStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let backgroundCompleted = BackgroundStatus(rawValue: "completed")
+    public static let backgroundFailed = BackgroundStatus(rawValue: "failed")
+    public static let backgroundCancelled = BackgroundStatus(rawValue: "cancelled")
+    public static let backgroundTimedOut = BackgroundStatus(rawValue: "timed_out")
 }
 
 public typealias StringEncodedMap = [String: JSONValue]
+
+/// InputForm is a set of questions an agent asks the person, as a form:
+/// form-mode elicitation as MCP and ACP define it. Schema is a flat JSON
+/// object schema whose properties are the questions:
+/// 
+///   - a string, number, integer or boolean field;
+///   - a single choice: a string with enum (and enumNames) or oneOf
+///     ({const, title}) for the choices;
+///   - several choices: an array whose items have enum or anyOf.
+/// 
+/// A property's title is the question's short label and its description the
+/// question itself. The answer is an object with a value per property; one
+/// left out was not answered.
+/// 
+/// Agents ask in their own shapes (Claude Code's AskUserQuestion, Grok's
+/// x.ai/ask_user_question, ACP's elicitation/create); a driver turns each into
+/// an InputForm and the answer back into the agent's shape, so a person
+/// answers every agent the same way.
+public struct InputForm: Codable, Sendable {
+    public var message: String?
+    public var requestedSchema: JSONValue
+
+    public init(
+        message: String? = nil,
+        requestedSchema: JSONValue = .null
+    ) {
+        self.message = message
+        self.requestedSchema = requestedSchema
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case message = "message"
+        case requestedSchema = "requested_schema"
+    }
+}
 
 /// InterruptStatus tracks the lifecycle of an interrupt gate.
 public struct InterruptStatus: RawRepresentable, Codable, Hashable, Sendable {
