@@ -7395,6 +7395,9 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// does not allow the action. Meta is TeamRoleRequiredMeta when a
     /// capability gate refused it.
     public static let teamRoleRequired = ErrorCode(rawValue: "team_role_required")
+    /// ErrorCodeInOtherWorkspace: the resource lives in another workspace
+    /// the caller belongs to and could open there (InOtherWorkspaceMeta).
+    public static let inOtherWorkspace = ErrorCode(rawValue: "in_other_workspace")
     /// ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
     /// usage policy. The message names who to ask.
     public static let blockedByUsagePolicy = ErrorCode(rawValue: "blocked_by_usage_policy")
@@ -7545,6 +7548,22 @@ public struct TeamRoleRequiredMeta: Codable, Sendable {
         case actualRole = "actual_role"
         case requiredRole = "required_role"
         case requiresOrgAdmin = "requires_org_admin"
+    }
+}
+
+/// InOtherWorkspaceMeta is the meta of an in_other_workspace error: the
+/// workspace to switch to.
+public struct InOtherWorkspaceMeta: Codable, Sendable {
+    public var teamId: String
+
+    public init(
+        teamId: String = ""
+    ) {
+        self.teamId = teamId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case teamId = "team_id"
     }
 }
 
