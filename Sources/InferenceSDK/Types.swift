@@ -2740,6 +2740,9 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Remotes
     public static let remotesRead = Scope(rawValue: "remotes:read")
     public static let remotesWrite = Scope(rawValue: "remotes:write")
+    /// Action-level scopes for Sandboxes (managed boxes that run a remote)
+    public static let sandboxesRead = Scope(rawValue: "sandboxes:read")
+    public static let sandboxesWrite = Scope(rawValue: "sandboxes:write")
     /// Action-level scopes for API Keys
     public static let apiKeysRead = Scope(rawValue: "apikeys:read")
     public static let apiKeysWrite = Scope(rawValue: "apikeys:write")
@@ -2811,6 +2814,7 @@ public struct ScopeGroup: RawRepresentable, Codable, Hashable, Sendable {
     public static let credentials = ScopeGroup(rawValue: "credentials")
     public static let engines = ScopeGroup(rawValue: "engines")
     public static let remotes = ScopeGroup(rawValue: "remotes")
+    public static let sandboxes = ScopeGroup(rawValue: "sandboxes")
     public static let apiKeys = ScopeGroup(rawValue: "apikeys")
     public static let knowledge = ScopeGroup(rawValue: "knowledge")
     public static let artifacts = ScopeGroup(rawValue: "artifacts")
@@ -7067,7 +7071,13 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
 
+    /// EngineCapabilityEgressGateway: the engine runs its sandboxes behind
+    /// the egress gateway, so it can take bound secrets (the v2 secrets
+    /// envelope) and place each value only toward its hosts (INF-1076).
     public static let egressGateway = EngineCapability(rawValue: "egress_gateway")
+    /// EngineCapabilitySandboxes: the engine has boxd connected and a VM
+    /// space up, so it can take sandbox_start (INF-833).
+    public static let sandboxes = EngineCapability(rawValue: "sandboxes")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -12848,6 +12858,174 @@ public struct ShareRequest: Codable, Sendable {
     }
 }
 
+/// SandboxStatus is where the API's record of a sandbox stands. A sandbox is
+/// a Firecracker box on one of our engines that runs `belt remote start` and
+/// connects back as an ordinary Remote.
+public struct SandboxStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let pending = SandboxStatus(rawValue: "pending")
+    public static let starting = SandboxStatus(rawValue: "starting")
+    public static let running = SandboxStatus(rawValue: "running")
+    public static let stopping = SandboxStatus(rawValue: "stopping")
+    public static let stopped = SandboxStatus(rawValue: "stopped")
+    public static let failed = SandboxStatus(rawValue: "failed")
+}
+
+/// SandboxDesiredState is what the owner asked for; the reconciler moves the
+/// status toward it.
+public struct SandboxDesiredState: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let sandboxDesiredRunning = SandboxDesiredState(rawValue: "running")
+    public static let sandboxDesiredStopped = SandboxDesiredState(rawValue: "stopped")
+    public static let sandboxDesiredDeleted = SandboxDesiredState(rawValue: "deleted")
+}
+
+/// CreateSandboxRequest is POST /sandboxes. Sizes left at zero take the
+/// defaults.
+public struct CreateSandboxRequest: Codable, Sendable {
+    public var name: String
+    /// default 2, max 8
+    public var vcpus: Int?
+    /// default 4096, max 16384
+    public var memoryMib: Int?
+    /// default 10240, max 51200
+    public var diskMib: Int?
+
+    public init(
+        name: String = "",
+        vcpus: Int? = nil,
+        memoryMib: Int? = nil,
+        diskMib: Int? = nil
+    ) {
+        self.name = name
+        self.vcpus = vcpus
+        self.memoryMib = memoryMib
+        self.diskMib = diskMib
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case vcpus = "vcpus"
+        case memoryMib = "memory_mib"
+        case diskMib = "disk_mib"
+    }
+}
+
+/// SandboxDTO is the API response for a sandbox.
+public struct SandboxDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var name: String
+    public var image: String
+    public var vcpus: Int
+    public var memoryMib: Int
+    public var diskMib: Int
+    public var desiredState: SandboxDesiredState
+    public var status: SandboxStatus
+    public var statusReason: String?
+    /// Generation counts starts, restarts included.
+    public var generation: Int
+    /// EngineID and WorkerID place the current generation; empty while
+    /// pending or stopped.
+    public var engineId: String?
+    public var workerId: String?
+    /// RemoteID is the Remote the box connects as; the same across restarts.
+    public var remoteId: String?
+    public var startedAt: String?
+    public var stoppedAt: String?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        name: String = "",
+        image: String = "",
+        vcpus: Int = 0,
+        memoryMib: Int = 0,
+        diskMib: Int = 0,
+        desiredState: SandboxDesiredState,
+        status: SandboxStatus,
+        statusReason: String? = nil,
+        generation: Int = 0,
+        engineId: String? = nil,
+        workerId: String? = nil,
+        remoteId: String? = nil,
+        startedAt: String? = nil,
+        stoppedAt: String? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.name = name
+        self.image = image
+        self.vcpus = vcpus
+        self.memoryMib = memoryMib
+        self.diskMib = diskMib
+        self.desiredState = desiredState
+        self.status = status
+        self.statusReason = statusReason
+        self.generation = generation
+        self.engineId = engineId
+        self.workerId = workerId
+        self.remoteId = remoteId
+        self.startedAt = startedAt
+        self.stoppedAt = stoppedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case name = "name"
+        case image = "image"
+        case vcpus = "vcpus"
+        case memoryMib = "memory_mib"
+        case diskMib = "disk_mib"
+        case desiredState = "desired_state"
+        case status = "status"
+        case statusReason = "status_reason"
+        case generation = "generation"
+        case engineId = "engine_id"
+        case workerId = "worker_id"
+        case remoteId = "remote_id"
+        case startedAt = "started_at"
+        case stoppedAt = "stopped_at"
+    }
+}
+
 /// SDKTypes is a phantom type for gotypegen dependency tracing.
 /// Types listed here (and their transitive dependencies) are included
 /// in the generated SDK output (TypeScript, Python, Go).
@@ -18378,6 +18556,9 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     public static let resourceFeatureMarketplacePublish = EntitlementResource(rawValue: "feature:marketplace_publish")
     /// Granted per team: creating forms is by invitation for now.
     public static let resourceFeatureForms = EntitlementResource(rawValue: "feature:forms")
+    /// Managed sandboxes (INF-833): open to every team; a row with enabled
+    /// false shuts one team out.
+    public static let resourceFeatureSandboxes = EntitlementResource(rawValue: "feature:sandboxes")
     /// Legacy feature gates — kept for DB compatibility, no longer gated
     public static let resourceFeatureScopes = EntitlementResource(rawValue: "feature:scopes")
     public static let resourceFeatureWebhooks = EntitlementResource(rawValue: "feature:webhooks")
