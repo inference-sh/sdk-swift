@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.28.1
+
+Matching api-v1398.
+
+Added:
+- `RunEndReason.refusal`: the provider refused the run (shown as declined by safety system).
+- Sandboxes: `SandboxStatus` and related types, `EngineCapability.sandboxes`, `sandboxes:read` / `sandboxes:write` scopes.
+- Forms and bounties scopes and scope groups.
+- `ErrorCode.inOtherWorkspace` with `InOtherWorkspaceMeta`.
+- ACL grantee fields and `lastUpdate` on engines and remotes.
+
+Removed:
+- `Infra.remote` (remote LLM direct mode is gone) and `CredentialScope.agent`.
+
 ## 0.28.0
 
 Breaking (matching api-v1383):
