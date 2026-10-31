@@ -18702,6 +18702,7 @@ public struct CredentialProvider: RawRepresentable, Codable, Hashable, Sendable 
     public static let slack = CredentialProvider(rawValue: "slack")
     public static let notion = CredentialProvider(rawValue: "notion")
     public static let gitHub = CredentialProvider(rawValue: "github")
+    public static let gitHubApp = CredentialProvider(rawValue: "github-app")
     public static let x = CredentialProvider(rawValue: "x")
     public static let microsoft = CredentialProvider(rawValue: "microsoft")
     public static let salesforce = CredentialProvider(rawValue: "salesforce")
