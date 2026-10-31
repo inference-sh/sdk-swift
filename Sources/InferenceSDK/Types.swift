@@ -18925,11 +18925,6 @@ public struct Infra: RawRepresentable, Codable, Hashable, Sendable {
     public static let `private` = Infra(rawValue: "private")
     public static let cloud = Infra(rawValue: "cloud")
     public static let privateFirst = Infra(rawValue: "private_first")
-    /// InfraRemote is a model call a harness on the caller's own remote
-    /// answers (an agent whose model app is a harness model app). The
-    /// scheduler never takes it: the remote model service sends it to the
-    /// remote's daemon, whose frames end it.
-    public static let remote = Infra(rawValue: "remote")
 }
 
 /// TaskLogType defines the type of task log.
