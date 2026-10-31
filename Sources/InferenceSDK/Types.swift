@@ -5985,8 +5985,9 @@ public struct CredentialDTO: Codable, Sendable {
     public var isPrimary: Bool
     public var errorMessage: String?
     /// Secrets are the secret rows linked to the credential (a key's values),
-    /// by row and key, never by value. Filled on the vault's api_key configs
-    /// and the admin provider tree.
+    /// by row and key, never by value. Filled on the vault's api_key configs,
+    /// on a config's app when it is the caller's workspace's own (which of
+    /// its keys are set) and on the admin provider tree.
     public var secrets: [CredentialSecretRef]?
 
     public init(
@@ -6184,6 +6185,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// set up yet, or when it doesn't sign in through one. Credential is the
     /// login itself.
     @Indirect public var app: CredentialDTO?
+    /// AppNoun is what that app is called ("GitHub App") when it is not an
+    /// OAuth sign-in app: its logins connect something other than a person
+    /// signing in (an installation). Empty: an OAuth app logins sign in
+    /// through.
+    public var appNoun: String?
     /// AuthProviderID is set when the provider is one the team defined
     /// itself (models.AuthProvider), so the UI can offer edit and remove.
     public var authProviderId: String?
@@ -6218,6 +6224,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         hasManaged: Bool = false,
         connectionScope: CredentialScope,
         app: CredentialDTO? = nil,
+        appNoun: String? = nil,
         authProviderId: String? = nil,
         credential: CredentialDTO? = nil,
         accounts: [CredentialDTO]? = nil,
@@ -6241,6 +6248,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.hasManaged = hasManaged
         self.connectionScope = connectionScope
         self.app = app
+        self.appNoun = appNoun
         self.authProviderId = authProviderId
         self.credential = credential
         self.accounts = accounts
@@ -6266,6 +6274,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case hasManaged = "has_managed"
         case connectionScope = "connection_scope"
         case app = "app"
+        case appNoun = "app_noun"
         case authProviderId = "auth_provider_id"
         case credential = "credential"
         case accounts = "accounts"
