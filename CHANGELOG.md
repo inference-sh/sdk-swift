@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.28.2
+
+Matching api-v1405.
+
+Added:
+- Engine capacity: `EngineCapacity`, `CapacityAmount`, `CapacityGPU`, the engine's `capacity` field and `EngineCapability.capacity`.
+- `CredentialProvider.gitHubApp` and the provider's `appNoun` (what the app is called, e.g. "GitHub App").
+
 ## 0.28.1
 
 Matching api-v1398.
