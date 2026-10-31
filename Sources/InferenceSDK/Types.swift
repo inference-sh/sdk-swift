@@ -6190,6 +6190,10 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// signing in (an installation). Empty: an OAuth app logins sign in
     /// through.
     public var appNoun: String?
+    /// HookURL is where App delivers its events (the GitHub App's webhook
+    /// URL, to paste in its settings): the platform's app's, or this
+    /// workspace's own app's. Empty when the provider's apps deliver none.
+    public var hookUrl: String?
     /// AuthProviderID is set when the provider is one the team defined
     /// itself (models.AuthProvider), so the UI can offer edit and remove.
     public var authProviderId: String?
@@ -6225,6 +6229,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         connectionScope: CredentialScope,
         app: CredentialDTO? = nil,
         appNoun: String? = nil,
+        hookUrl: String? = nil,
         authProviderId: String? = nil,
         credential: CredentialDTO? = nil,
         accounts: [CredentialDTO]? = nil,
@@ -6249,6 +6254,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.connectionScope = connectionScope
         self.app = app
         self.appNoun = appNoun
+        self.hookUrl = hookUrl
         self.authProviderId = authProviderId
         self.credential = credential
         self.accounts = accounts
@@ -6275,6 +6281,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case connectionScope = "connection_scope"
         case app = "app"
         case appNoun = "app_noun"
+        case hookUrl = "hook_url"
         case authProviderId = "auth_provider_id"
         case credential = "credential"
         case accounts = "accounts"
