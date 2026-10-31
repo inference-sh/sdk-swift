@@ -16923,6 +16923,11 @@ public struct RunEndReason: RawRepresentable, Codable, Hashable, Sendable {
     /// RunEndReasonNoReply: the model ended its last turn with no reply and
     /// no tool call.
     public static let noReply = RunEndReason(rawValue: "no_reply")
+    /// RunEndReasonRefusal: the provider's safety system ended the model's
+    /// last turn. The run's messages stay in the chat and are left out of
+    /// the context every later turn sends (BuildContext), so the next
+    /// message is not refused for what this run held.
+    public static let refusal = RunEndReason(rawValue: "refusal")
 }
 
 /// ChatRunEvent is how a run ended, on a run_ended event.
