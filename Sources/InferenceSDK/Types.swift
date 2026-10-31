@@ -6618,6 +6618,9 @@ public struct EngineDTO: Codable, Sendable {
     /// went; nil when it was never asked.
     @Indirect public var lastUpdate: UpdateStatus?
     @Indirect public var systemInfo: SystemInfo?
+    /// Capacity is what the engine last reported it offers and has given
+    /// out; nil from an engine that does not report it.
+    @Indirect public var capacity: EngineCapacity?
     public var workers: [WorkerDTO]?
 
     public init(
@@ -6641,6 +6644,7 @@ public struct EngineDTO: Codable, Sendable {
         capabilities: EngineCapabilities? = nil,
         lastUpdate: UpdateStatus? = nil,
         systemInfo: SystemInfo? = nil,
+        capacity: EngineCapacity? = nil,
         workers: [WorkerDTO]? = nil
     ) {
         self.id = id
@@ -6663,6 +6667,7 @@ public struct EngineDTO: Codable, Sendable {
         self.capabilities = capabilities
         self.lastUpdate = lastUpdate
         self.systemInfo = systemInfo
+        self.capacity = capacity
         self.workers = workers
     }
 
@@ -6687,6 +6692,7 @@ public struct EngineDTO: Codable, Sendable {
         case capabilities = "capabilities"
         case lastUpdate = "last_update"
         case systemInfo = "system_info"
+        case capacity = "capacity"
         case workers = "workers"
     }
 }
@@ -7078,11 +7084,111 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// EngineCapabilitySandboxes: the engine has boxd connected and a VM
     /// space up, so it can take sandbox_start (INF-833).
     public static let sandboxes = EngineCapability(rawValue: "sandboxes")
+    /// EngineCapabilityCapacity: the engine reports EngineTelemetry.Capacity
+    /// (INF-1156).
+    public static let capacity = EngineCapability(rawValue: "capacity")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
 /// empty are the same: nothing beyond the base contract.
 public typealias EngineCapabilities = [EngineCapability]
+
+/// EngineCapacity is what an engine offers and what it has given out
+/// (INF-1156): the machine, the host reserve kept back from it, what is
+/// left to give (allocatable), what it has promised (committed: app
+/// workers' quotas and sandbox boxes' sizes) and what is in use now.
+/// Reported by engines with EngineCapabilityCapacity.
+public struct EngineCapacity: Codable, Sendable {
+    /// CPUs are the logical CPUs (hardware threads) the engine may use;
+    /// Cores the physical cores they are on.
+    public var cpus: Int
+    public var cores: Int
+    public var memoryBytes: Int
+    /// DiskBytes and DiskFreeBytes are the volume the engine's data is on.
+    public var diskBytes: Int
+    public var diskFreeBytes: Int
+    public var gpus: [CapacityGPU]?
+    @Indirect public var reserve: CapacityAmount
+    @Indirect public var allocatable: CapacityAmount
+    @Indirect public var committed: CapacityAmount
+    @Indirect public var used: CapacityAmount
+
+    public init(
+        cpus: Int = 0,
+        cores: Int = 0,
+        memoryBytes: Int = 0,
+        diskBytes: Int = 0,
+        diskFreeBytes: Int = 0,
+        gpus: [CapacityGPU]? = nil,
+        reserve: CapacityAmount,
+        allocatable: CapacityAmount,
+        committed: CapacityAmount,
+        used: CapacityAmount
+    ) {
+        self.cpus = cpus
+        self.cores = cores
+        self.memoryBytes = memoryBytes
+        self.diskBytes = diskBytes
+        self.diskFreeBytes = diskFreeBytes
+        self.gpus = gpus
+        self.reserve = reserve
+        self.allocatable = allocatable
+        self.committed = committed
+        self.used = used
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case cores = "cores"
+        case memoryBytes = "memory_bytes"
+        case diskBytes = "disk_bytes"
+        case diskFreeBytes = "disk_free_bytes"
+        case gpus = "gpus"
+        case reserve = "reserve"
+        case allocatable = "allocatable"
+        case committed = "committed"
+        case used = "used"
+    }
+}
+
+/// CapacityAmount is an amount of CPU and memory. CPUs are logical CPUs,
+/// fractional for use (1.5 is one and a half CPUs busy).
+public struct CapacityAmount: Codable, Sendable {
+    public var cpus: Double
+    public var memoryBytes: Int
+
+    public init(
+        cpus: Double = 0,
+        memoryBytes: Int = 0
+    ) {
+        self.cpus = cpus
+        self.memoryBytes = memoryBytes
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case memoryBytes = "memory_bytes"
+    }
+}
+
+/// CapacityGPU is one GPU of an engine.
+public struct CapacityGPU: Codable, Sendable {
+    public var id: String
+    public var vramBytes: Int
+
+    public init(
+        id: String = "",
+        vramBytes: Int = 0
+    ) {
+        self.id = id
+        self.vramBytes = vramBytes
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case vramBytes = "vram_bytes"
+    }
+}
 
 /// EntitlementDTO for API responses
 public struct EntitlementDTO: Codable, Sendable {
