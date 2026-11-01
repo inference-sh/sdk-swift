@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.3
+
+Matching api-v1407.
+
+Added:
+- `hookUrl` on a credential provider's app config: the webhook URL to set on a GitHub App (the platform's app's, or the workspace's own).
+
 ## 0.28.2
 
 Matching api-v1405.
