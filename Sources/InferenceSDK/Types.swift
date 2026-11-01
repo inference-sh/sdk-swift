@@ -6191,8 +6191,8 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// through.
     public var appNoun: String?
     /// HookURL is where App delivers its events (the GitHub App's webhook
-    /// URL, to paste in its settings): the platform's app's, or this
-    /// workspace's own app's. Empty when the provider's apps deliver none.
+    /// URL, to paste in its settings). Empty when the provider's apps
+    /// deliver none.
     public var hookUrl: String?
     /// AuthProviderID is set when the provider is one the team defined
     /// itself (models.AuthProvider), so the UI can offer edit and remove.
