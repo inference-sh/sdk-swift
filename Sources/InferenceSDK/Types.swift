@@ -3607,6 +3607,7 @@ public struct AppUIRef: Codable, Sendable {
 /// 	sandbox:
 /// 	  host_network: true          # share the host's network namespace
 /// 	  capabilities: [SYS_PTRACE]  # Linux capabilities the app's processes keep
+/// 	  user_namespaces: true       # unprivileged user namespaces (Chromium's sandbox)
 /// 
 /// The API reads it from the package when the version is deployed and stores
 /// it on the version (server-owned: no caller writes it). Engines enforce the
@@ -3620,18 +3621,26 @@ public struct AppSandbox: Codable, Sendable {
     /// upper case. The container is given them and the app's processes keep
     /// them.
     public var capabilities: [String]?
+    /// UserNamespaces lets the app's processes create unprivileged user
+    /// namespaces, which Chromium's sandbox needs. The container's seccomp
+    /// profile allows clone, unshare, setns and chroot; it gains no
+    /// capability on the host.
+    public var userNamespaces: Bool?
 
     public init(
         hostNetwork: Bool? = nil,
-        capabilities: [String]? = nil
+        capabilities: [String]? = nil,
+        userNamespaces: Bool? = nil
     ) {
         self.hostNetwork = hostNetwork
         self.capabilities = capabilities
+        self.userNamespaces = userNamespaces
     }
 
     enum CodingKeys: String, CodingKey {
         case hostNetwork = "host_network"
         case capabilities = "capabilities"
+        case userNamespaces = "user_namespaces"
     }
 }
 
