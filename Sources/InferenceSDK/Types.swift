@@ -2186,6 +2186,9 @@ public struct MeResponse: Codable, Sendable {
     public var notice: String?
     public var noticeReference: String?
     public var noticeContact: String?
+    /// AccessNotice is the same notice in structured form: its stage (lure
+    /// or legal) and, on the lure, how to install the CLI.
+    @Indirect public var accessNotice: AccessNoticeDTO?
     /// PersonalTeamID is the caller's personal workspace, empty for a managed
     /// account, which has none.
     public var personalTeamId: String?
@@ -2213,6 +2216,7 @@ public struct MeResponse: Codable, Sendable {
         notice: String? = nil,
         noticeReference: String? = nil,
         noticeContact: String? = nil,
+        accessNotice: AccessNoticeDTO? = nil,
         personalTeamId: String? = nil,
         needsUsername: Bool = false,
         platformPower: Bool = false,
@@ -2226,6 +2230,7 @@ public struct MeResponse: Codable, Sendable {
         self.notice = notice
         self.noticeReference = noticeReference
         self.noticeContact = noticeContact
+        self.accessNotice = accessNotice
         self.personalTeamId = personalTeamId
         self.needsUsername = needsUsername
         self.platformPower = platformPower
@@ -2241,6 +2246,7 @@ public struct MeResponse: Codable, Sendable {
         case notice = "notice"
         case noticeReference = "notice_reference"
         case noticeContact = "notice_contact"
+        case accessNotice = "access_notice"
         case personalTeamId = "personal_team_id"
         case needsUsername = "needs_username"
         case platformPower = "platform_power"
@@ -12416,6 +12422,51 @@ public struct ProjectDTO: Codable, Sendable {
         case parentId = "parent_id"
         case parent = "parent"
         case children = "children"
+    }
+}
+
+/// AccessNoticeDTO is the redlist's notice to a restricted caller, as a
+/// refusal's meta.notice and /me's access_notice carry it.
+public struct AccessNoticeDTO: Codable, Sendable {
+    /// Stage: lure (install the CLI and sign in) or legal (the legal
+    /// warning).
+    public var stage: String
+    public var text: String
+    public var reference: String
+    public var contact: String
+    /// InstallURL and InstallCommand, on the lure: where to get the belt
+    /// CLI.
+    public var installUrl: String?
+    public var installCommand: String?
+    /// Case, on the legal notice when a report reference is configured.
+    public var `case`: String?
+
+    public init(
+        stage: String = "",
+        text: String = "",
+        reference: String = "",
+        contact: String = "",
+        installUrl: String? = nil,
+        installCommand: String? = nil,
+        `case`: String? = nil
+    ) {
+        self.stage = stage
+        self.text = text
+        self.reference = reference
+        self.contact = contact
+        self.installUrl = installUrl
+        self.installCommand = installCommand
+        self.`case` = `case`
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case stage = "stage"
+        case text = "text"
+        case reference = "reference"
+        case contact = "contact"
+        case installUrl = "install_url"
+        case installCommand = "install_command"
+        case `case` = "case"
     }
 }
 
