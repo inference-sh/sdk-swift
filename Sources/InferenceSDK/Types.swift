@@ -122,6 +122,12 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var remote: Bool?
     public var knowledge: Bool?
     public var wait: Bool?
+    /// SandboxCredentials are the logins a sandbox sandbox_create makes gets
+    /// (Remote on), declared as an app's credentials are (provider slug,
+    /// scopes): the runner's own, as a task of theirs resolves it; a runner
+    /// with none is asked to connect it and the call waits. None declared,
+    /// none given. The model's arguments never add any.
+    public var sandboxCredentials: [CredentialRequirement]?
 
     public init(
         plan: Bool? = nil,
@@ -135,7 +141,8 @@ public struct InternalToolsConfig: Codable, Sendable {
         agent: Bool? = nil,
         remote: Bool? = nil,
         knowledge: Bool? = nil,
-        wait: Bool? = nil
+        wait: Bool? = nil,
+        sandboxCredentials: [CredentialRequirement]? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -149,6 +156,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         self.remote = remote
         self.knowledge = knowledge
         self.wait = wait
+        self.sandboxCredentials = sandboxCredentials
     }
 
     enum CodingKeys: String, CodingKey {
@@ -164,6 +172,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         case remote = "remote"
         case knowledge = "knowledge"
         case wait = "wait"
+        case sandboxCredentials = "sandbox_credentials"
     }
 }
 
@@ -1956,21 +1965,29 @@ public struct DeviceAuthInitRequest: Codable, Sendable {
     public var tokenKind: DeviceTokenKind?
     public var codeChallenge: String?
     public var codeChallengeMethod: String?
+    /// Scopes the device asks for ("belt login --admin" names the admin
+    /// scopes). Empty: the default, every scope but user:write and admin.
+    /// The approval page shows them and the person confirms; the approval
+    /// grants at most these.
+    public var scopes: [Scope]?
 
     public init(
         tokenKind: DeviceTokenKind? = nil,
         codeChallenge: String? = nil,
-        codeChallengeMethod: String? = nil
+        codeChallengeMethod: String? = nil,
+        scopes: [Scope]? = nil
     ) {
         self.tokenKind = tokenKind
         self.codeChallenge = codeChallenge
         self.codeChallengeMethod = codeChallengeMethod
+        self.scopes = scopes
     }
 
     enum CodingKeys: String, CodingKey {
         case tokenKind = "token_kind"
         case codeChallenge = "code_challenge"
         case codeChallengeMethod = "code_challenge_method"
+        case scopes = "scopes"
     }
 }
 
@@ -2159,6 +2176,10 @@ public struct MeResponse: Codable, Sendable {
     /// governance and capabilities (GET /teams/{id}/view).
     @Indirect public var teamView: TeamViewDTO?
     @Indirect public var diagnostics: DiagnosticsConfig?
+    /// Notice is an operator's notice about the caller's access, set only
+    /// when the request comes from an address restricted to sign-in and the
+    /// CLI. Empty otherwise.
+    public var notice: String?
     /// PersonalTeamID is the caller's personal workspace, empty for a managed
     /// account, which has none.
     public var personalTeamId: String?
@@ -2183,6 +2204,7 @@ public struct MeResponse: Codable, Sendable {
         org: OrgDTO? = nil,
         teamView: TeamViewDTO? = nil,
         diagnostics: DiagnosticsConfig? = nil,
+        notice: String? = nil,
         personalTeamId: String? = nil,
         needsUsername: Bool = false,
         platformPower: Bool = false,
@@ -2193,6 +2215,7 @@ public struct MeResponse: Codable, Sendable {
         self.org = org
         self.teamView = teamView
         self.diagnostics = diagnostics
+        self.notice = notice
         self.personalTeamId = personalTeamId
         self.needsUsername = needsUsername
         self.platformPower = platformPower
@@ -2205,6 +2228,7 @@ public struct MeResponse: Codable, Sendable {
         case org = "org"
         case teamView = "team_view"
         case diagnostics = "diagnostics"
+        case notice = "notice"
         case personalTeamId = "personal_team_id"
         case needsUsername = "needs_username"
         case platformPower = "platform_power"
@@ -7289,6 +7313,26 @@ public struct EntitlementDTO: Codable, Sendable {
     }
 }
 
+/// FeatureAccess is whether the caller's team may use feature gate
+/// Resource, as the API decides it (CheckFeatureGate): what a client shows.
+public struct FeatureAccess: Codable, Sendable {
+    public var resource: EntitlementResource
+    public var allowed: Bool
+
+    public init(
+        resource: EntitlementResource,
+        allowed: Bool = false
+    ) {
+        self.resource = resource
+        self.allowed = allowed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resource = "resource"
+        case allowed = "allowed"
+    }
+}
+
 /// EntitlementErrorMeta is the structured metadata returned in entitlement error responses.
 public struct EntitlementErrorMeta: Codable, Sendable {
     public var resource: EntitlementResource
@@ -7519,6 +7563,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let methodNotAllowed = ErrorCode(rawValue: "method_not_allowed")
     public static let rateLimited = ErrorCode(rawValue: "rate_limited")
     public static let internalError = ErrorCode(rawValue: "internal_error")
+    /// ErrorCodeWebAccessRestricted (403): the request comes from an address
+    /// restricted to sign-in and the CLI; detail is the operator's notice
+    /// and meta is WebAccessRestrictedMeta.
+    public static let webAccessRestricted = ErrorCode(rawValue: "web_access_restricted")
     /// ErrorCodeRequirementsNotMet (412): the run needs a secret or a
     /// credential the caller has not set up. Meta "errors" lists each
     /// RequirementError, its action saying how to set it up.
@@ -12458,6 +12506,15 @@ public struct OAuthAuthorizeInfoResponse: Codable, Sendable {
     public var verified: Bool
     public var scopes: [Scope]?
     public var redirectHost: String
+    /// StepUpRequired: the caller has not approved this client, to this
+    /// redirect, for these scopes and this team (team_id query parameter,
+    /// else the session's) since the fix, with a grant still live, so
+    /// approving takes a step-up: StepUpAction for StepUpTarget, proved via
+    /// POST /auth/otp/verify (an emailed code via POST /auth/otp/resend
+    /// {action, target}); the form submits the token as step_up_token.
+    public var stepUpRequired: Bool
+    public var stepUpAction: StepUpAction?
+    public var stepUpTarget: String?
 
     public init(
         clientName: String = "",
@@ -12465,7 +12522,10 @@ public struct OAuthAuthorizeInfoResponse: Codable, Sendable {
         origin: String = "",
         verified: Bool = false,
         scopes: [Scope]? = nil,
-        redirectHost: String = ""
+        redirectHost: String = "",
+        stepUpRequired: Bool = false,
+        stepUpAction: StepUpAction? = nil,
+        stepUpTarget: String? = nil
     ) {
         self.clientName = clientName
         self.clientType = clientType
@@ -12473,6 +12533,9 @@ public struct OAuthAuthorizeInfoResponse: Codable, Sendable {
         self.verified = verified
         self.scopes = scopes
         self.redirectHost = redirectHost
+        self.stepUpRequired = stepUpRequired
+        self.stepUpAction = stepUpAction
+        self.stepUpTarget = stepUpTarget
     }
 
     enum CodingKeys: String, CodingKey {
@@ -12482,6 +12545,9 @@ public struct OAuthAuthorizeInfoResponse: Codable, Sendable {
         case verified = "verified"
         case scopes = "scopes"
         case redirectHost = "redirect_host"
+        case stepUpRequired = "step_up_required"
+        case stepUpAction = "step_up_action"
+        case stepUpTarget = "step_up_target"
     }
 }
 
@@ -13016,17 +13082,25 @@ public struct CreateSandboxRequest: Codable, Sendable {
     public var memoryMib: Int?
     /// default 10240, max 51200
     public var diskMib: Int?
+    /// Credentials are the logins the box gets, by provider (slug), as a
+    /// run of its owner resolves them (e.g. [{"slug":"github-app"}]). Only
+    /// keys a provider binds to hosts: the box holds placeholders, the
+    /// engine's gateway places the values toward those hosts and renews
+    /// the ones that expire, always from the login chosen here.
+    public var credentials: [CredentialRequirement]?
 
     public init(
         name: String = "",
         vcpus: Int? = nil,
         memoryMib: Int? = nil,
-        diskMib: Int? = nil
+        diskMib: Int? = nil,
+        credentials: [CredentialRequirement]? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
         self.memoryMib = memoryMib
         self.diskMib = diskMib
+        self.credentials = credentials
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13034,6 +13108,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case vcpus = "vcpus"
         case memoryMib = "memory_mib"
         case diskMib = "disk_mib"
+        case credentials = "credentials"
     }
 }
 
@@ -14535,6 +14610,31 @@ public struct TeamDTO: Codable, Sendable {
         case role = "role"
         case orgId = "org_id"
         case orgName = "org_name"
+    }
+}
+
+/// TeamMemberAddResultDTO is what POST /teams/{id}/members did: added the
+/// account (member) or, for an account the team's org does not own, sent it
+/// an invite (invite).
+public struct TeamMemberAddResultDTO: Codable, Sendable {
+    public var outcome: TeamMemberAddOutcome
+    @Indirect public var member: TeamMemberDTO?
+    @Indirect public var invite: TeamInviteDTO?
+
+    public init(
+        outcome: TeamMemberAddOutcome,
+        member: TeamMemberDTO? = nil,
+        invite: TeamInviteDTO? = nil
+    ) {
+        self.outcome = outcome
+        self.member = member
+        self.invite = invite
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case outcome = "outcome"
+        case member = "member"
+        case invite = "invite"
     }
 }
 
@@ -18543,6 +18643,65 @@ public struct SecondFactor: RawRepresentable, Codable, Hashable, Sendable {
     public static let email = SecondFactor(rawValue: "email")
 }
 
+/// StepUpAction is an action that takes a step-up: a factor proved for this
+/// one action, spent by the one request that performs it (auth.RequireStepUp).
+/// A sign-in or a re-auth window never stands in for it.
+public struct StepUpAction: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// StepUpExport: request an account data export, or a download link.
+    public static let stepUpExport = StepUpAction(rawValue: "export")
+    /// StepUpDelete: schedule the account's deletion.
+    public static let stepUpDelete = StepUpAction(rawValue: "delete")
+    /// StepUpFactorEnroll: start enrolling an authenticator or passkey, or
+    /// turn two-step verification on (which hands out recovery codes).
+    public static let stepUpFactorEnroll = StepUpAction(rawValue: "factor_enroll")
+    /// StepUpFactorChange: turn two-step verification off, remove a method,
+    /// or regenerate recovery codes.
+    public static let stepUpFactorChange = StepUpAction(rawValue: "factor_change")
+    /// StepUpDeviceApprove: approve a device (CLI) sign-in.
+    public static let stepUpDeviceApprove = StepUpAction(rawValue: "device_approve")
+    /// StepUpAdminElevationApprove: approve an admin elevation of a CLI login.
+    public static let stepUpAdminElevationApprove = StepUpAction(rawValue: "admin_elevation_approve")
+    /// StepUpOAuthApprove: approve an OAuth app the account has not approved
+    /// before (for this redirect URI, these scopes and this team).
+    public static let stepUpOAuthApprove = StepUpAction(rawValue: "oauth_approve")
+    /// StepUpAPIKeyCreate: create an API key from the browser (target: its
+    /// scopes and team).
+    public static let stepUpAPIKeyCreate = StepUpAction(rawValue: "api_key_create")
+    /// StepUpSecretReveal: read a stored secret's value or a webhook signing
+    /// secret, or generate a new signing secret (target: the request).
+    public static let stepUpSecretReveal = StepUpAction(rawValue: "secret_reveal")
+    /// StepUpAdminSession: open the staff browser session's ten-minute admin
+    /// action window, inside which admin writes pass.
+    public static let stepUpAdminSession = StepUpAction(rawValue: "admin_session")
+    /// StepUpAdminSensitive: one sensitive admin action, every time, window
+    /// or not (impersonation, revealing a setting's secret, a device
+    /// identity, exporting voucher codes). Target: the request.
+    public static let stepUpAdminSensitive = StepUpAction(rawValue: "admin_sensitive")
+    /// StepUpTeamMemberChange: add someone to a team, invite them, or change
+    /// a member's role (target: team|email or user|role).
+    public static let stepUpTeamMemberChange = StepUpAction(rawValue: "team_member_change")
+    /// StepUpTeamSSOChange: change who can enter a team through SSO.
+    public static let stepUpTeamSSOChange = StepUpAction(rawValue: "team_sso_change")
+}
+
+/// TeamMemberAddOutcome is what adding an existing account to a team by email
+/// did (POST /teams/{id}/members, POST /orgs/{id}/admins).
+public struct TeamMemberAddOutcome: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// TeamMemberAddAdded: the team's org owns the account (it manages it,
+    /// it is already in the org, or it is at a verified domain), so it
+    /// joined straight away.
+    public static let teamMemberAddAdded = TeamMemberAddOutcome(rawValue: "added")
+    /// TeamMemberAddInvited: the account is not the org's to place, so an
+    /// invite was sent; it joins when it accepts.
+    public static let teamMemberAddInvited = TeamMemberAddOutcome(rawValue: "invited")
+}
+
 /// TeamInviteStatus represents the status of a team invitation
 public struct TeamInviteStatus: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
@@ -18683,8 +18842,8 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     public static let resourceFeatureMarketplacePublish = EntitlementResource(rawValue: "feature:marketplace_publish")
     /// Granted per team: creating forms is by invitation for now.
     public static let resourceFeatureForms = EntitlementResource(rawValue: "feature:forms")
-    /// Managed sandboxes (INF-833): open to every team; a row with enabled
-    /// false shuts one team out.
+    /// Managed sandboxes (INF-833): open to every team unless turned off
+    /// for one (FeatureOpen).
     public static let resourceFeatureSandboxes = EntitlementResource(rawValue: "feature:sandboxes")
     /// Legacy feature gates — kept for DB compatibility, no longer gated
     public static let resourceFeatureScopes = EntitlementResource(rawValue: "feature:scopes")
