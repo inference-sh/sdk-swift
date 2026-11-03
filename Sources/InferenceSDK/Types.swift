@@ -2178,10 +2178,14 @@ public struct MeResponse: Codable, Sendable {
     /// governance and capabilities (GET /teams/{id}/view).
     @Indirect public var teamView: TeamViewDTO?
     @Indirect public var diagnostics: DiagnosticsConfig?
-    /// Notice is an operator's notice about the caller's access, set only
-    /// when the request comes from an address restricted to sign-in and the
-    /// CLI. Empty otherwise.
+    /// Notice is a notice about the caller's access, set only when the
+    /// redlist restricts this request (a restricted address, or a
+    /// restricted account): the text an access_restricted refusal carries
+    /// as its detail. Empty otherwise. NoticeReference and NoticeContact
+    /// are that refusal's meta.reference and meta.contact.
     public var notice: String?
+    public var noticeReference: String?
+    public var noticeContact: String?
     /// PersonalTeamID is the caller's personal workspace, empty for a managed
     /// account, which has none.
     public var personalTeamId: String?
@@ -2207,6 +2211,8 @@ public struct MeResponse: Codable, Sendable {
         teamView: TeamViewDTO? = nil,
         diagnostics: DiagnosticsConfig? = nil,
         notice: String? = nil,
+        noticeReference: String? = nil,
+        noticeContact: String? = nil,
         personalTeamId: String? = nil,
         needsUsername: Bool = false,
         platformPower: Bool = false,
@@ -2218,6 +2224,8 @@ public struct MeResponse: Codable, Sendable {
         self.teamView = teamView
         self.diagnostics = diagnostics
         self.notice = notice
+        self.noticeReference = noticeReference
+        self.noticeContact = noticeContact
         self.personalTeamId = personalTeamId
         self.needsUsername = needsUsername
         self.platformPower = platformPower
@@ -2231,6 +2239,8 @@ public struct MeResponse: Codable, Sendable {
         case teamView = "team_view"
         case diagnostics = "diagnostics"
         case notice = "notice"
+        case noticeReference = "notice_reference"
+        case noticeContact = "notice_contact"
         case personalTeamId = "personal_team_id"
         case needsUsername = "needs_username"
         case platformPower = "platform_power"
@@ -6535,6 +6545,140 @@ public struct CountResponse: Codable, Sendable {
     }
 }
 
+/// EgressGrantScope is what a grant lets use a login: a task or a sandbox.
+public struct EgressGrantScope: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let task = EgressGrantScope(rawValue: "task")
+    public static let sandbox = EgressGrantScope(rawValue: "sandbox")
+}
+
+/// EgressGrantState is where a grant stands.
+public struct EgressGrantState: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// EgressGrantOpen: the scope may be asked for the login; nobody has
+    /// been yet.
+    public static let egressGrantOpen = EgressGrantState(rawValue: "open")
+    /// EgressGrantAsked: a card is open (EgressGrantDTO.InterruptID).
+    public static let egressGrantAsked = EgressGrantState(rawValue: "asked")
+    /// EgressGrantAllowed: the scope gets the login.
+    public static let egressGrantAllowed = EgressGrantState(rawValue: "allowed")
+    /// EgressGrantDeclined: a person said no, for the scope's life.
+    public static let egressGrantDeclined = EgressGrantState(rawValue: "declined")
+    /// EgressGrantEnded: the grant no longer holds (Reason says why); the
+    /// scope keeps running, and its next use decides again.
+    public static let egressGrantEnded = EgressGrantState(rawValue: "ended")
+}
+
+/// EgressGrantSource is where a grant came from.
+public struct EgressGrantSource: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let appDeclared = EgressGrantSource(rawValue: "app_declared")
+    public static let agentConfig = EgressGrantSource(rawValue: "agent_config")
+    public static let sandboxCreate = EgressGrantSource(rawValue: "sandbox_create")
+    public static let ownerApproval = EgressGrantSource(rawValue: "owner_approval")
+    public static let connectedOffer = EgressGrantSource(rawValue: "connected_offer")
+    public static let reconnect = EgressGrantSource(rawValue: "reconnect")
+}
+
+/// EgressGrantReason is why a grant was declined or ended.
+public struct EgressGrantReason: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let declined = EgressGrantReason(rawValue: "declined")
+    public static let loginDeleted = EgressGrantReason(rawValue: "login_deleted")
+    public static let loginDisconnected = EgressGrantReason(rawValue: "login_disconnected")
+    public static let notOwner = EgressGrantReason(rawValue: "not_owner")
+    public static let expiredLifetime = EgressGrantReason(rawValue: "expired_lifetime")
+    public static let scopesMissing = EgressGrantReason(rawValue: "scopes_missing")
+    public static let scopeEnded = EgressGrantReason(rawValue: "scope_ended")
+    public static let revokedByOwner = EgressGrantReason(rawValue: "revoked_by_owner")
+}
+
+/// EgressGrantDTO is one decision that a task or a sandbox may use a
+/// provider's login through the engine's egress gateway: what was allowed,
+/// who allowed it and why, and which login answers (INF-1173). It never
+/// holds a value. GET /sandboxes/{id}/grants, GET /tasks/{id}/grants.
+public struct EgressGrantDTO: Codable, Sendable {
+    public var id: String
+    public var scope: EgressGrantScope
+    public var scopeId: String
+    /// Provider is the provider's slug.
+    public var provider: String
+    public var mode: SandboxCredentialMode
+    public var state: EgressGrantState
+    public var source: EgressGrantSource
+    /// GrantedBy is the user who allowed it: the task's user for an app's
+    /// declaration, the agent config's owner for its own, the answering
+    /// owner for an approval.
+    public var grantedBy: String?
+    /// CredentialID is the login that answers; empty until first use picks
+    /// one.
+    public var credentialId: String?
+    /// Host is the first host it was wanted for.
+    public var host: String?
+    /// Reason is why it was declined or ended.
+    public var reason: EgressGrantReason?
+    public var createdAt: String
+    public var updatedAt: String
+    public var endedAt: String?
+
+    public init(
+        id: String = "",
+        scope: EgressGrantScope,
+        scopeId: String = "",
+        provider: String = "",
+        mode: SandboxCredentialMode,
+        state: EgressGrantState,
+        source: EgressGrantSource,
+        grantedBy: String? = nil,
+        credentialId: String? = nil,
+        host: String? = nil,
+        reason: EgressGrantReason? = nil,
+        createdAt: String = "",
+        updatedAt: String = "",
+        endedAt: String? = nil
+    ) {
+        self.id = id
+        self.scope = scope
+        self.scopeId = scopeId
+        self.provider = provider
+        self.mode = mode
+        self.state = state
+        self.source = source
+        self.grantedBy = grantedBy
+        self.credentialId = credentialId
+        self.host = host
+        self.reason = reason
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.endedAt = endedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case scope = "scope"
+        case scopeId = "scope_id"
+        case provider = "provider"
+        case mode = "mode"
+        case state = "state"
+        case source = "source"
+        case grantedBy = "granted_by"
+        case credentialId = "credential_id"
+        case host = "host"
+        case reason = "reason"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case endedAt = "ended_at"
+    }
+}
+
 /// EngineConfig holds engine configuration (no gorm tags).
 public struct EngineConfig: Codable, Sendable {
     public var id: String
@@ -7144,6 +7288,13 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// triggers EgressTrigger names; it also reports the hosts its boxes
     /// reach (POST /engines/{id}/egress/hosts) (INF-1173).
     public static let egressPending = EngineCapability(rawValue: "egress_pending")
+    /// EngineCapabilityEgressGrants: the engine's gateway holds a fetched
+    /// value only BoundSecret.KeepFor (at most until it expires), answers a
+    /// refused binding with EgressResolveResponse.Reason, wipes a binding's
+    /// held value when it is declined, and takes egress_revoke
+    /// (WsEgressRevokePayload). Tasks are sent pending bindings only on such
+    /// an engine (INF-1173).
+    public static let egressGrants = EngineCapability(rawValue: "egress_grants")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -7580,9 +7731,14 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let methodNotAllowed = ErrorCode(rawValue: "method_not_allowed")
     public static let rateLimited = ErrorCode(rawValue: "rate_limited")
     public static let internalError = ErrorCode(rawValue: "internal_error")
-    /// ErrorCodeWebAccessRestricted (403): the request comes from an address
-    /// restricted to sign-in and the CLI; detail is the operator's notice
-    /// and meta is WebAccessRestrictedMeta.
+    /// ErrorCodeAccessRestricted (403): the redlist refuses the request (a
+    /// restricted address, or a restricted account outside sign-in, /me,
+    /// telemetry and balance). detail is the notice to show the person, as
+    /// is; meta is AccessRestrictedMeta: a reference to quote and who to
+    /// contact.
+    public static let accessRestricted = ErrorCode(rawValue: "access_restricted")
+    /// ErrorCodeWebAccessRestricted is no longer sent: refusals are
+    /// access_restricted. Kept so clients that name it still build.
     public static let webAccessRestricted = ErrorCode(rawValue: "web_access_restricted")
     /// ErrorCodeRequirementsNotMet (412): the run needs a secret or a
     /// credential the caller has not set up. Meta "errors" lists each
