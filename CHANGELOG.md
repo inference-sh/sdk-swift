@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.29.0
+
+Matching api-v1433. Breaking: update calls send only the fields they set (agents.update sends images/version; chats.update and teams.update use PATCH; apps.patch added; username is no longer sent), and request() takes an HTTP method. Includes the security-release types (step-up, admin window, member add results, access notice, egress grants).
+
 ## 0.28.3
 
 Matching api-v1407.
