@@ -73,7 +73,10 @@ public struct TeamsAPI: Sendable {
     }
 
     /// POST /teams/{id}/members.
-    public func addMember(_ teamId: String, _ data: TeamMemberAddRequest) async throws -> TeamMemberDTO {
+    /// Add an existing account to a team. An account the team's org owns joins
+    /// straight away (`outcome == "added"`, `member`); anyone else is sent an
+    /// invite they accept (`outcome == "invited"`, `invite`).
+    public func addMember(_ teamId: String, _ data: TeamMemberAddRequest) async throws -> TeamMemberAddResultDTO {
         try await client.decode(client.send(client.request("teams/\(teamId)/members", body: data)))
     }
 
