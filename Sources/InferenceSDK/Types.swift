@@ -126,8 +126,10 @@ public struct InternalToolsConfig: Codable, Sendable {
     /// (Remote on), declared as an app's credentials are (provider slug,
     /// scopes): the runner's own, as a task of theirs resolves it; a runner
     /// with none is asked to connect it and the call waits. None declared,
-    /// none given. The model's arguments never add any.
-    public var sandboxCredentials: [CredentialRequirement]?
+    /// none given. The model's arguments never add any. Each entry's mode
+    /// says when the box gets it: auto (the default) at once, ask on first
+    /// use once a person approves it (SandboxCredential).
+    public var sandboxCredentials: [SandboxCredential]?
 
     public init(
         plan: Bool? = nil,
@@ -142,7 +144,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         remote: Bool? = nil,
         knowledge: Bool? = nil,
         wait: Bool? = nil,
-        sandboxCredentials: [CredentialRequirement]? = nil
+        sandboxCredentials: [SandboxCredential]? = nil
     ) {
         self.plan = plan
         self.memory = memory
@@ -7127,6 +7129,12 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// EngineCapabilityCapacity: the engine reports EngineTelemetry.Capacity
     /// (INF-1156).
     public static let capacity = EngineCapability(rawValue: "capacity")
+    /// EngineCapabilityEgressPending: the engine's gateway takes pending
+    /// bound secrets (BoundSecret.Pending: no value) and fetches each value
+    /// on first use through POST /engines/{id}/egress/resolve, with the
+    /// triggers EgressTrigger names; it also reports the hosts its boxes
+    /// reach (POST /engines/{id}/egress/hosts) (INF-1173).
+    public static let egressPending = EngineCapability(rawValue: "egress_pending")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -13087,14 +13095,14 @@ public struct CreateSandboxRequest: Codable, Sendable {
     /// keys a provider binds to hosts: the box holds placeholders, the
     /// engine's gateway places the values toward those hosts and renews
     /// the ones that expire, always from the login chosen here.
-    public var credentials: [CredentialRequirement]?
+    public var credentials: [SandboxCredential]?
 
     public init(
         name: String = "",
         vcpus: Int? = nil,
         memoryMib: Int? = nil,
         diskMib: Int? = nil,
-        credentials: [CredentialRequirement]? = nil
+        credentials: [SandboxCredential]? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
@@ -13109,6 +13117,109 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case memoryMib = "memory_mib"
         case diskMib = "disk_mib"
         case credentials = "credentials"
+    }
+}
+
+/// SandboxCredentialMode is when a sandbox's login is given to its box.
+public struct SandboxCredentialMode: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// SandboxCredentialAuto (the default): the login is chosen when the
+    /// sandbox is made and given without asking.
+    public static let sandboxCredentialAuto = SandboxCredentialMode(rawValue: "auto")
+    /// SandboxCredentialAsk: the box gets the login on first use, once a
+    /// person approves it on the tool call running there; a run nobody
+    /// watches (a trigger, a schedule) never gets it (INF-1173). Needs an
+    /// engine with EngineCapabilityEgressPending.
+    public static let sandboxCredentialAsk = SandboxCredentialMode(rawValue: "ask")
+}
+
+/// SandboxCredential is a login a sandbox's box gets: a requirement by
+/// provider, as an app declares one, and when it is given (Mode, auto when
+/// unset). It reads and writes as the requirement's fields plus "mode", so
+/// a plain requirement is an auto one.
+public struct SandboxCredential: Codable, Sendable {
+    public var slug: String?
+    public var capabilities: [String]?
+    public var description: String?
+    public var optional: Bool?
+    public var secrets: [String]?
+    public var scopes: [String]?
+    /// Provider describes the company the credential belongs to, for a
+    /// catalog row that does not exist yet. Its slug defaults to the
+    /// credential slug.
+    @Indirect public var provider: CompanySeed?
+    /// Auth is the credential's auth provider, for a slug no row defines yet.
+    @Indirect public var auth: AuthMethod?
+    /// The rest describe the platform api_key scheme a platform app's deploy
+    /// catalogues for the slug: set on the scheme it creates, and filled into
+    /// an existing one only where that is still empty (an admin's edit
+    /// stands). Any other deploy ignores them.
+    /// 
+    /// DisplayName is the scheme's name ("Claude Code"); at most
+    /// MaxCredentialDisplayName characters.
+    public var displayName: String?
+    /// ConnectionScope is who a connection belongs to: team (empty) or user.
+    public var connectionScope: CredentialScope?
+    /// Instructions tell a person how to get the key (markdown, at most
+    /// MaxAuthProviderInstructions characters).
+    public var instructions: String?
+    /// DocsURL is the scheme's documentation link.
+    public var docsUrl: String?
+    /// ExpiresAfterDays is how long a saved key lasts: it counts as expired
+    /// this many days after it is saved. 0 is never; at most
+    /// MaxExpiresAfterDays.
+    public var expiresAfterDays: Int?
+    public var mode: SandboxCredentialMode?
+
+    public init(
+        slug: String? = nil,
+        capabilities: [String]? = nil,
+        description: String? = nil,
+        optional: Bool? = nil,
+        secrets: [String]? = nil,
+        scopes: [String]? = nil,
+        provider: CompanySeed? = nil,
+        auth: AuthMethod? = nil,
+        displayName: String? = nil,
+        connectionScope: CredentialScope? = nil,
+        instructions: String? = nil,
+        docsUrl: String? = nil,
+        expiresAfterDays: Int? = nil,
+        mode: SandboxCredentialMode? = nil
+    ) {
+        self.slug = slug
+        self.capabilities = capabilities
+        self.description = description
+        self.optional = optional
+        self.secrets = secrets
+        self.scopes = scopes
+        self.provider = provider
+        self.auth = auth
+        self.displayName = displayName
+        self.connectionScope = connectionScope
+        self.instructions = instructions
+        self.docsUrl = docsUrl
+        self.expiresAfterDays = expiresAfterDays
+        self.mode = mode
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case slug = "slug"
+        case capabilities = "capabilities"
+        case description = "description"
+        case optional = "optional"
+        case secrets = "secrets"
+        case scopes = "scopes"
+        case provider = "provider"
+        case auth = "auth"
+        case displayName = "display_name"
+        case connectionScope = "connection_scope"
+        case instructions = "instructions"
+        case docsUrl = "docs_url"
+        case expiresAfterDays = "expires_after_days"
+        case mode = "mode"
     }
 }
 
@@ -19895,6 +20006,7 @@ public struct InterruptReason: RawRepresentable, Codable, Hashable, Sendable {
     public init(rawValue: String) { self.rawValue = rawValue }
 
     public static let wait = InterruptReason(rawValue: "wait")
+    public static let egressLogin = InterruptReason(rawValue: "egress_login")
     public static let toolApproval = InterruptReason(rawValue: "tool_approval")
     public static let clientTool = InterruptReason(rawValue: "client_tool")
     public static let widget = InterruptReason(rawValue: "widget")
