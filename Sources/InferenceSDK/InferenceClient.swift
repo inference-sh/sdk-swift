@@ -194,8 +194,8 @@ public struct InferenceClient: Sendable {
         try await decode(send(request(path, body: params ?? CursorListRequest())))
     }
 
-    func request<B: Encodable>(_ path: String, accept: String = "application/json", body: B) throws -> URLRequest {
-        var req = request(path, accept: accept)
+    func request<B: Encodable>(_ path: String, method: String = "POST", accept: String = "application/json", body: B) throws -> URLRequest {
+        var req = request(path, method: method, accept: accept)
         req.httpBody = try Self.encoder.encode(body)
         return req
     }

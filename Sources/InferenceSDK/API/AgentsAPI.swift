@@ -37,8 +37,9 @@ public struct AgentsAPI: Sendable {
         try await client.decode(client.send(client.request("agents", body: data)))
     }
 
-    /// POST /agents/{id}: update agent template fields.
-    public func update(_ agentId: String, _ data: AgentDTO) async throws -> AgentDTO {
+    /// POST /agents/{id}: the template's images, and a new version when
+    /// `version` is set (see AgentUpdateBody). Visibility: `updateVisibility`.
+    public func update(_ agentId: String, _ data: AgentUpdateBody) async throws -> AgentDTO {
         try await client.decode(client.send(client.request("agents/\(agentId)", body: data)))
     }
 

@@ -23,9 +23,10 @@ public struct ChatsAPI: Sendable {
         try await client.decode(client.send(client.request("chats/\(chatId)", method: "GET")))
     }
 
-    /// POST /chats/{id}: update chat fields.
-    public func update(_ chatId: String, _ data: ChatDTO) async throws -> ChatDTO {
-        try await client.decode(client.send(client.request("chats/\(chatId)", body: data)))
+    /// PATCH /chats/{id}: the chat's name and description; only the fields
+    /// set are written.
+    public func update(_ chatId: String, _ data: ChatUpdateBody) async throws -> ChatDTO {
+        try await client.decode(client.send(client.request("chats/\(chatId)", method: "PATCH", body: data)))
     }
 
     /// DELETE /chats/{id}.

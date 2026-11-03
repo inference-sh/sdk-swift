@@ -8,6 +8,7 @@
 // - list/get/create/update return TeamDTO, which is what go/api
 //   team.Handler sends; the JS signatures say TeamRelationDTO.
 // - `view` (GET /teams/{id}/view → TeamViewDTO) is added; JS has no method.
+// - update takes TeamUpdateBody (PATCH), the js TeamUpdateBody.
 // - updateMemberRole takes TeamMemberUpdateRoleRequest, the body the server
 //   decodes, rather than a bare role string.
 //
@@ -49,11 +50,10 @@ public struct TeamsAPI: Sendable {
         try await client.decode(client.send(client.request("teams", body: data)))
     }
 
-    /// POST /teams/{id}: update the team's name, username and email. The api
-    /// decodes its Team model here (no request type of its own), so all
-    /// three are sent and all three are written.
-    public func update(_ teamId: String, _ data: TeamCreateRequest) async throws -> TeamDTO {
-        try await client.decode(client.send(client.request("teams/\(teamId)", body: data)))
+    /// PATCH /teams/{id}: the team's name, email and avatar; only the fields
+    /// set are written (see TeamUpdateBody).
+    public func update(_ teamId: String, _ data: TeamUpdateBody) async throws -> TeamDTO {
+        try await client.decode(client.send(client.request("teams/\(teamId)", method: "PATCH", body: data)))
     }
 
     /// DELETE /teams/{id}.

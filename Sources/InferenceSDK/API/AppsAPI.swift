@@ -33,9 +33,15 @@ public struct AppsAPI: Sendable {
         try await client.decode(client.send(client.request("apps", body: data)))
     }
 
-    /// POST /apps/{id}: update app fields.
-    public func update(_ appId: String, _ data: AppDTO) async throws -> AppDTO {
+    /// POST /apps/{id}: the app's copy, plus an in-place edit of the version
+    /// `versionId` names (see AppUpdateBody). Fields left nil keep their value.
+    public func update(_ appId: String, _ data: AppUpdateBody) async throws -> AppDTO {
         try await client.decode(client.send(client.request("apps/\(appId)", body: data)))
+    }
+
+    /// PATCH /apps/{id}: the app's copy only; the fields set are written.
+    public func patch(_ appId: String, _ data: AppPatchBody) async throws -> AppDTO {
+        try await client.decode(client.send(client.request("apps/\(appId)", method: "PATCH", body: data)))
     }
 
     /// DELETE /apps/{id}.
