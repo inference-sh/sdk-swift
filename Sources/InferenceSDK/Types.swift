@@ -7863,6 +7863,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let appRetired = ErrorCode(rawValue: "app_retired")
     public static let appMaintenance = ErrorCode(rawValue: "app_maintenance")
     public static let invalidTransition = ErrorCode(rawValue: "invalid_transition")
+    /// Maintenance (503, Retry-After): the platform is draining for
+    /// maintenance (platform.maintenance) and the route starts new work.
+    /// The message is the operator's; meta is MaintenanceMeta.
+    public static let maintenance = ErrorCode(rawValue: "maintenance")
     /// Session-bound runs. SessionNotFound (404), SessionExpired and
     /// SessionEnded (410), WorkerLeased, AppMismatch and VersionMismatch
     /// (409). The SDKs match these upper-case strings.
