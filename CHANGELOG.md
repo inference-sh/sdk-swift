@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.29.2
+
+Matching api-v1442. Added the INF-1173 egress types (egress_decide wire, egress answer and revoke ack, EgressHost rule verdicts).
+
 ## 0.29.1
 
 Matching api-v1440. Added the maintenance types (`ErrorCodeMaintenance`, maintenance notice).
