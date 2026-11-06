@@ -219,6 +219,9 @@ public struct AgentTool: Codable, Sendable {
     @Indirect public var mcp: MCPToolConfig?
     @Indirect public var client: ClientToolConfig?
     @Indirect public var `internal`: InternalToolConfig?
+    /// ContentTier overrides the tier the tool-result guard reads this
+    /// tool's output at; empty is the tool type's.
+    public var contentTier: ContentTier?
 
     public init(
         name: String = "",
@@ -234,7 +237,8 @@ public struct AgentTool: Codable, Sendable {
         call: HTTPToolConfig? = nil,
         mcp: MCPToolConfig? = nil,
         client: ClientToolConfig? = nil,
-        `internal`: InternalToolConfig? = nil
+        `internal`: InternalToolConfig? = nil,
+        contentTier: ContentTier? = nil
     ) {
         self.name = name
         self.displayName = displayName
@@ -250,6 +254,7 @@ public struct AgentTool: Codable, Sendable {
         self.mcp = mcp
         self.client = client
         self.`internal` = `internal`
+        self.contentTier = contentTier
     }
 
     enum CodingKeys: String, CodingKey {
@@ -267,6 +272,7 @@ public struct AgentTool: Codable, Sendable {
         case mcp = "mcp"
         case client = "client"
         case `internal` = "internal"
+        case contentTier = "content_tier"
     }
 }
 
@@ -372,6 +378,7 @@ public struct AgentToolDTO: Codable, Sendable {
     public var type: ToolType
     public var requireApproval: Bool?
     public var approvalTimeout: Int?
+    public var contentTier: ContentTier?
     @Indirect public var app: AppToolConfigDTO?
     @Indirect public var agent: AgentToolConfigDTO?
     @Indirect public var hook: HookToolConfigDTO?
@@ -387,6 +394,7 @@ public struct AgentToolDTO: Codable, Sendable {
         type: ToolType,
         requireApproval: Bool? = nil,
         approvalTimeout: Int? = nil,
+        contentTier: ContentTier? = nil,
         app: AppToolConfigDTO? = nil,
         agent: AgentToolConfigDTO? = nil,
         hook: HookToolConfigDTO? = nil,
@@ -401,6 +409,7 @@ public struct AgentToolDTO: Codable, Sendable {
         self.type = type
         self.requireApproval = requireApproval
         self.approvalTimeout = approvalTimeout
+        self.contentTier = contentTier
         self.app = app
         self.agent = agent
         self.hook = hook
@@ -417,6 +426,7 @@ public struct AgentToolDTO: Codable, Sendable {
         case type = "type"
         case requireApproval = "require_approval"
         case approvalTimeout = "approval_timeout"
+        case contentTier = "content_tier"
         case app = "app"
         case agent = "agent"
         case hook = "hook"
@@ -995,6 +1005,9 @@ public struct AgentVersionDTO: Codable, Sendable {
     @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
+    /// ContentGuard is the agent's tool-result guard; absent is the
+    /// platform's mode.
+    @Indirect public var contentGuard: ContentGuardConfig?
     /// VisitorReads is the scope groups of the team's resources (knowledge,
     /// files, artifacts, remotes) a visitor of an embed of this version can
     /// have it read by id, beyond what it configures by name. Set when the
@@ -1024,6 +1037,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
+        contentGuard: ContentGuardConfig? = nil,
         visitorReads: [ScopeGroup]? = nil
     ) {
         self.id = id
@@ -1047,6 +1061,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
+        self.contentGuard = contentGuard
         self.visitorReads = visitorReads
     }
 
@@ -1072,6 +1087,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
+        case contentGuard = "content_guard"
         case visitorReads = "visitor_reads"
     }
 }
@@ -1149,6 +1165,7 @@ public struct AgentConfigInput: Codable, Sendable {
     @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
+    @Indirect public var contentGuard: ContentGuardConfig?
 
     public init(
         name: String? = nil,
@@ -1162,7 +1179,8 @@ public struct AgentConfigInput: Codable, Sendable {
         internalTools: InternalToolsConfig? = nil,
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
-        outputSchema: JSONValue? = nil
+        outputSchema: JSONValue? = nil,
+        contentGuard: ContentGuardConfig? = nil
     ) {
         self.name = name
         self.description = description
@@ -1176,6 +1194,7 @@ public struct AgentConfigInput: Codable, Sendable {
         self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
+        self.contentGuard = contentGuard
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1191,6 +1210,7 @@ public struct AgentConfigInput: Codable, Sendable {
         case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
+        case contentGuard = "content_guard"
     }
 }
 
@@ -1447,7 +1467,6 @@ public struct ApiAppRunRequest: Codable, Sendable {
     public var session: String?
     public var sessionTimeout: Int?
     public var runAt: String?
-    @Indirect public var metadata: TaskMetadata?
 
     public init(
         app: String? = nil,
@@ -1463,8 +1482,7 @@ public struct ApiAppRunRequest: Codable, Sendable {
         function: String? = nil,
         session: String? = nil,
         sessionTimeout: Int? = nil,
-        runAt: String? = nil,
-        metadata: TaskMetadata? = nil
+        runAt: String? = nil
     ) {
         self.app = app
         self.appId = appId
@@ -1480,7 +1498,6 @@ public struct ApiAppRunRequest: Codable, Sendable {
         self.session = session
         self.sessionTimeout = sessionTimeout
         self.runAt = runAt
-        self.metadata = metadata
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1498,7 +1515,6 @@ public struct ApiAppRunRequest: Codable, Sendable {
         case session = "session"
         case sessionTimeout = "session_timeout"
         case runAt = "run_at"
-        case metadata = "metadata"
     }
 }
 
@@ -2132,23 +2148,40 @@ public struct AdminElevateResponse: Codable, Sendable {
 public struct AdminElevationStatus: Codable, Sendable {
     public var elevated: Bool
     public var adminUntil: String?
+    /// AdminPower: a staff browser sign-in holds platform power on this
+    /// request, until AdminPowerUntil (INF-1190). AdminPowerWithheld says
+    /// why one that proved an authenticator holds none here: expired,
+    /// other_client or wrong_origin.
+    public var adminPower: Bool
+    public var adminPowerUntil: String?
+    public var adminPowerWithheld: String?
 
     public init(
         elevated: Bool = false,
-        adminUntil: String? = nil
+        adminUntil: String? = nil,
+        adminPower: Bool = false,
+        adminPowerUntil: String? = nil,
+        adminPowerWithheld: String? = nil
     ) {
         self.elevated = elevated
         self.adminUntil = adminUntil
+        self.adminPower = adminPower
+        self.adminPowerUntil = adminPowerUntil
+        self.adminPowerWithheld = adminPowerWithheld
     }
 
     enum CodingKeys: String, CodingKey {
         case elevated = "elevated"
         case adminUntil = "admin_until"
+        case adminPower = "admin_power"
+        case adminPowerUntil = "admin_power_until"
+        case adminPowerWithheld = "admin_power_withheld"
     }
 }
 
 /// AdminElevationDropResponse is DELETE /device/auth/elevate. Dropped is
-/// false when the session held no elevation.
+/// false when the session held no elevation (a CLI login) or no staff power
+/// or admin action window (a browser sign-in).
 public struct AdminElevationDropResponse: Codable, Sendable {
     public var elevated: Bool
     public var dropped: Bool
@@ -2512,6 +2545,11 @@ public struct CredentialCompleteOAuthRequest: Codable, Sendable {
 public struct CredentialConnectResponse: Codable, Sendable {
     @Indirect public var credential: CredentialDTO?
     public var authUrl: String?
+    /// ConnectURL is a short link on our app that sends the person who
+    /// started this connect on to AuthURL. A client that does not finish the
+    /// flow in its own browser tab (a CLI, an agent) shows this one: the
+    /// app's callback completes only a flow its browser started.
+    public var connectUrl: String?
     public var state: String?
     public var codeVerifier: String?
     public var instructions: String?
@@ -2522,6 +2560,7 @@ public struct CredentialConnectResponse: Codable, Sendable {
     public init(
         credential: CredentialDTO? = nil,
         authUrl: String? = nil,
+        connectUrl: String? = nil,
         state: String? = nil,
         codeVerifier: String? = nil,
         instructions: String? = nil,
@@ -2531,6 +2570,7 @@ public struct CredentialConnectResponse: Codable, Sendable {
     ) {
         self.credential = credential
         self.authUrl = authUrl
+        self.connectUrl = connectUrl
         self.state = state
         self.codeVerifier = codeVerifier
         self.instructions = instructions
@@ -2542,6 +2582,7 @@ public struct CredentialConnectResponse: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case credential = "credential"
         case authUrl = "auth_url"
+        case connectUrl = "connect_url"
         case state = "state"
         case codeVerifier = "code_verifier"
         case instructions = "instructions"
@@ -5999,6 +6040,63 @@ public struct ConnectTokens: Codable, Sendable {
     }
 }
 
+/// ContentGuardMode is what the tool-result guard does with what it finds in
+/// a tool's result before the agent reads it.
+public struct ContentGuardMode: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// ContentGuardShadow scans and logs; the agent reads the result as the
+    /// tool returned it. The default.
+    public static let contentGuardShadow = ContentGuardMode(rawValue: "shadow")
+    /// ContentGuardOff does nothing.
+    public static let contentGuardOff = ContentGuardMode(rawValue: "off")
+    /// ContentGuardAnnotate frames third-party and content results as
+    /// untrusted data, notes findings under the frame's header, and judges
+    /// without waiting (a flag found later taints the run).
+    public static let contentGuardAnnotate = ContentGuardMode(rawValue: "annotate")
+    /// ContentGuardStrict is annotate with the judge waited for, and a judge
+    /// that does not answer in time read as a flag.
+    public static let contentGuardStrict = ContentGuardMode(rawValue: "strict")
+}
+
+/// ContentGuardConfig is an agent's tool-result guard (content_guard).
+public struct ContentGuardConfig: Codable, Sendable {
+    /// Mode: shadow (default), off, annotate or strict. Empty is the
+    /// platform's (content_guard.mode, itself shadow by default).
+    public var mode: ContentGuardMode?
+    /// IgnoreRules are rule ids not to apply (INF-PI-005 for an agent whose
+    /// job is reading Slack mentions).
+    public var ignoreRules: [String]?
+
+    public init(
+        mode: ContentGuardMode? = nil,
+        ignoreRules: [String]? = nil
+    ) {
+        self.mode = mode
+        self.ignoreRules = ignoreRules
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode = "mode"
+        case ignoreRules = "ignore_rules"
+    }
+}
+
+/// ContentTier is how far a tool's output is from the agent's operator:
+/// internal (the platform wrote it from the operator's own data), content
+/// (the operator's stored content others may have written into) or
+/// third_party (an app, an MCP server, an HTTP endpoint, a client, another
+/// agent).
+public struct ContentTier: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let `internal` = ContentTier(rawValue: "internal")
+    public static let content = ContentTier(rawValue: "content")
+    public static let thirdParty = ContentTier(rawValue: "third_party")
+}
+
 /// CredentialDTO is the API response for a credential (never exposes secrets).
 public struct CredentialDTO: Codable, Sendable {
     public var id: String
@@ -7035,6 +7133,17 @@ public struct WorkerDTO: Codable, Sendable {
     public var appId: String
     public var appVersionId: String
     public var activeSessionId: String?
+    /// Kind is "app" for a sized app worker (INF-1159), made when a run was
+    /// placed and kept while warm; empty for a slot the engine registered.
+    public var kind: WorkerKind?
+    /// VCPUs, MemoryMiB and MemoryLimitMiB are a sized app worker's request
+    /// and memory cap (WorkerSize); 0 on a slot.
+    public var vcpus: Int?
+    public var memoryMib: Int?
+    public var memoryLimitMib: Int?
+    /// MemoryDeclaredMiB is what the app declared when the request was
+    /// capped below it (workers.max_app_ram_mib); 0 when not capped.
+    public var memoryDeclaredMib: Int?
     public var gpus: [WorkerGPU]?
     public var cpus: [WorkerCPU]?
     public var rams: [WorkerRAM]?
@@ -7056,6 +7165,11 @@ public struct WorkerDTO: Codable, Sendable {
         appId: String = "",
         appVersionId: String = "",
         activeSessionId: String? = nil,
+        kind: WorkerKind? = nil,
+        vcpus: Int? = nil,
+        memoryMib: Int? = nil,
+        memoryLimitMib: Int? = nil,
+        memoryDeclaredMib: Int? = nil,
         gpus: [WorkerGPU]? = nil,
         cpus: [WorkerCPU]? = nil,
         rams: [WorkerRAM]? = nil,
@@ -7076,6 +7190,11 @@ public struct WorkerDTO: Codable, Sendable {
         self.appId = appId
         self.appVersionId = appVersionId
         self.activeSessionId = activeSessionId
+        self.kind = kind
+        self.vcpus = vcpus
+        self.memoryMib = memoryMib
+        self.memoryLimitMib = memoryLimitMib
+        self.memoryDeclaredMib = memoryDeclaredMib
         self.gpus = gpus
         self.cpus = cpus
         self.rams = rams
@@ -7098,6 +7217,11 @@ public struct WorkerDTO: Codable, Sendable {
         case appId = "app_id"
         case appVersionId = "app_version_id"
         case activeSessionId = "active_session_id"
+        case kind = "kind"
+        case vcpus = "vcpus"
+        case memoryMib = "memory_mib"
+        case memoryLimitMib = "memory_limit_mib"
+        case memoryDeclaredMib = "memory_declared_mib"
         case gpus = "gpus"
         case cpus = "cpus"
         case rams = "rams"
@@ -7307,6 +7431,21 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// MaxHoldMs, Resend, the retry status); it wakes held requests on
     /// egress_answer and acks egress_revoke (INF-1173).
     public static let egressDecide = EngineCapability(rawValue: "egress_decide")
+    /// EngineCapabilitySizedSandboxes: the engine runs a sandbox's box that
+    /// holds no worker, sized by the start, and refuses one it has no room
+    /// for (SandboxBoxReasonNoRoom). The API then places sandboxes there by
+    /// size, against the engine's capacity, instead of leasing a worker
+    /// (INF-1158).
+    public static let sizedSandboxes = EngineCapability(rawValue: "sized_sandboxes")
+    /// EngineCapabilitySizedWorkers: the engine registers no CPU slots
+    /// (EngineRegisterRequest.SizedWorkers) and makes a CPU app worker when a
+    /// run is dispatched to one it does not have, sized by the dispatch
+    /// (WsTaskRunPayload.Worker): its vCPUs as the CPU quota, its memory
+    /// limit as the cgroup cap. It refuses one it has no room for
+    /// (RejectionNoRoom), ends one on worker_release, and its committed_apps
+    /// counts its slot (GPU) workers only. The API then places CPU app runs
+    /// there by size, against the engine's capacity (INF-1159).
+    public static let sizedWorkers = EngineCapability(rawValue: "sized_workers")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -7331,6 +7470,12 @@ public struct EngineCapacity: Codable, Sendable {
     @Indirect public var reserve: CapacityAmount
     @Indirect public var allocatable: CapacityAmount
     @Indirect public var committed: CapacityAmount
+    /// CommittedApps is the apps' part of Committed: the CPU quota of the
+    /// workers running an app and the memory their containers use. Workers
+    /// are slots registered ahead of time, so an idle one holds nothing
+    /// until it runs something (INF-1159 gives apps real requests). Sized
+    /// sandbox placement adds the boxes the API placed to it.
+    @Indirect public var committedApps: CapacityAmount
     @Indirect public var used: CapacityAmount
 
     public init(
@@ -7343,6 +7488,7 @@ public struct EngineCapacity: Codable, Sendable {
         reserve: CapacityAmount,
         allocatable: CapacityAmount,
         committed: CapacityAmount,
+        committedApps: CapacityAmount,
         used: CapacityAmount
     ) {
         self.cpus = cpus
@@ -7354,6 +7500,7 @@ public struct EngineCapacity: Codable, Sendable {
         self.reserve = reserve
         self.allocatable = allocatable
         self.committed = committed
+        self.committedApps = committedApps
         self.used = used
     }
 
@@ -7367,6 +7514,7 @@ public struct EngineCapacity: Codable, Sendable {
         case reserve = "reserve"
         case allocatable = "allocatable"
         case committed = "committed"
+        case committedApps = "committed_apps"
         case used = "used"
     }
 }
@@ -7525,6 +7673,11 @@ public struct EntitlementErrorMeta: Codable, Sendable {
     public var addonPlanId: String?
     public var addonPlanName: String?
     public var addonPlanPrice: Int?
+    /// Requirement is the unmet requirement of a purchase_required refusal,
+    /// WithinDays its window, BillingPage where to meet it.
+    public var requirement: FeatureRequirement?
+    public var withinDays: Int?
+    public var billingPage: String?
 
     public init(
         resource: EntitlementResource,
@@ -7536,7 +7689,10 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         requestState: String? = nil,
         addonPlanId: String? = nil,
         addonPlanName: String? = nil,
-        addonPlanPrice: Int? = nil
+        addonPlanPrice: Int? = nil,
+        requirement: FeatureRequirement? = nil,
+        withinDays: Int? = nil,
+        billingPage: String? = nil
     ) {
         self.resource = resource
         self.resourceLabel = resourceLabel
@@ -7548,6 +7704,9 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         self.addonPlanId = addonPlanId
         self.addonPlanName = addonPlanName
         self.addonPlanPrice = addonPlanPrice
+        self.requirement = requirement
+        self.withinDays = withinDays
+        self.billingPage = billingPage
     }
 
     enum CodingKeys: String, CodingKey {
@@ -7561,6 +7720,9 @@ public struct EntitlementErrorMeta: Codable, Sendable {
         case addonPlanId = "addon_plan_id"
         case addonPlanName = "addon_plan_name"
         case addonPlanPrice = "addon_plan_price"
+        case requirement = "requirement"
+        case withinDays = "within_days"
+        case billingPage = "billing_page"
     }
 }
 
@@ -7763,6 +7925,11 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// ErrorCodeInOtherWorkspace: the resource lives in another workspace
     /// the caller belongs to and could open there (InOtherWorkspaceMeta).
     public static let inOtherWorkspace = ErrorCode(rawValue: "in_other_workspace")
+    /// ErrorCodeVisibilityNotAllowed (400): the resource cannot take the
+    /// visibility asked for (models.VisibilityDeclarer): a task, a flow run
+    /// or an engine is private or team, never org, public or unlisted.
+    /// Meta is VisibilityNotAllowedMeta.
+    public static let visibilityNotAllowed = ErrorCode(rawValue: "visibility_not_allowed")
     /// ErrorCodeBlockedByUsagePolicy: the resource is outside the team or org
     /// usage policy. The message names who to ask.
     public static let blockedByUsagePolicy = ErrorCode(rawValue: "blocked_by_usage_policy")
@@ -7775,6 +7942,11 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// the account.
     public static let accountDeactivated = ErrorCode(rawValue: "account_deactivated")
     public static let accountBanned = ErrorCode(rawValue: "account_banned")
+    /// ErrorCodePublishQuarantined (403): the account may not make the row
+    /// public or unlisted yet: it is new (younger than 72 hours), its email
+    /// is not verified, or it is flagged (abuse.CheckPublish). Meta is
+    /// PublishQuarantinedMeta; Until says from when a new account can.
+    public static let publishQuarantined = ErrorCode(rawValue: "publish_quarantined")
     /// ErrorCodePersonRequired (403): only a person may do this, and the
     /// caller is a workspace's service account (a workspace API key), or the
     /// account is one and cannot sign in.
@@ -7810,7 +7982,7 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// grants one, and only the person's own browser sign-in changes how the
     /// account is signed into (authenticator enrollment, RequireBrowserSession).
     /// InvalidTTL (400): the elevation asked for a window outside
-    /// models.AdminElevationMinTTL..AdminElevationMaxTTL.
+    /// models.AdminElevationMinTTL..admin.elevation.max_ttl.
     /// AdminScopesNotApproved (403): a platform admin's CLI login was approved
     /// with a scope list that does not name the admin scopes, so it can't be
     /// elevated: log in again approving them, then elevate.
@@ -7821,6 +7993,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let sameAdminRequired = ErrorCode(rawValue: "same_admin_required")
     public static let browserSessionRequired = ErrorCode(rawValue: "browser_session_required")
     public static let invalidTTL = ErrorCode(rawValue: "invalid_ttl")
+    /// AdminOriginRequired (403): a staff browser sign-in's power is used
+    /// only from the admin origin (ADMIN_URL), never from the app where user
+    /// content renders, a frame or another site (INF-1190).
+    public static let adminOriginRequired = ErrorCode(rawValue: "admin_origin_required")
     /// AdminAuthenticatorRequired (403): a platform admin without an
     /// authenticator app (TOTP) enrolled. Admin power needs one; until it is
     /// enrolled (POST /auth/totp/enroll, then /auth/totp/confirm) the admin
@@ -7838,6 +8014,11 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     public static let limitExceeded = ErrorCode(rawValue: "limit_exceeded")
     public static let featureNotAvailable = ErrorCode(rawValue: "feature_not_available")
     public static let entitlementUnavailable = ErrorCode(rawValue: "entitlement_unavailable")
+    /// ErrorCodePurchaseRequired (402): the feature requires a purchase
+    /// within the last EntitlementErrorMeta.WithinDays days
+    /// (shared.RequireRecentPurchase) and the team's payer made none. Meta is
+    /// EntitlementErrorMeta, with BillingPage where to make one.
+    public static let purchaseRequired = ErrorCode(rawValue: "purchase_required")
     public static let paymentRequired = ErrorCode(rawValue: "payment_required")
     /// ErrorCodePaymentMethodRequired (402): the action needs a saved payment
     /// method and the caller's team has none: a bounty program that requires
@@ -7848,6 +8029,9 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// already holds the caller's submission.
     public static let formClosed = ErrorCode(rawValue: "form_closed")
     public static let alreadySubmitted = ErrorCode(rawValue: "already_submitted")
+    /// ErrorCodeNotificationsDisabled (409): the recipient switched this
+    /// notification off in their notification preferences.
+    public static let notificationsDisabled = ErrorCode(rawValue: "notifications_disabled")
     /// Bounty claims (409): the caller already claimed this proof, or as many
     /// times as the program allows.
     public static let alreadyClaimed = ErrorCode(rawValue: "already_claimed")
@@ -7936,6 +8120,30 @@ public struct InOtherWorkspaceMeta: Codable, Sendable {
     }
 }
 
+/// VisibilityNotAllowedMeta is the meta of a visibility_not_allowed error:
+/// the resource, the visibility refused and the ones it may take.
+public struct VisibilityNotAllowedMeta: Codable, Sendable {
+    public var resource: String
+    public var visibility: Visibility
+    public var allowed: [Visibility]?
+
+    public init(
+        resource: String = "",
+        visibility: Visibility,
+        allowed: [Visibility]? = nil
+    ) {
+        self.resource = resource
+        self.visibility = visibility
+        self.allowed = allowed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resource = "resource"
+        case visibility = "visibility"
+        case allowed = "allowed"
+    }
+}
+
 /// ScopeRefusedMeta is the meta of an insufficient_scope or
 /// requires_sign_in error: the scope the operation declares and the
 /// credential does not hold. The detail says what would hold it.
@@ -7970,6 +8178,50 @@ public struct PaymentMethodRequiredMeta: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case bountyId = "bounty_id"
         case billingPage = "billing_page"
+    }
+}
+
+/// PublishQuarantineReason is why an account may not publish yet
+/// (PublishQuarantinedMeta).
+public struct PublishQuarantineReason: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// PublishQuarantineNewAccount: the account is younger than the
+    /// quarantine (72 hours by default); Until is when it ends.
+    public static let publishQuarantineNewAccount = PublishQuarantineReason(rawValue: "new_account")
+    /// PublishQuarantineUnverifiedEmail: the account's email is not verified.
+    public static let publishQuarantineUnverifiedEmail = PublishQuarantineReason(rawValue: "unverified_email")
+    /// PublishQuarantineFlagged: the account is banned or flagged.
+    public static let publishQuarantineFlagged = PublishQuarantineReason(rawValue: "flagged")
+}
+
+/// PublishQuarantinedMeta is the meta of a publish_quarantined error: the
+/// resource and visibility refused, why, and for a new account from when
+/// it may publish.
+public struct PublishQuarantinedMeta: Codable, Sendable {
+    public var resource: String
+    public var visibility: Visibility
+    public var reason: PublishQuarantineReason
+    public var until: String?
+
+    public init(
+        resource: String = "",
+        visibility: Visibility,
+        reason: PublishQuarantineReason,
+        until: String? = nil
+    ) {
+        self.resource = resource
+        self.visibility = visibility
+        self.reason = reason
+        self.until = until
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resource = "resource"
+        case visibility = "visibility"
+        case reason = "reason"
+        case until = "until"
     }
 }
 
@@ -12435,6 +12687,156 @@ public struct ProjectDTO: Codable, Sendable {
     }
 }
 
+/// PublicationThemeColors defines the core colors for one mode (light or dark).
+public struct PublicationThemeColors: Codable, Sendable {
+    public var primary: String
+    public var secondary: String
+    public var background: String
+    public var text: String
+    public var border: String?
+
+    public init(
+        primary: String = "",
+        secondary: String = "",
+        background: String = "",
+        text: String = "",
+        border: String? = nil
+    ) {
+        self.primary = primary
+        self.secondary = secondary
+        self.background = background
+        self.text = text
+        self.border = border
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case primary = "primary"
+        case secondary = "secondary"
+        case background = "background"
+        case text = "text"
+        case border = "border"
+    }
+}
+
+/// PublicationTheme defines branding colors for embedded UIs.
+public struct PublicationTheme: Codable, Sendable {
+    @Indirect public var light: PublicationThemeColors
+    @Indirect public var dark: PublicationThemeColors?
+
+    public init(
+        light: PublicationThemeColors,
+        dark: PublicationThemeColors? = nil
+    ) {
+        self.light = light
+        self.dark = dark
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case light = "light"
+        case dark = "dark"
+    }
+}
+
+/// PublicationDTO for API responses.
+public struct PublicationDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var resourceType: String
+    public var resourceId: String
+    public var namespace: String
+    public var name: String
+    /// Title is the human-readable name; empty falls back to Name.
+    public var title: String
+    public var allowedOrigins: [String]?
+    public var rateLimitRpm: Int?
+    @Indirect public var theme: PublicationTheme?
+    public var label: String?
+    public var enabled: Bool
+    /// VisitorReads is the scope groups of the team's resources (knowledge,
+    /// artifacts, files, remotes) a visitor can ask the published agent's
+    /// current version to reach by id: what its built-in tools add to an
+    /// embed run. Empty when its tools reach only what it names itself.
+    public var visitorReads: [ScopeGroup]?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        resourceType: String = "",
+        resourceId: String = "",
+        namespace: String = "",
+        name: String = "",
+        title: String = "",
+        allowedOrigins: [String]? = nil,
+        rateLimitRpm: Int? = nil,
+        theme: PublicationTheme? = nil,
+        label: String? = nil,
+        enabled: Bool = false,
+        visitorReads: [ScopeGroup]? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.resourceType = resourceType
+        self.resourceId = resourceId
+        self.namespace = namespace
+        self.name = name
+        self.title = title
+        self.allowedOrigins = allowedOrigins
+        self.rateLimitRpm = rateLimitRpm
+        self.theme = theme
+        self.label = label
+        self.enabled = enabled
+        self.visitorReads = visitorReads
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case resourceType = "resource_type"
+        case resourceId = "resource_id"
+        case namespace = "namespace"
+        case name = "name"
+        case title = "title"
+        case allowedOrigins = "allowed_origins"
+        case rateLimitRpm = "rate_limit_rpm"
+        case theme = "theme"
+        case label = "label"
+        case enabled = "enabled"
+        case visitorReads = "visitor_reads"
+    }
+}
+
 /// AccessNoticeDTO is the redlist's notice to a restricted caller, as a
 /// refusal's meta.notice and /me's access_notice carry it.
 public struct AccessNoticeDTO: Codable, Sendable {
@@ -14473,7 +14875,6 @@ public struct TaskLog: Codable, Sendable {
     }
 }
 
-/// TaskDTO is the full API response for a task.
 /// TaskEgress is what a task's sandbox sent to and received from the
 /// internet through the engine's egress gateway, in bytes.
 public struct TaskEgress: Codable, Sendable {
@@ -14494,6 +14895,14 @@ public struct TaskEgress: Codable, Sendable {
     }
 }
 
+/// TaskDTO is the full API response for a task.
+/// 
+/// A reader who may not inspect the task (shared.PermInspect: anyone but its
+/// owner, whatever its visibility) gets it without its runtime internals
+/// (task.withoutInternals): webhook, setup, engine and worker, egress and
+/// session are absent, logs, workers and usage_events null, infra empty.
+/// Those four keep their key, so a client that requires them (the Swift
+/// SDK's infra) still decodes the task.
 public struct TaskDTO: Codable, Sendable {
     public var id: String
     public var shortId: String
@@ -16426,6 +16835,61 @@ public struct A2UISurface: Codable, Sendable {
     }
 }
 
+/// DeadRunReason is why an ended agent run counts as dead: what happened.
+/// Who caused it (DeadRunSource) follows from it (ClassifyDeadRun); it is
+/// never set on its own.
+public struct DeadRunReason: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// DeadRunReasonModelStoppedEarly: the agent owes its output through
+    /// finish and the model ended its turn with text or reasoning and no tool
+    /// call.
+    public static let modelStoppedEarly = DeadRunReason(rawValue: "model_stopped_early")
+    /// DeadRunReasonModelEmptyReply: the agent owes its output through finish
+    /// and the model ended its turn with no content.
+    public static let modelEmptyReply = DeadRunReason(rawValue: "model_empty_reply")
+    /// DeadRunReasonModelOutputLimit: the agent owes its output through
+    /// finish and the model's turn was cut at its output token limit.
+    public static let modelOutputLimit = DeadRunReason(rawValue: "model_output_limit")
+    /// DeadRunReasonModelRefused: the agent owes its output through finish
+    /// and the provider's safety system refused the turn of a run a trigger
+    /// started.
+    public static let modelRefused = DeadRunReason(rawValue: "model_refused")
+    /// DeadRunReasonProviderError: the model call failed: the provider's or
+    /// engine's error, a timeout, or the error a remote harness reported.
+    public static let providerError = DeadRunReason(rawValue: "provider_error")
+    /// DeadRunReasonNoProgress: the platform ended a run that went quiet, or
+    /// a run a trigger started that was still working past its bound.
+    public static let noProgress = DeadRunReason(rawValue: "no_progress")
+    /// DeadRunReasonPlatformError: the run failed for the platform's own
+    /// reasons: storage, dispatch, a turn that could not start, a harness
+    /// session or remote lost.
+    public static let platformError = DeadRunReason(rawValue: "platform_error")
+    /// DeadRunReasonOwnerSetup: a turn could not start because of something
+    /// the agent's owner has to fix: a missing secret or key, a credential
+    /// without the scope the call needs, no balance or payment method, an
+    /// agent with no model configured, an app outside the team's usage
+    /// policy.
+    public static let ownerSetup = DeadRunReason(rawValue: "owner_setup")
+}
+
+/// DeadRunSource is who caused a dead agent run.
+public struct DeadRunSource: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// DeadRunSourceModel: the model ended without the output it owed.
+    public static let model = DeadRunSource(rawValue: "model")
+    /// DeadRunSourceProvider: the model's provider (or the engine running
+    /// it) failed the call.
+    public static let provider = DeadRunSource(rawValue: "provider")
+    /// DeadRunSourcePlatform: the platform failed or ended the run.
+    public static let platform = DeadRunSource(rawValue: "platform")
+    /// DeadRunSourceOwner: the agent's owner has to fix its setup.
+    public static let owner = DeadRunSource(rawValue: "owner")
+}
+
 /// ApiKeyScope is who an API key acts as, chosen when it is created, the way a
 /// credential's scope says who owns it.
 public struct ApiKeyScope: RawRepresentable, Codable, Hashable, Sendable {
@@ -17108,6 +17572,12 @@ public struct Permission: RawRepresentable, Codable, Hashable, Sendable {
     /// resource is readable by everyone, but whether this caller may USE it is
     /// governed by their team/org usage policy (reach, INF-808).
     public static let permUse = Permission(rawValue: "use")
+    /// PermInspect reads a row's runtime internals: a task's logs,
+    /// telemetry, webhook, setup, engine and worker. The row's owner and the
+    /// stored entries on it grant it; no visibility does. Making a task
+    /// public shares what it was asked and what it answered, not how its run
+    /// went on the machine.
+    public static let permInspect = Permission(rawValue: "inspect")
 }
 
 /// ACLGrantee is who an ACL entry is for (models.ACLEntry, INF-1130).
@@ -17976,6 +18446,17 @@ public struct WorkerStatus: RawRepresentable, Codable, Hashable, Sendable {
     public static let busy = WorkerStatus(rawValue: "busy")
     public static let idle = WorkerStatus(rawValue: "idle")
     public static let inactive = WorkerStatus(rawValue: "inactive")
+}
+
+/// WorkerKind is what a worker row is (INF-1156). Empty is a slot an engine
+/// registered ahead of time; app is a sized live reservation for CPU app
+/// runs, made when a run is placed and kept while warm (INF-1159).
+public struct WorkerKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let slot = WorkerKind(rawValue: "")
+    public static let app = WorkerKind(rawValue: "app")
 }
 
 public struct FlowRunStatus: RawRepresentable, Codable, Hashable, Sendable {
@@ -19169,6 +19650,10 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     public static let resourceSeats = EntitlementResource(rawValue: "seats")
     public static let resourceTriggers = EntitlementResource(rawValue: "triggers")
     public static let resourceRetentionDays = EntitlementResource(rawValue: "retention_days")
+    /// Sandboxes a team may hold placed at once, and their vCPUs together
+    /// (INF-1158). No row: the platform default (setting sandboxes.placement).
+    public static let resourceSandboxes = EntitlementResource(rawValue: "sandboxes")
+    public static let resourceSandboxVCPUs = EntitlementResource(rawValue: "sandbox_vcpus")
     /// Legacy — kept for DB compatibility, no longer in plan seeds
     public static let resourcePrivateApps = EntitlementResource(rawValue: "private_apps")
     public static let resourceTaskExecutions = EntitlementResource(rawValue: "task_executions")
@@ -19189,6 +19674,16 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     public static let resourceFeatureAutoRecharge = EntitlementResource(rawValue: "feature:auto_recharge")
     public static let resourceFeatureInvoices = EntitlementResource(rawValue: "feature:invoices")
     public static let resourceFeaturePublishApps = EntitlementResource(rawValue: "feature:publish_apps")
+}
+
+/// FeatureRequirement is a condition a team must meet to pass a feature gate
+/// on top of its entitlement (FeatureRequires). An enabled boolean row with
+/// source override, which staff grant, waives a feature's requirements.
+public struct FeatureRequirement: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let requireRecentPurchase = FeatureRequirement(rawValue: "recent_purchase")
 }
 
 public struct ContentRating: RawRepresentable, Codable, Hashable, Sendable {
@@ -19556,44 +20051,6 @@ public struct TaskLogType: RawRepresentable, Codable, Hashable, Sendable {
     public static let serve = TaskLogType(rawValue: 2)
     public static let setup = TaskLogType(rawValue: 3)
     public static let task = TaskLogType(rawValue: 4)
-}
-
-/// TaskAction defines an action to execute when a task reaches a specific status.
-public struct TaskAction: Codable, Sendable {
-    public var key: String
-    public var on: String
-    public var params: JSONValue?
-
-    public init(
-        key: String = "",
-        on: String = "",
-        params: JSONValue? = nil
-    ) {
-        self.key = key
-        self.on = on
-        self.params = params
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case key = "key"
-        case on = "on"
-        case params = "params"
-    }
-}
-
-/// TaskMetadata holds optional metadata attached to a task.
-public struct TaskMetadata: Codable, Sendable {
-    @Indirect public var action: TaskAction?
-
-    public init(
-        action: TaskAction? = nil
-    ) {
-        self.action = action
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case action = "action"
-    }
 }
 
 public struct TeamType: RawRepresentable, Codable, Hashable, Sendable {
