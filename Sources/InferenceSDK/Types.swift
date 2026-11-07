@@ -2962,11 +2962,50 @@ public struct ScopeDefinition: Codable, Sendable {
     }
 }
 
+/// ScopeCategory is the section of a permission list a scope group falls
+/// in: what is built and run, the workspace itself, the person's own
+/// account, the platform's own workspace.
+public struct ScopeCategory: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let resources = ScopeCategory(rawValue: "resources")
+    public static let workspace = ScopeCategory(rawValue: "workspace")
+    public static let account = ScopeCategory(rawValue: "account")
+    public static let platform = ScopeCategory(rawValue: "platform")
+}
+
+/// ScopeCategoryDefinition describes a category of scope groups for UI
+/// rendering: a section heading over the groups in it.
+public struct ScopeCategoryDefinition: Codable, Sendable {
+    public var id: ScopeCategory
+    public var label: String
+    public var description: String
+
+    public init(
+        id: ScopeCategory,
+        label: String = "",
+        description: String = ""
+    ) {
+        self.id = id
+        self.label = label
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case label = "label"
+        case description = "description"
+    }
+}
+
 /// ScopeGroupDefinition describes a group of scopes for UI rendering
 public struct ScopeGroupDefinition: Codable, Sendable {
     public var id: ScopeGroup
     public var label: String
     public var description: String
+    /// Category is the section the group is listed under (ScopesResponse.Categories).
+    public var category: ScopeCategory
     /// PublicRows: the resource's rows can be public, so a credential
     /// without its read scope still reads what a signed-out caller reads
     /// (its public rows) instead of being refused.
@@ -2979,12 +3018,14 @@ public struct ScopeGroupDefinition: Codable, Sendable {
         id: ScopeGroup,
         label: String = "",
         description: String = "",
+        category: ScopeCategory,
         publicRows: Bool? = nil,
         staffOnly: Bool? = nil
     ) {
         self.id = id
         self.label = label
         self.description = description
+        self.category = category
         self.publicRows = publicRows
         self.staffOnly = staffOnly
     }
@@ -2993,6 +3034,7 @@ public struct ScopeGroupDefinition: Codable, Sendable {
         case id = "id"
         case label = "label"
         case description = "description"
+        case category = "category"
         case publicRows = "public_rows"
         case staffOnly = "staff_only"
     }
@@ -3003,6 +3045,9 @@ public struct ScopesResponse: Codable, Sendable {
     public var scopes: [ScopeDefinition]?
     public var groups: [ScopeGroupDefinition]?
     public var presets: [ScopePreset]?
+    /// Categories are the sections Groups and AccountGroups fall in, in
+    /// display order: every category a listed group names.
+    public var categories: [ScopeCategoryDefinition]?
     /// AccountScopes are the account holder's own scopes (approvals,
     /// profile and sessions, keys, billing writes) a sign-in may be approved
     /// for: the device approval page offers them as their own section. No
@@ -3021,6 +3066,7 @@ public struct ScopesResponse: Codable, Sendable {
         scopes: [ScopeDefinition]? = nil,
         groups: [ScopeGroupDefinition]? = nil,
         presets: [ScopePreset]? = nil,
+        categories: [ScopeCategoryDefinition]? = nil,
         accountScopes: [ScopeDefinition]? = nil,
         accountGroups: [ScopeGroupDefinition]? = nil,
         loginPreset: ScopePreset
@@ -3028,6 +3074,7 @@ public struct ScopesResponse: Codable, Sendable {
         self.scopes = scopes
         self.groups = groups
         self.presets = presets
+        self.categories = categories
         self.accountScopes = accountScopes
         self.accountGroups = accountGroups
         self.loginPreset = loginPreset
@@ -3037,6 +3084,7 @@ public struct ScopesResponse: Codable, Sendable {
         case scopes = "scopes"
         case groups = "groups"
         case presets = "presets"
+        case categories = "categories"
         case accountScopes = "account_scopes"
         case accountGroups = "account_groups"
         case loginPreset = "login_preset"
