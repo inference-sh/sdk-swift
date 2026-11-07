@@ -186,6 +186,11 @@ final class SocketsAPITests: XCTestCase {
             XCTFail("a cancelled task must throw")
         } catch let error as TaskRunError {
             XCTAssertEqual(error.localizedDescription, "task cancelled")
+            // The error carries the task, so a result it returned before it
+            // was stopped stays reachable.
+            guard case .cancelled(let cancelled) = error else { return XCTFail("\(error)") }
+            XCTAssertEqual(cancelled.id, "task-1")
+            XCTAssertEqual(cancelled.status, .cancelled)
         }
 
         do {

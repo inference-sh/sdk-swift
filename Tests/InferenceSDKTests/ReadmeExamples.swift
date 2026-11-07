@@ -248,6 +248,14 @@ private enum ReadmeExamples {
             print("task failed:", error.localizedDescription)
         } catch {}
 
+        do {
+            _ = try await client.tasks.run(request)
+        } catch TaskRunError.cancelled(let task) where task.output != .null {
+            print("cancelled, but it returned:", task.output)
+        } catch TaskRunError.cancelled {
+            print("cancelled before it returned anything")
+        } catch {}
+
         _ = InferenceClient(
             baseURL: URL(string: "https://api.inference.sh")!,
             apiKey: key,

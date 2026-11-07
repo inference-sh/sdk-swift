@@ -46,6 +46,71 @@ final class TaskRunTests: XCTestCase {
         XCTAssertEqual(StubProtocol.recorded.map(\.path), ["/apps/run", "/tasks/t1", "/tasks/t1/stream", "/tasks/t1"])
     }
 
+    /// A task cancelled after its app returned a result ends `cancelled` with
+    /// that result on `output`: run still throws, and the error carries the
+    /// task accumulated from the stream, output included.
+    func testStreamCancelledCarriesTheTaskAndItsOutput() async throws {
+        let dispatched = try fixture(status: 3)
+        var client = InferenceClient(apiKey: "k")
+        client.transport = StubProtocol.start { req, _ in
+            switch (req.httpMethod ?? "", req.url?.path ?? "") {
+            case ("POST", "/apps/run"): return .json(self.created)
+            case ("GET", "/tasks/t1"): return StubProtocol.Response(body: dispatched)
+            case ("GET", "/tasks/t1/stream"):
+                let lines = [
+                    #"{"data":{"id":"t1","status":7},"fields":["status"]}"#,
+                    #"{"data":{"id":"t1","status":8},"fields":["status"]}"#,
+                    #"{"data":{"id":"t1","status":12,"output":{"text":"partial"}},"fields":["status","output"]}"#,
+                ]
+                return StubProtocol.Response(headers: ["Content-Type": "application/x-ndjson"],
+                                             body: Data((lines.joined(separator: "\n") + "\n").utf8))
+            default: return .json(#"{"title":"unexpected"}"#, status: 404)
+            }
+        }
+        do {
+            _ = try await client.tasks.run(ApiAppRunRequest(app: "a/b", input: ["prompt": "x"]))
+            XCTFail("a cancelled task must throw")
+        } catch TaskRunError.cancelled(let task) {
+            XCTAssertEqual(task.id, "t1")
+            XCTAssertEqual(task.status, .cancelled)
+            XCTAssertEqual(task.output["text"]?.stringValue, "partial")
+            XCTAssertEqual(task.error, nil)
+        } catch { XCTFail("\(error)") }
+        // Nothing left to resync: the stream delivered the terminal status.
+        XCTAssertEqual(StubProtocol.recorded.map(\.path), ["/apps/run", "/tasks/t1", "/tasks/t1/stream"])
+    }
+
+    /// Polling: the status change to cancelled fetches the full task, and the
+    /// error carries that task.
+    func testPollCancelledCarriesTheTask() async throws {
+        let dispatched = try fixture(status: 3)
+        var cancelledObj = try XCTUnwrap(JSONSerialization.jsonObject(with: try fixture(status: 12)) as? [String: Any])
+        var data = try XCTUnwrap(cancelledObj["data"] as? [String: Any])
+        data["output"] = ["text": "partial"]
+        cancelledObj["data"] = data
+        let cancelled = try JSONSerialization.data(withJSONObject: cancelledObj)
+        var client = InferenceClient(apiKey: "k")
+        client.transport = StubProtocol.start { req, _ in
+            switch (req.httpMethod ?? "", req.url?.path ?? "") {
+            case ("POST", "/apps/run"): return .json(self.created)
+            case ("GET", "/tasks/t1/status"):
+                return .json(#"{"data":{"id":"t1","status":12,"updated_at":"2026-01-01T00:00:00Z"}}"#)
+            case ("GET", "/tasks/t1"):
+                let gets = StubProtocol.recorded.filter { $0.path == "/tasks/t1" }.count
+                return StubProtocol.Response(body: gets <= 1 ? dispatched : cancelled)
+            default: return .json(#"{"title":"unexpected"}"#, status: 404)
+            }
+        }
+        do {
+            _ = try await client.tasks.run(ApiAppRunRequest(app: "a/b", input: ["prompt": "x"]),
+                                           options: TaskRunOptions(stream: false, pollIntervalMs: 10))
+            XCTFail("a cancelled task must throw")
+        } catch TaskRunError.cancelled(let task) {
+            XCTAssertEqual(task.status, .cancelled)
+            XCTAssertEqual(task.output["text"]?.stringValue, "partial")
+        } catch { XCTFail("\(error)") }
+    }
+
     /// The stream connect is refused: thrown as the API's error with the
     /// body cut to 2000 bytes, not reconnected, and reported once.
     func testStreamRefusalIsThrownCutAndReported() async throws {

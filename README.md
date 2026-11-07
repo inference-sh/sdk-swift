@@ -135,7 +135,7 @@ let task = try await client.tasks.run(ApiAppRunRequest(
 print(task.output)
 ```
 
-`run` returns the finished task. A failed task throws `TaskRunError.failed`, a cancelled one `TaskRunError.cancelled`, a rejected one (no balance or payment method) `TaskRunError.rejected`.
+`run` returns the finished task. A failed task throws `TaskRunError.failed`, a cancelled one `TaskRunError.cancelled` carrying the task, a rejected one (no balance or payment method) `TaskRunError.rejected`.
 
 ## Running Apps
 
@@ -197,6 +197,20 @@ let current = try await client.tasks.get(task.id)
 try await client.tasks.cancel(taskId)
 let logs = try await client.tasks.getLogs(taskId)
 let page = try await client.tasks.list(CursorListRequest(limit: 20))
+```
+
+### Cancellation
+
+A cancelled task always ends `cancelled`, so `run` and `watch` throw `TaskRunError.cancelled` for it. The error carries the task: when the app returned its result before it was stopped, that result is on `task.output` (billed like any other); a task that returned nothing has `output == .null`.
+
+```swift
+do {
+    let task = try await client.tasks.run(request)
+} catch TaskRunError.cancelled(let task) where task.output != .null {
+    print("cancelled, but it returned:", task.output)
+} catch TaskRunError.cancelled {
+    print("cancelled before it returned anything")
+}
 ```
 
 ## Files

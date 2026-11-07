@@ -135,8 +135,12 @@ public struct InferenceClient: Sendable {
 
     /// POST /apps/run with `wait: true`: the server blocks until the task is
     /// terminal and returns the slim result. Failed and cancelled tasks come
-    /// back as HTTP 422, surfaced as `InferenceError.http`. Used by the speech
-    /// helpers below; the public way to run an app is `tasks.run`.
+    /// back as HTTP 422 (`task_failed` / `task_cancelled`, the task under
+    /// `meta.task` in the body), surfaced as `InferenceError.http`: a result
+    /// a cancelled task returned before it was stopped is only in that body.
+    /// Used by the speech helpers below, which have no use for a partial
+    /// result; the public way to run an app is `tasks.run`, whose
+    /// `TaskRunError.cancelled` carries the task.
     func runAppWaiting(_ body: ApiAppRunRequest) async throws -> TaskResultDTO {
         var body = body
         body.wait = true

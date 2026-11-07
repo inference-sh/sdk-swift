@@ -65,7 +65,11 @@ public struct TaskRunOptions: Sendable {
 /// `run` failure states, mirroring the JS `new Error(...)` rejections.
 public enum TaskRunError: Error, LocalizedError, Sendable {
     case failed(String)
-    case cancelled
+    /// The task was cancelled. It carries the cancelled task: an app that
+    /// returned its result before it was stopped leaves that result on
+    /// `task.output` (and `task.outputMeta`), billed like any other; a task
+    /// that returned nothing has `task.output == .null`.
+    case cancelled(TaskDTO)
     /// Refused at admission (no balance or payment method); it never ran.
     case rejected(String)
 
@@ -143,8 +147,10 @@ public struct TasksAPI: Sendable {
 
     /// POST /apps/run, then wait for the task to reach a terminal status:
     /// completed returns the task, failed throws `TaskRunError.failed` with the
-    /// task's error, cancelled throws `TaskRunError.cancelled`, rejected throws
-    /// `TaskRunError.rejected` with the refusal message. `wait: false`
+    /// task's error, cancelled throws `TaskRunError.cancelled` with the task
+    /// (its `output` holds the result when the app returned one before it was
+    /// stopped), rejected throws `TaskRunError.rejected` with the refusal
+    /// message. `wait: false`
     /// returns the created task immediately. `stream: true` (default) follows
     /// GET /tasks/{id}/stream as NDJSON; `stream: false` polls
     /// GET /tasks/{id}/status and fetches the full task on each change.
@@ -166,7 +172,7 @@ public struct TasksAPI: Sendable {
         let task = try await get(taskId)
         if task.status.isTerminal {
             options.onUpdate?(task)
-            if let error = Self.terminalError(task.status, task.error) { throw error }
+            if let error = Self.terminalError(task.status, task.error, task: { task }) { throw error }
             return task
         }
         if !options.stream { return try await pollUntilTerminal(task, options: options) }
@@ -211,7 +217,7 @@ public struct TasksAPI: Sendable {
             let fresh = try await get(task.id)
             accumulated.merge(try Self.jsonObject(fresh)) { _, new in new }
             options.onUpdate?(fresh)
-            if let error = Self.terminalError(fresh.status, fresh.error) { throw error }
+            if let error = Self.terminalError(fresh.status, fresh.error, task: { fresh }) { throw error }
             if fresh.status == .completed { return fresh }
         }
     }
@@ -260,9 +266,11 @@ public struct TasksAPI: Sendable {
             // Terminal status is read off the incoming line (js: data.status),
             // so partial lines that don't touch `status` never terminate.
             // Materializing the DTO costs a full encode/decode round-trip;
-            // do it only when someone will see it (a callback, or completion).
+            // do it only when someone will see it (a callback, completion, or
+            // a cancellation, whose error carries the task and its output).
             let status = Self.parseStatus(data["status"])
-            if let error = Self.terminalError(status, data["error"]?.stringValue) { throw error }
+            if let error = try Self.terminalError(status, data["error"]?.stringValue,
+                                                  task: { try Self.task(from: accumulated) }) { throw error }
             let wantsTask = options.onUpdate != nil || options.onPartialUpdate != nil
             if wantsTask || status == .completed {
                 let current = try Self.task(from: accumulated)
@@ -292,7 +300,7 @@ public struct TasksAPI: Sendable {
 
                 let full = try await self.get(taskId)
                 options.onUpdate?(full)
-                if let error = Self.terminalError(full.status, full.error) { throw error }
+                if let error = Self.terminalError(full.status, full.error, task: { full }) { throw error }
                 return full.status == .completed ? full : nil
             })
     }
@@ -318,11 +326,14 @@ public struct TasksAPI: Sendable {
     }
 
     /// failed/cancelled/rejected → the matching TaskRunError; anything else → nil.
-    /// Shared by the stream and poll paths so the mapping cannot drift.
-    private static func terminalError(_ status: TaskStatus, _ error: String?) -> TaskRunError? {
+    /// Shared by the stream and poll paths so the mapping cannot drift. `task`
+    /// is read only for a cancellation, which carries the task: the stream
+    /// path materializes it from the accumulated lines on demand.
+    private static func terminalError(_ status: TaskStatus, _ error: String?,
+                                      task: () throws -> TaskDTO) rethrows -> TaskRunError? {
         switch status {
         case .failed: return .failed(error ?? "task failed")
-        case .cancelled: return .cancelled
+        case .cancelled: return .cancelled(try task())
         case .rejected: return .rejected(error ?? "insufficient balance")
         default: return nil
         }
