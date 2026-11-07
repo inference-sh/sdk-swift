@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.30.0
+
+Matching the cancel change (a cancelled task ends cancelled with the output its app returned). `TaskRunError.cancelled` carries the task: `cancelled(TaskDTO)`. Matching/catching code is unchanged; code that constructs the case must pass a task. Types regenerated from api dcbb5f36b (run requests carry no task metadata).
+
 ## 0.29.2
 
 Matching api-v1442. Added the INF-1173 egress types (egress_decide wire, egress answer and revoke ack, EgressHost rule verdicts).
