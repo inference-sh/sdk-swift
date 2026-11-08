@@ -13789,19 +13789,27 @@ public struct CreateSandboxRequest: Codable, Sendable {
     /// engine's gateway places the values toward those hosts and renews
     /// the ones that expire, always from the login chosen here.
     public var credentials: [SandboxCredential]?
+    /// IdleTimeoutSeconds stops the running box this long after it was last
+    /// used through the API (an exec, an agent session, a keepalive); what
+    /// runs inside it does not count, but an exec still running holds it.
+    /// Unset is 1800 (30 minutes), 0 never stops it; otherwise 60 to
+    /// 2592000 (30 days).
+    public var idleTimeoutSeconds: Int?
 
     public init(
         name: String = "",
         vcpus: Int? = nil,
         memoryMib: Int? = nil,
         diskMib: Int? = nil,
-        credentials: [SandboxCredential]? = nil
+        credentials: [SandboxCredential]? = nil,
+        idleTimeoutSeconds: Int? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
         self.memoryMib = memoryMib
         self.diskMib = diskMib
         self.credentials = credentials
+        self.idleTimeoutSeconds = idleTimeoutSeconds
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13810,6 +13818,25 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case memoryMib = "memory_mib"
         case diskMib = "disk_mib"
         case credentials = "credentials"
+        case idleTimeoutSeconds = "idle_timeout_seconds"
+    }
+}
+
+/// UpdateSandboxRequest is PATCH /sandboxes/{id}: the fields to change,
+/// nil left as they are.
+public struct UpdateSandboxRequest: Codable, Sendable {
+    /// IdleTimeoutSeconds is as in CreateSandboxRequest. Changing it counts
+    /// as activity.
+    public var idleTimeoutSeconds: Int?
+
+    public init(
+        idleTimeoutSeconds: Int? = nil
+    ) {
+        self.idleTimeoutSeconds = idleTimeoutSeconds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case idleTimeoutSeconds = "idle_timeout_seconds"
     }
 }
 
@@ -13952,6 +13979,12 @@ public struct SandboxDTO: Codable, Sendable {
     /// drop it sooner when its host runs short of disk.
     public var diskKept: Bool
     public var diskKeptUntil: String?
+    /// IdleTimeoutSeconds stops the running box this long after
+    /// LastActivityAt; 0 never does.
+    public var idleTimeoutSeconds: Int
+    /// LastActivityAt is when the sandbox was last used through the API, or
+    /// its box started, whichever is later.
+    public var lastActivityAt: String?
 
     public init(
         id: String = "",
@@ -13979,7 +14012,9 @@ public struct SandboxDTO: Codable, Sendable {
         startedAt: String? = nil,
         stoppedAt: String? = nil,
         diskKept: Bool = false,
-        diskKeptUntil: String? = nil
+        diskKeptUntil: String? = nil,
+        idleTimeoutSeconds: Int = 0,
+        lastActivityAt: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -14007,6 +14042,8 @@ public struct SandboxDTO: Codable, Sendable {
         self.stoppedAt = stoppedAt
         self.diskKept = diskKept
         self.diskKeptUntil = diskKeptUntil
+        self.idleTimeoutSeconds = idleTimeoutSeconds
+        self.lastActivityAt = lastActivityAt
     }
 
     enum CodingKeys: String, CodingKey {
@@ -14036,6 +14073,8 @@ public struct SandboxDTO: Codable, Sendable {
         case stoppedAt = "stopped_at"
         case diskKept = "disk_kept"
         case diskKeptUntil = "disk_kept_until"
+        case idleTimeoutSeconds = "idle_timeout_seconds"
+        case lastActivityAt = "last_activity_at"
     }
 }
 
