@@ -13756,6 +13756,23 @@ public struct SandboxDesiredState: RawRepresentable, Codable, Hashable, Sendable
     public static let sandboxDesiredDeleted = SandboxDesiredState(rawValue: "deleted")
 }
 
+/// StartSandboxRequest is POST /sandboxes/{id}/start; the body is optional.
+public struct StartSandboxRequest: Codable, Sendable {
+    /// FreshDisk starts the stopped sandbox on a new, empty disk: the one
+    /// its engine keeps is dropped (INF-1163).
+    public var freshDisk: Bool?
+
+    public init(
+        freshDisk: Bool? = nil
+    ) {
+        self.freshDisk = freshDisk
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case freshDisk = "fresh_disk"
+    }
+}
+
 /// CreateSandboxRequest is POST /sandboxes. Sizes left at zero take the
 /// defaults.
 public struct CreateSandboxRequest: Codable, Sendable {
@@ -13929,6 +13946,12 @@ public struct SandboxDTO: Codable, Sendable {
     public var remoteId: String?
     public var startedAt: String?
     public var stoppedAt: String?
+    /// DiskKept: the engine the sandbox last ran on keeps its disk, and its
+    /// next start goes back there for it (INF-1163). DiskKeptUntil is when
+    /// a stopped sandbox's disk goes (stopped_at + 7 days); the engine may
+    /// drop it sooner when its host runs short of disk.
+    public var diskKept: Bool
+    public var diskKeptUntil: String?
 
     public init(
         id: String = "",
@@ -13954,7 +13977,9 @@ public struct SandboxDTO: Codable, Sendable {
         workerId: String? = nil,
         remoteId: String? = nil,
         startedAt: String? = nil,
-        stoppedAt: String? = nil
+        stoppedAt: String? = nil,
+        diskKept: Bool = false,
+        diskKeptUntil: String? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -13980,6 +14005,8 @@ public struct SandboxDTO: Codable, Sendable {
         self.remoteId = remoteId
         self.startedAt = startedAt
         self.stoppedAt = stoppedAt
+        self.diskKept = diskKept
+        self.diskKeptUntil = diskKeptUntil
     }
 
     enum CodingKeys: String, CodingKey {
@@ -14007,6 +14034,8 @@ public struct SandboxDTO: Codable, Sendable {
         case remoteId = "remote_id"
         case startedAt = "started_at"
         case stoppedAt = "stopped_at"
+        case diskKept = "disk_kept"
+        case diskKeptUntil = "disk_kept_until"
     }
 }
 
