@@ -14463,6 +14463,9 @@ public struct SystemInfo: Codable, Sendable {
     public var volumes: [Volume]?
     @Indirect public var hfCache: HFCacheInfo
     public var gpus: [GPU]?
+    /// HostCPU is how the host runs its CPUs (INF-1244); nil off Linux
+    /// and from engines that predate it.
+    @Indirect public var hostCpu: HostCPU?
 
     public init(
         hostname: String = "",
@@ -14477,7 +14480,8 @@ public struct SystemInfo: Codable, Sendable {
         ram: RAM,
         volumes: [Volume]? = nil,
         hfCache: HFCacheInfo,
-        gpus: [GPU]? = nil
+        gpus: [GPU]? = nil,
+        hostCpu: HostCPU? = nil
     ) {
         self.hostname = hostname
         self.engineVersion = engineVersion
@@ -14492,6 +14496,7 @@ public struct SystemInfo: Codable, Sendable {
         self.volumes = volumes
         self.hfCache = hfCache
         self.gpus = gpus
+        self.hostCpu = hostCpu
     }
 
     enum CodingKeys: String, CodingKey {
@@ -14508,6 +14513,101 @@ public struct SystemInfo: Codable, Sendable {
         case volumes = "volumes"
         case hfCache = "hf_cache"
         case gpus = "gpus"
+        case hostCpu = "host_cpu"
+    }
+}
+
+/// HostCPU is how a host runs its CPUs: the settings that make the same
+/// cores fast or slow (INF-1244), as the engine reads them from /sys.
+public struct HostCPU: Codable, Sendable {
+    /// Governor and Driver are cpu0's cpufreq scaling_governor and
+    /// scaling_driver.
+    public var governor: String?
+    public var driver: String?
+    /// Boost is turbo/boost on or off; nil when the host does not say.
+    public var boost: Bool?
+    /// CurMHz is the mean current frequency across CPUs, MaxMHz cpu0's
+    /// hardware maximum.
+    public var curMhz: Double?
+    public var maxMhz: Double?
+    /// SMT is simultaneous multithreading on or off; nil when unknown.
+    public var smt: Bool?
+    public var threadsPerCore: Int?
+    /// HugePages2M are the reserved 2 MiB huge pages; THP the transparent
+    /// huge page mode (always, madvise or never).
+    public var hugepages2mTotal: Int
+    public var hugepages2mFree: Int
+    public var thp: String?
+    /// KVM is /dev/kvm present.
+    public var kvm: Bool
+    /// Score is the engine's startup CPU benchmark; nil until it has run.
+    @Indirect public var cpuScore: CPUScore?
+
+    public init(
+        governor: String? = nil,
+        driver: String? = nil,
+        boost: Bool? = nil,
+        curMhz: Double? = nil,
+        maxMhz: Double? = nil,
+        smt: Bool? = nil,
+        threadsPerCore: Int? = nil,
+        hugepages2mTotal: Int = 0,
+        hugepages2mFree: Int = 0,
+        thp: String? = nil,
+        kvm: Bool = false,
+        cpuScore: CPUScore? = nil
+    ) {
+        self.governor = governor
+        self.driver = driver
+        self.boost = boost
+        self.curMhz = curMhz
+        self.maxMhz = maxMhz
+        self.smt = smt
+        self.threadsPerCore = threadsPerCore
+        self.hugepages2mTotal = hugepages2mTotal
+        self.hugepages2mFree = hugepages2mFree
+        self.thp = thp
+        self.kvm = kvm
+        self.cpuScore = cpuScore
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case governor = "governor"
+        case driver = "driver"
+        case boost = "boost"
+        case curMhz = "cur_mhz"
+        case maxMhz = "max_mhz"
+        case smt = "smt"
+        case threadsPerCore = "threads_per_core"
+        case hugepages2mTotal = "hugepages_2m_total"
+        case hugepages2mFree = "hugepages_2m_free"
+        case thp = "thp"
+        case kvm = "kvm"
+        case cpuScore = "cpu_score"
+    }
+}
+
+/// CPUScore is the engine's startup CPU benchmark: a fixed loop on one
+/// thread, then on every thread.
+public struct CPUScore: Codable, Sendable {
+    public var singleOpsPerSec: Double
+    public var allOpsPerSec: Double
+    public var threads: Int
+
+    public init(
+        singleOpsPerSec: Double = 0,
+        allOpsPerSec: Double = 0,
+        threads: Int = 0
+    ) {
+        self.singleOpsPerSec = singleOpsPerSec
+        self.allOpsPerSec = allOpsPerSec
+        self.threads = threads
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case singleOpsPerSec = "single_ops_per_sec"
+        case allOpsPerSec = "all_ops_per_sec"
+        case threads = "threads"
     }
 }
 
@@ -15693,19 +15793,27 @@ public struct TeamViewDTO: Codable, Sendable {
     @Indirect public var org: TeamViewOrg?
     @Indirect public var governance: TeamGovernance
     public var can: [TeamCapability]?
+    /// NeedsAdminAccess lists what the caller would also hold with admin
+    /// access on: set only for staff whose browser sign-in holds no platform
+    /// power now and would after proving the authenticator again here
+    /// (AuthContext.AdminPowerRenewable). Clients show these as needing admin
+    /// access instead of hiding them.
+    public var needsAdminAccess: [TeamCapability]?
 
     public init(
         teamId: String = "",
         kind: TeamKind,
         org: TeamViewOrg? = nil,
         governance: TeamGovernance,
-        can: [TeamCapability]? = nil
+        can: [TeamCapability]? = nil,
+        needsAdminAccess: [TeamCapability]? = nil
     ) {
         self.teamId = teamId
         self.kind = kind
         self.org = org
         self.governance = governance
         self.can = can
+        self.needsAdminAccess = needsAdminAccess
     }
 
     enum CodingKeys: String, CodingKey {
@@ -15714,6 +15822,7 @@ public struct TeamViewDTO: Codable, Sendable {
         case org = "org"
         case governance = "governance"
         case can = "can"
+        case needsAdminAccess = "needs_admin_access"
     }
 }
 
