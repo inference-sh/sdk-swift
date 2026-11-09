@@ -354,7 +354,7 @@ final class AuthTests: XCTestCase {
             return StubProtocol.Response(headers: ["Content-Type": "text/event-stream"], body: Data(sse.utf8))
         }
         for try await event in client.chats.stream("c1") {
-            guard case .message(let message, _) = event else { continue }
+            guard case .message(let message) = event else { continue }
             XCTAssertEqual(message.text, "done")
             break
         }

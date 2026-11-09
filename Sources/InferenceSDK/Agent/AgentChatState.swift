@@ -12,10 +12,6 @@
 //   so setChat clears the cursor state (as js does when the hidden fields
 //   are absent) and the caller follows up with a prependMessages carrying
 //   no messages to seed cursor/hasMore (see AgentChatSession.setChat).
-// - UPDATE_MESSAGE with partial: js merges with object spread
-//   (`{ ...existing, ...message }`). The Swift stream layer decodes partials
-//   into whole `ChatMessageDTO`s, so the faithful port is replace-if-exists /
-//   drop-if-new (a partial for an unknown id is dropped, as in js).
 // - DELTA_TOKEN: js spreads the target's `content` and would throw if it were
 //   undefined; here nil content is treated as an empty array.
 
@@ -91,6 +87,12 @@ public enum ChatAction {
     case updateChat(ChatDTO?)
     /// js UPDATE_ACTIVE_RUN.
     case updateActiveRun(AgentRunDTO)
+    /// js UPDATE_CHAT with fields: merged into the chat held; another
+    /// chat's update is dropped.
+    case mergeChatFields(FieldUpdate)
+    /// js UPDATE_ACTIVE_RUN with fields: merged into the active run; another
+    /// run's update is dropped.
+    case mergeActiveRunFields(FieldUpdate)
     /// js MERGE_CHAT_SETTINGS: what POST /chats/{id}/settings answered,
     /// merged into the chat held (ignored for another chat).
     case mergeChatSettings(ChatSettingsDTO)
@@ -102,7 +104,10 @@ public enum ChatAction {
     /// js PREPEND_MESSAGES.
     case prependMessages(messages: [ChatMessageDTO], cursor: String?, hasMore: Bool)
     /// js UPDATE_MESSAGE.
-    case updateMessage(ChatMessageDTO, partial: Bool)
+    case updateMessage(ChatMessageDTO)
+    /// js UPDATE_MESSAGE with partial: merged into the message; an unknown
+    /// message's update is dropped.
+    case mergeMessageFields(FieldUpdate)
     /// js ADD_MESSAGE.
     case addMessage(ChatMessageDTO)
     /// js DELTA_TOKEN: accumulated LLM output (see DeltaAccumulator.toOutput())
@@ -124,6 +129,7 @@ public enum ChatAction {
 func deriveChatStatus(_ run: AgentRunDTO?) -> ChatStatus {
     guard let run else { return .idle }
     if run.state.isWorking { return .busy }
+    if run.isWaiting { return .waiting }
     if run.state.isInterrupted { return .awaitingInput }
     return .idle
 }
@@ -168,6 +174,28 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
     case .updateChat(let chat):
         // Update chat metadata without replacing messages.
         guard let chat else { return state }
+        var next = state
+        next.chat = chat
+        return next
+
+    case .mergeChatFields(let update):
+        guard let chat = state.chat, chat.id == update.id,
+              var merged = update.applied(to: chat, clearingOmitted: true) else { return state }
+        // The projector's update names active_run_id, which ChatDTO does not
+        // declare. The run object belongs to that id: a new or cleared active
+        // run drops it until the run's own event arrives.
+        if update.fields.contains("active_run_id"), merged.activeRun?.id != update.values["active_run_id"]?.stringValue {
+            merged.activeRun = nil
+        }
+        var next = state
+        next.chat = merged
+        return next
+
+    case .mergeActiveRunFields(let update):
+        guard var chat = state.chat, let run = chat.activeRun, run.id == update.id,
+              let merged = update.applied(to: run, clearingOmitted: true) else { return state }
+        chat.activeRun = merged
+        chat.status = deriveChatStatus(merged)
         var next = state
         next.chat = chat
         return next
@@ -218,16 +246,23 @@ public func chatReducer(_ state: AgentChatState, _ action: ChatAction) -> AgentC
         next.hasOlderMessages = hasMore
         return next
 
-    case .updateMessage(let message, let partial):
+    case .updateMessage(let message):
         var next = state
         if let existingIndex = state.messages.firstIndex(where: { $0.id == message.id }) {
-            // js: partial merges with spread; the stream decodes partials
-            // into whole DTOs, so replace is the faithful port (see header).
             next.messages[existingIndex] = message
             return next
         }
-        if partial { return state }
         next.messages = (state.messages + [message]).sorted { $0.order < $1.order }
+        return next
+
+    case .mergeMessageFields(let update):
+        guard let index = state.messages.firstIndex(where: { $0.id == update.id }) else { return state }
+        // js normalizeMessage: null content keeps the content the message had.
+        let named = update.values["content"] == .null ? update.fields.filter { $0 != "content" } : update.fields
+        let applying = FieldUpdate(fields: named, values: update.values)
+        guard let merged = applying.applied(to: state.messages[index], clearingOmitted: false) else { return state }
+        var next = state
+        next.messages[index] = merged
         return next
 
     case .addMessage(let message):

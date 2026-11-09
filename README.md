@@ -407,10 +407,10 @@ let chats = try await client.chats.list(CursorListRequest(limit: 20))
 try await client.chats.stop(chatId)
 for try await event in client.chats.stream(chatId) {
     switch event {
-    case .message(let message, _): print(message.text)
+    case .message(let message): print(message.text)
     case .chat(let chat): print("chat", chat.status.rawValue)
     case .delta(let messageId, let delta): print(messageId, delta)
-    case .run: break
+    case .run, .chatFields, .messageFields, .runFields: break
     }
 }
 ```

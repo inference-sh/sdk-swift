@@ -260,6 +260,110 @@ final class AgentChatTests: XCTestCase {
         XCTAssertTrue(c.isAwaitingHuman)
     }
 
+    func testWaitIsBusyButNotAwaitingHuman() {
+        var c = chat("c1")
+        c.activeRun = AgentRunDTO(visibility: .private, state: .inputRequired, interruptReason: .wait)
+        XCTAssertTrue(c.isBusy)
+        XCTAssertFalse(c.isAwaitingHuman)
+        XCTAssertEqual(chatReducer(chatReducer(.initial, .setChat(chat("c1"))), .updateActiveRun(c.activeRun!)).chat?.status, .waiting)
+        c.activeRun = AgentRunDTO(visibility: .private, state: .inputRequired, interruptReason: .toolApproval)
+        XCTAssertTrue(c.isAwaitingHuman)
+        c.activeRun = nil
+        c.status = .waiting
+        XCTAssertTrue(c.isBusy)
+        XCTAssertFalse(c.isAwaitingHuman)
+    }
+
+    // MARK: Attachments
+
+    @MainActor
+    func testSendCarriesAttachments() async throws {
+        var client = InferenceClient(apiKey: "k")
+        client.transport = StubProtocol.start { _, _ in .json(#"{"data":{"id":"m1"}}"#) }
+        _ = try? await client.sendChatMessage(chatId: "c1", message: "see this",
+                                              attachments: [FileRef(id: "f1", uri: "inf://f1", filename: "a.png", contentType: "image/png", size: 3)])
+        let sent = try XCTUnwrap(StubProtocol.recorded.first)
+        let state = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(sent.body)) as? [String: Any])
+        XCTAssertEqual(state["message"] as? String, "see this")
+        let first = try XCTUnwrap((state["attachments"] as? [[String: Any]])?.first)
+        XCTAssertEqual(first["uri"] as? String, "inf://f1")
+        XCTAssertEqual(first["content_type"] as? String, "image/png")
+    }
+
+    // MARK: Partial stream updates (reducer.test.ts)
+
+    private func update(_ values: [String: JSONValue], fields: [String]) -> FieldUpdate {
+        FieldUpdate(fields: fields, values: values)
+    }
+
+    /// A busy chat with active run r1.
+    private func busyState() -> AgentChatState {
+        var state = chatReducer(.initial, .setChat(chat("c1")))
+        state = chatReducer(state, .updateActiveRun(AgentRunDTO(id: "r1", visibility: .private, state: .working)))
+        return state
+    }
+
+    func testStreamReadsAPartialFrame() async throws {
+        var client = InferenceClient(apiKey: "k")
+        client.transport = StubProtocol.start { _, _ in
+            let sse = #"event: chats"# + "\n" + #"data: {"data": {"id":"c1","status":"idle"}, "fields": ["id","status","active_run_id"]}"# + "\n\n"
+            return StubProtocol.Response(headers: ["Content-Type": "text/event-stream"], body: Data(sse.utf8))
+        }
+        for try await event in client.chats.stream("c1") {
+            guard case .chatFields(let update) = event else { continue }
+            XCTAssertEqual(update.id, "c1")
+            XCTAssertEqual(update.fields, ["id", "status", "active_run_id"])
+            return
+        }
+        XCTFail("no partial event")
+    }
+
+    func testPartialChatKeepsTheRestOfTheChat() {
+        var c = chat("c1")
+        c.name = "named"
+        var state = chatReducer(.initial, .setChat(c))
+        state = chatReducer(state, .updateActiveRun(AgentRunDTO(id: "r1", visibility: .private, state: .working)))
+        let next = chatReducer(state, .mergeChatFields(update(["id": "c1", "status": "busy", "active_run_id": "r1"],
+                                                               fields: ["id", "status", "active_run_id"])))
+        XCTAssertEqual(next.chat?.name, "named")
+        XCTAssertEqual(next.chat?.activeRun?.id, "r1")
+        XCTAssertTrue(next.chat?.isBusy ?? false)
+    }
+
+    func testPartialChatOmittingTheRunClearsIt() {
+        let next = chatReducer(busyState(), .mergeChatFields(update(["id": "c1", "status": "idle"],
+                                                                    fields: ["id", "status", "active_run_id"])))
+        XCTAssertNil(next.chat?.activeRun)
+        XCTAssertEqual(next.chat?.status, .idle)
+        XCTAssertFalse(next.chat?.isBusy ?? true)
+    }
+
+    func testPartialChatForAnotherChatIsDropped() {
+        let next = chatReducer(busyState(), .mergeChatFields(update(["id": "c2", "status": "idle"], fields: ["id", "status"])))
+        XCTAssertEqual(next.chat?.status, .busy)
+    }
+
+    func testPartialRunMergesIntoTheActiveRun() {
+        let next = chatReducer(busyState(), .mergeActiveRunFields(update(["id": "r1", "state": "completed"], fields: ["id", "state"])))
+        XCTAssertEqual(next.chat?.activeRun?.state, .completed)
+        XCTAssertEqual(next.chat?.status, .idle)
+        let other = chatReducer(busyState(), .mergeActiveRunFields(update(["id": "r0", "state": "completed"], fields: ["id", "state"])))
+        XCTAssertEqual(other.chat?.activeRun?.state, .working)
+    }
+
+    func testPartialMessageMerges() {
+        var state = chatReducer(.initial, .setChat(chat("c1")))
+        let original = ChatMessageDTO(id: "m7", visibility: .private, order: 7, status: .pending, role: .assistant,
+                                      content: [ChatMessageContent(type: .text, text: "kept")])
+        state = chatReducer(state, .updateMessage(original))
+        let next = chatReducer(state, .mergeMessageFields(update(["id": "m7", "status": "ready", "content": .null],
+                                                                 fields: ["id", "status", "content"])))
+        XCTAssertEqual(next.messages.first?.status, .ready)
+        XCTAssertEqual(next.messages.first?.order, 7)
+        XCTAssertEqual(next.messages.first?.content?.first?.text, "kept")
+        XCTAssertEqual(chatReducer(state, .mergeMessageFields(update(["id": "m8", "status": "ready"], fields: ["id", "status"]))).messages.count, 1)
+    }
+
     // MARK: System rows (common-js system-message.tsx)
 
     func testSystemNotes() throws {

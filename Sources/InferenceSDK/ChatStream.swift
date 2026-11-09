@@ -11,12 +11,51 @@ import FoundationNetworking
 /// One decoded event off the chat stream.
 public enum ChatStreamEvent: Sendable {
     case chat(ChatDTO)
-    case message(ChatMessageDTO, fields: [String]?)   // fields != nil => partial update
+    case message(ChatMessageDTO)
     case run(AgentRunDTO)
     /// A token delta and the id of the message it belongs to, from
     /// DeltaEvent.resourceId. Carried explicitly so consumers match instead of
     /// inferring a target from stream position.
     case delta(messageId: String, [String: JSONValue])
+    /// Partial updates: only the named fields of the object, see FieldUpdate.
+    case chatFields(FieldUpdate)
+    case messageFields(FieldUpdate)
+    case runFields(FieldUpdate)
+}
+
+/// A partial stream update: the server's `{ "data": ..., "fields": [...] }`
+/// with only the named fields in `data`. It cannot decode as a DTO, so it
+/// stays JSON and merges into the object it updates.
+public struct FieldUpdate: Sendable, Equatable {
+    public let fields: [String]
+    public let values: [String: JSONValue]
+
+    public init(fields: [String], values: [String: JSONValue]) {
+        self.fields = fields
+        self.values = values
+    }
+
+    /// The id of the object this update belongs to.
+    public var id: String? { values["id"]?.stringValue }
+
+    /// `existing` with the named fields applied, nil if the result is not a
+    /// valid `T`. `clearingOmitted`: a named field missing from the payload
+    /// was cleared (omitempty), so it is removed.
+    func applied<T: Codable>(to existing: T, clearingOmitted: Bool) -> T? {
+        guard let encoded = try? InferenceClient.encoder.encode(existing),
+              var object = try? InferenceClient.decoder.decode([String: JSONValue].self, from: encoded) else {
+            return nil
+        }
+        for field in fields {
+            if let value = values[field] {
+                object[field] = value
+            } else if clearingOmitted {
+                object[field] = nil
+            }
+        }
+        guard let merged = try? InferenceClient.encoder.encode(object) else { return nil }
+        return try? InferenceClient.decoder.decode(T.self, from: merged)
+    }
 }
 
 /// Server partial-update wrapper: `{ "data": <DTO>, "fields": ["..."] }`.
@@ -125,25 +164,25 @@ public extension InferenceClient {
         return String(v)
     }
 
-    /// Decodes one SSE frame into a typed event. Unwraps the {data, fields}
-    /// partial wrapper when present. Unknown event names yield nil.
+    /// Decodes one SSE frame into a typed event. A {data, fields} wrapper is a
+    /// partial update. Unknown event names yield nil.
     private static func parseChatStreamEvent(_ eventName: String, _ dataString: String) -> ChatStreamEvent? {
         let data = Data(dataString.utf8)
         switch eventName {
         case "chats":
-            guard let (dto, _) = decodeMaybeWrapped(ChatDTO.self, data) else { return nil }
-            return .chat(dto)
+            if let update = fieldUpdate(data) { return .chatFields(update) }
+            return (try? decoder.decode(ChatDTO.self, from: data)).map(ChatStreamEvent.chat)
         case "chat_messages":
-            guard let (dto, fields) = decodeMaybeWrapped(ChatMessageDTO.self, data) else { return nil }
-            return .message(dto, fields: fields)
+            if let update = fieldUpdate(data) { return .messageFields(update) }
+            return (try? decoder.decode(ChatMessageDTO.self, from: data)).map(ChatStreamEvent.message)
         case "agent_runs":
-            guard let (dto, _) = decodeMaybeWrapped(AgentRunDTO.self, data) else { return nil }
-            return .run(dto)
+            if let update = fieldUpdate(data) { return .runFields(update) }
+            return (try? decoder.decode(AgentRunDTO.self, from: data)).map(ChatStreamEvent.run)
         case "delta":
             // No resource id means the server could not attribute the delta.
             // Drop it rather than pass an unattributable token downstream —
             // the message snapshot still carries the authoritative text.
-            guard let (evt, _) = decodeMaybeWrapped(DeltaEvent.self, data),
+            guard let evt = decodeMaybeWrapped(DeltaEvent.self, data),
                   let obj = evt.delta.objectValue,
                   let messageId = evt.resourceId, !messageId.isEmpty else { return nil }
             return .delta(messageId: messageId, obj)
@@ -152,14 +191,15 @@ public extension InferenceClient {
         }
     }
 
-    /// Wrapper first ({data, fields}), then the bare DTO. Fields is nil unless wrapped.
-    private static func decodeMaybeWrapped<T: Decodable>(_ type: T.Type, _ data: Data) -> (T, [String]?)? {
-        if let w = try? decoder.decode(PartialDataWrapper<T>.self, from: data) {
-            return (w.data, w.fields)
-        }
-        if let v = try? decoder.decode(T.self, from: data) {
-            return (v, nil)
-        }
-        return nil
+    /// The partial update in a {data, fields} frame, nil for a bare object.
+    private static func fieldUpdate(_ data: Data) -> FieldUpdate? {
+        guard let w = try? decoder.decode(PartialDataWrapper<[String: JSONValue]>.self, from: data) else { return nil }
+        return FieldUpdate(fields: w.fields, values: w.data)
+    }
+
+    /// Wrapper first ({data, fields}), then the bare value.
+    private static func decodeMaybeWrapped<T: Decodable>(_ type: T.Type, _ data: Data) -> T? {
+        if let w = try? decoder.decode(PartialDataWrapper<T>.self, from: data) { return w.data }
+        return try? decoder.decode(T.self, from: data)
     }
 }

@@ -14,9 +14,10 @@ public extension InferenceClient {
         try await decode(send(request("chats", body: CreateChatBody(agent: agent, context: context))))
     }
 
-    /// POST /chats/{id}/messages: append a user message. Returns the user message DTO.
-    func sendChatMessage(chatId: String, message: String) async throws -> ChatMessageDTO {
-        try await decode(send(request("chats/\(chatId)/messages", body: MessageBody(message: message))))
+    /// POST /chats/{id}/messages: append a user message and the files sent
+    /// with it (uploaded with POST /files). Returns the user message DTO.
+    func sendChatMessage(chatId: String, message: String, attachments: [FileRef]? = nil) async throws -> ChatMessageDTO {
+        try await decode(send(request("chats/\(chatId)/messages", body: MessageBody(message: message, attachments: attachments))))
     }
 
     /// GET /chats/{id}/messages with optional `limit`/`cursor`. One page; the
@@ -144,6 +145,9 @@ public extension AgentRunDTO {
     /// The run is holding the chat: working, or parked on a human (approval,
     /// input, authorization).
     var isActive: Bool { state.isWorking || state.isInterrupted }
+    /// js isRunWaiting: paused on the agent's own wait call. It resumes by
+    /// itself, so no person needs to act.
+    var isWaiting: Bool { state.isInterrupted && interruptReason == .wait }
 }
 
 public extension ChatDTO {
@@ -151,13 +155,13 @@ public extension ChatDTO {
     /// else the chat status. Busy chats queue new messages server-side.
     var isBusy: Bool {
         if let run = activeRun { return run.isActive }
-        return status == .busy || status == .awaitingInput
+        return status == .busy || status == .awaitingInput || status == .waiting
     }
 
     /// js isAwaitingHuman: nothing more arrives until someone approves,
     /// answers or authorizes.
     var isAwaitingHuman: Bool {
-        if let run = activeRun { return run.state.isInterrupted }
+        if let run = activeRun { return run.state.isInterrupted && !run.isWaiting }
         return status == .awaitingInput
     }
 }
@@ -172,7 +176,8 @@ private struct CreateChatBody: Encodable {
 
 private struct MessageBody: Encodable {
     let message: String
-    enum CodingKeys: String, CodingKey { case message }
+    let attachments: [FileRef]?
+    enum CodingKeys: String, CodingKey { case message, attachments }
 }
 
 private struct AgentBody: Encodable {

@@ -110,11 +110,9 @@ public final class AgentChatSession {
 
     // MARK: - Public actions (js publicActions)
 
-    /// POST the message, creating the chat on first send, then ensure the
-    /// stream is running. Files are already-uploaded refs; the message POST
-    /// itself carries only text (server binds no files field) — parity with
-    /// the js path where processFiles uploads and the POST ignores the refs.
-    public func sendMessage(_ text: String) async {
+    /// POST the message and its attachments (files already uploaded), creating
+    /// the chat on first send, then ensure the stream is running.
+    public func sendMessage(_ text: String, attachments: [FileRef]? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -129,8 +127,8 @@ public final class AgentChatSession {
                 callbacks.onChatCreated?(chat.id)
             }
             guard let chatId else { return }
-            let userMessage = try await client.sendChatMessage(chatId: chatId, message: trimmed)
-            dispatch(.updateMessage(userMessage, partial: false))
+            let userMessage = try await client.sendChatMessage(chatId: chatId, message: trimmed, attachments: attachments)
+            dispatch(.updateMessage(userMessage))
             if streamTask == nil { streamChat(chatId) }
         } catch {
             dispatch(.setConnectionStatus(.error))
@@ -329,12 +327,25 @@ public final class AgentChatSession {
             dispatch(.updateChat(chat))
             emitStatus(chat.isBusy ? "streaming" : "idle")
             checkTurnEnd(chat)
-        case .message(let message, let fields):
-            dispatch(.updateMessage(message, partial: fields != nil))
+        case .message(let message):
+            dispatch(.updateMessage(message))
         case .run(let run):
             dispatch(.updateActiveRun(run))
             emitStatus(run.isActive ? "streaming" : "idle")
             if let chat = state.chat { checkTurnEnd(chat) }
+        case .chatFields(let update):
+            dispatch(.mergeChatFields(update))
+            // A partial update says nothing about the turn on its own: judge
+            // the chat it merged into.
+            if let chat = state.chat {
+                emitStatus(chat.isBusy ? "streaming" : "idle")
+                checkTurnEnd(chat)
+            }
+        case .messageFields(let update):
+            dispatch(.mergeMessageFields(update))
+        case .runFields(let update):
+            // A partial run update (its output) carries no state.
+            dispatch(.mergeActiveRunFields(update))
         case .delta(let messageId, let raw):
             // The delta names its message, so no target is inferred from
             // stream position. A new target starts a fresh accumulator.
