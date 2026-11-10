@@ -6968,6 +6968,9 @@ public struct EngineDTO: Codable, Sendable {
     /// Capacity is what the engine last reported it offers and has given
     /// out; nil from an engine that does not report it.
     @Indirect public var capacity: EngineCapacity?
+    /// CapacityPolicy is what its owner set for its room from the app:
+    /// sandboxes on or off, over-commit, CPU slots. Nil keeps the defaults.
+    @Indirect public var capacityPolicy: EngineCapacityPolicy?
     public var workers: [WorkerDTO]?
 
     public init(
@@ -6992,6 +6995,7 @@ public struct EngineDTO: Codable, Sendable {
         lastUpdate: UpdateStatus? = nil,
         systemInfo: SystemInfo? = nil,
         capacity: EngineCapacity? = nil,
+        capacityPolicy: EngineCapacityPolicy? = nil,
         workers: [WorkerDTO]? = nil
     ) {
         self.id = id
@@ -7015,6 +7019,7 @@ public struct EngineDTO: Codable, Sendable {
         self.lastUpdate = lastUpdate
         self.systemInfo = systemInfo
         self.capacity = capacity
+        self.capacityPolicy = capacityPolicy
         self.workers = workers
     }
 
@@ -7040,6 +7045,7 @@ public struct EngineDTO: Codable, Sendable {
         case lastUpdate = "last_update"
         case systemInfo = "system_info"
         case capacity = "capacity"
+        case capacityPolicy = "capacity_policy"
         case workers = "workers"
     }
 }
@@ -7604,6 +7610,57 @@ public struct CapacityGPU: Codable, Sendable {
         case id = "id"
         case vramBytes = "vram_bytes"
     }
+}
+
+/// EngineCapacityPolicy is what the engine's owner set for its room from the
+/// app (POST /engines/{id}/capacity): whether it hosts sandboxes and how far
+/// the API may give out more than it has. The API applies it; the engine is
+/// told nothing but the CPU slots it gets at its next register. A nil field
+/// keeps the default.
+public struct EngineCapacityPolicy: Codable, Sendable {
+    /// Sandboxes false keeps new sandboxes off the engine; boxes already on
+    /// it run until they stop. Nil is on, for an engine that reports
+    /// EngineCapabilitySandboxes.
+    public var sandboxes: Bool?
+    /// CPUOvercommit and MemoryOvercommit multiply the engine's allocatable
+    /// for sandbox placement: 2 gives out twice its CPUs. Nil is the pool's
+    /// (setting sandboxes.placement, 1 when unset). An engine on CPU slots
+    /// is checked against them only when one is set.
+    public var cpuOvercommit: Double?
+    public var memoryOvercommit: Double?
+    /// CPUSlots is the CPU app worker slots the engine gets at its next
+    /// register, over the count its engine.yml asks for (workers.cpu.count).
+    /// Each slot runs one app task, or holds one sandbox on an engine on
+    /// slots. Nil is the engine's count.
+    public var cpuSlots: Int?
+
+    public init(
+        sandboxes: Bool? = nil,
+        cpuOvercommit: Double? = nil,
+        memoryOvercommit: Double? = nil,
+        cpuSlots: Int? = nil
+    ) {
+        self.sandboxes = sandboxes
+        self.cpuOvercommit = cpuOvercommit
+        self.memoryOvercommit = memoryOvercommit
+        self.cpuSlots = cpuSlots
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sandboxes = "sandboxes"
+        case cpuOvercommit = "cpu_overcommit"
+        case memoryOvercommit = "memory_overcommit"
+        case cpuSlots = "cpu_slots"
+    }
+}
+
+/// EngineCapacityLimit bounds a field of EngineCapacityPolicy.
+public struct EngineCapacityLimit: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    public static let maxOvercommit = EngineCapacityLimit(rawValue: 8)
+    public static let maxCPUSlots = EngineCapacityLimit(rawValue: 1024)
 }
 
 /// EntitlementDTO for API responses
@@ -13777,9 +13834,9 @@ public struct StartSandboxRequest: Codable, Sendable {
 /// defaults.
 public struct CreateSandboxRequest: Codable, Sendable {
     public var name: String
-    /// default 2, max 8
+    /// default 2; at most the plan's largest sandbox (sandbox_max_vcpus)
     public var vcpus: Int?
-    /// default 4096, max 16384
+    /// default 4096; at most the plan's largest sandbox (sandbox_max_vcpus)
     public var memoryMib: Int?
     /// default 10240, max 51200
     public var diskMib: Int?
@@ -19891,6 +19948,15 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     /// (INF-1158). No row: the platform default (setting sandboxes.placement).
     public static let resourceSandboxes = EntitlementResource(rawValue: "sandboxes")
     public static let resourceSandboxVCPUs = EntitlementResource(rawValue: "sandbox_vcpus")
+    /// ResourceSandboxMaxVCPUs is the largest sandbox a team may make: its
+    /// vCPUs, and memory up to 2 GiB for each.
+    public static let resourceSandboxMaxVCPUs = EntitlementResource(rawValue: "sandbox_max_vcpus")
+    /// ResourceSandboxStartsPerMin is how many sandboxes a team may create
+    /// or start in a minute.
+    public static let resourceSandboxStartsPerMin = EntitlementResource(rawValue: "sandbox_starts_per_min")
+    /// ResourceSandboxKeptDisks is how many stopped sandboxes may keep their
+    /// disk at once. It only warns: past it a stop still keeps its disk.
+    public static let resourceSandboxKeptDisks = EntitlementResource(rawValue: "sandbox_kept_disks")
     /// Legacy — kept for DB compatibility, no longer in plan seeds
     public static let resourcePrivateApps = EntitlementResource(rawValue: "private_apps")
     public static let resourceTaskExecutions = EntitlementResource(rawValue: "task_executions")
