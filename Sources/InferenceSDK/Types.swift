@@ -1008,6 +1008,10 @@ public struct AgentVersionDTO: Codable, Sendable {
     /// ContentGuard is the agent's tool-result guard; absent is the
     /// platform's mode.
     @Indirect public var contentGuard: ContentGuardConfig?
+    /// VaultID is the agent's vault: the sandboxes its sandbox_create makes
+    /// get the vault's inference.sh access (VaultDTO.APIScopes). Absent: no
+    /// vault.
+    public var vaultId: String?
     /// VisitorReads is the scope groups of the team's resources (knowledge,
     /// files, artifacts, remotes) a visitor of an embed of this version can
     /// have it read by id, beyond what it configures by name. Set when the
@@ -1038,6 +1042,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
         contentGuard: ContentGuardConfig? = nil,
+        vaultId: String? = nil,
         visitorReads: [ScopeGroup]? = nil
     ) {
         self.id = id
@@ -1062,6 +1067,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.hooks = hooks
         self.outputSchema = outputSchema
         self.contentGuard = contentGuard
+        self.vaultId = vaultId
         self.visitorReads = visitorReads
     }
 
@@ -1088,6 +1094,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         case hooks = "hooks"
         case outputSchema = "output_schema"
         case contentGuard = "content_guard"
+        case vaultId = "vault_id"
         case visitorReads = "visitor_reads"
     }
 }
@@ -1166,6 +1173,9 @@ public struct AgentConfigInput: Codable, Sendable {
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
     @Indirect public var contentGuard: ContentGuardConfig?
+    /// VaultID picks the agent's vault, whose inference.sh access the
+    /// sandboxes it makes get. Empty: no vault.
+    public var vaultId: String?
 
     public init(
         name: String? = nil,
@@ -1180,7 +1190,8 @@ public struct AgentConfigInput: Codable, Sendable {
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
-        contentGuard: ContentGuardConfig? = nil
+        contentGuard: ContentGuardConfig? = nil,
+        vaultId: String? = nil
     ) {
         self.name = name
         self.description = description
@@ -1195,6 +1206,7 @@ public struct AgentConfigInput: Codable, Sendable {
         self.hooks = hooks
         self.outputSchema = outputSchema
         self.contentGuard = contentGuard
+        self.vaultId = vaultId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1211,6 +1223,7 @@ public struct AgentConfigInput: Codable, Sendable {
         case hooks = "hooks"
         case outputSchema = "output_schema"
         case contentGuard = "content_guard"
+        case vaultId = "vault_id"
     }
 }
 
@@ -2932,6 +2945,9 @@ public struct ScopeDefinition: Codable, Sendable {
     /// CostsCredits: using the scope spends the account's credits (running
     /// apps, agents, flows).
     public var costsCredits: Bool?
+    /// Sandbox: a vault may grant it to a sandbox (its inference.sh access,
+    /// VaultDTO.APIScopes); the allowlist is models.SandboxMayHold.
+    public var sandbox: Bool?
 
     public init(
         value: Scope,
@@ -2940,7 +2956,8 @@ public struct ScopeDefinition: Codable, Sendable {
         group: ScopeGroup,
         signInOnly: Bool? = nil,
         notForApps: Bool? = nil,
-        costsCredits: Bool? = nil
+        costsCredits: Bool? = nil,
+        sandbox: Bool? = nil
     ) {
         self.value = value
         self.label = label
@@ -2949,6 +2966,7 @@ public struct ScopeDefinition: Codable, Sendable {
         self.signInOnly = signInOnly
         self.notForApps = notForApps
         self.costsCredits = costsCredits
+        self.sandbox = sandbox
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2959,6 +2977,7 @@ public struct ScopeDefinition: Codable, Sendable {
         case signInOnly = "sign_in_only"
         case notForApps = "not_for_apps"
         case costsCredits = "costs_credits"
+        case sandbox = "sandbox"
     }
 }
 
@@ -13919,6 +13938,12 @@ public struct CreateSandboxRequest: Codable, Sendable {
     /// (INF-1251). Sizes left at zero take the snapshot's; the disk is never
     /// smaller than the snapshot's.
     public var fromSnapshotId: String?
+    /// VaultID is the vault whose inference.sh access (VaultDTO.APIScopes)
+    /// the box gets, copied once now and cut to what the caller can hand
+    /// on. Empty: the box holds what it needs to run its remote and
+    /// nothing more. A sandbox an agent's sandbox_create makes takes the
+    /// agent's vault (AgentVersionDTO.VaultID) instead.
+    public var vaultId: String?
 
     public init(
         name: String = "",
@@ -13927,7 +13952,8 @@ public struct CreateSandboxRequest: Codable, Sendable {
         diskMib: Int? = nil,
         credentials: [SandboxCredential]? = nil,
         idleTimeoutSeconds: Int? = nil,
-        fromSnapshotId: String? = nil
+        fromSnapshotId: String? = nil,
+        vaultId: String? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
@@ -13936,6 +13962,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         self.credentials = credentials
         self.idleTimeoutSeconds = idleTimeoutSeconds
         self.fromSnapshotId = fromSnapshotId
+        self.vaultId = vaultId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13946,6 +13973,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case credentials = "credentials"
         case idleTimeoutSeconds = "idle_timeout_seconds"
         case fromSnapshotId = "from_snapshot_id"
+        case vaultId = "vault_id"
     }
 }
 
@@ -14112,6 +14140,10 @@ public struct SandboxDTO: Codable, Sendable {
     /// LastActivityAt is when the sandbox was last used through the API, or
     /// its box started, whichever is later.
     public var lastActivityAt: String?
+    /// APIScopes are what the box may do with our API beyond running its
+    /// remote: copied from its vault when it was made (VaultID), for its
+    /// whole life. Absent or empty: nothing beyond the remote.
+    public var apiScopes: [Scope]?
 
     public init(
         id: String = "",
@@ -14141,7 +14173,8 @@ public struct SandboxDTO: Codable, Sendable {
         diskKept: Bool = false,
         diskKeptUntil: String? = nil,
         idleTimeoutSeconds: Int = 0,
-        lastActivityAt: String? = nil
+        lastActivityAt: String? = nil,
+        apiScopes: [Scope]? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -14171,6 +14204,7 @@ public struct SandboxDTO: Codable, Sendable {
         self.diskKeptUntil = diskKeptUntil
         self.idleTimeoutSeconds = idleTimeoutSeconds
         self.lastActivityAt = lastActivityAt
+        self.apiScopes = apiScopes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -14202,6 +14236,7 @@ public struct SandboxDTO: Codable, Sendable {
         case diskKeptUntil = "disk_kept_until"
         case idleTimeoutSeconds = "idle_timeout_seconds"
         case lastActivityAt = "last_activity_at"
+        case apiScopes = "api_scopes"
     }
 }
 
