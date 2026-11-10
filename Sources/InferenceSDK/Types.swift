@@ -17496,6 +17496,15 @@ public struct AuthMethod: Codable, Sendable {
     /// Scheme and BearerFormat describe an http kind's Authorization header.
     public var scheme: AuthMethodHTTPScheme?
     public var bearerFormat: String?
+    /// Hosts are the hosts the credential's value is sent to, each exact
+    /// ("api.anthropic.com", "db.example.com:5432"): the key a person
+    /// pastes, or an oauth2 scheme's access token. A scheme with hosts
+    /// binds its secrets: a run behind the egress gateway holds a
+    /// placeholder for each, and the gateway puts the value in only on the
+    /// way to these hosts (authmethod.HostBinder). Empty: the secrets are
+    /// environment variables, as they were. A catalogued provider's hosts
+    /// come from the catalog when the row names none.
+    public var hosts: [String]?
     public var authorizationEndpoint: String?
     /// requested by default; a connect request may override (RequiredScopes stay)
     public var scopes: [String]?
@@ -17627,6 +17636,7 @@ public struct AuthMethod: Codable, Sendable {
         valuePrefix: String? = nil,
         scheme: AuthMethodHTTPScheme? = nil,
         bearerFormat: String? = nil,
+        hosts: [String]? = nil,
         authorizationEndpoint: String? = nil,
         scopes: [String]? = nil,
         scopeAliases: [String: String]? = nil,
@@ -17675,6 +17685,7 @@ public struct AuthMethod: Codable, Sendable {
         self.valuePrefix = valuePrefix
         self.scheme = scheme
         self.bearerFormat = bearerFormat
+        self.hosts = hosts
         self.authorizationEndpoint = authorizationEndpoint
         self.scopes = scopes
         self.scopeAliases = scopeAliases
@@ -17725,6 +17736,7 @@ public struct AuthMethod: Codable, Sendable {
         case valuePrefix = "value_prefix"
         case scheme = "scheme"
         case bearerFormat = "bearer_format"
+        case hosts = "hosts"
         case authorizationEndpoint = "authorization_endpoint"
         case scopes = "scopes"
         case scopeAliases = "scope_aliases"
