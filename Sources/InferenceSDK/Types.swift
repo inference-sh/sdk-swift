@@ -14135,6 +14135,111 @@ public struct SandboxDTO: Codable, Sendable {
     }
 }
 
+/// SandboxFileKind is what a path on a sandbox is.
+public struct SandboxFileKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let file = SandboxFileKind(rawValue: "file")
+    public static let dir = SandboxFileKind(rawValue: "dir")
+    public static let link = SandboxFileKind(rawValue: "link")
+    public static let other = SandboxFileKind(rawValue: "other")
+}
+
+/// SandboxFileEntry is one entry of a directory on a running sandbox (GET
+/// /sandboxes/{id}/files?path=): its name in the directory, kind, size in
+/// bytes, octal permission bits and last change.
+public struct SandboxFileEntry: Codable, Sendable {
+    public var name: String
+    public var kind: SandboxFileKind
+    public var size: Int
+    public var mode: String
+    public var modifiedAt: String?
+
+    public init(
+        name: String = "",
+        kind: SandboxFileKind,
+        size: Int = 0,
+        mode: String = "",
+        modifiedAt: String? = nil
+    ) {
+        self.name = name
+        self.kind = kind
+        self.size = size
+        self.mode = mode
+        self.modifiedAt = modifiedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case kind = "kind"
+        case size = "size"
+        case mode = "mode"
+        case modifiedAt = "modified_at"
+    }
+}
+
+/// SandboxFileImportRequest is POST /sandboxes/{id}/files/import: put the
+/// platform file FileID (uploaded first, POST /files) at Path on the box.
+public struct SandboxFileImportRequest: Codable, Sendable {
+    public var path: String
+    public var fileId: String
+
+    public init(
+        path: String = "",
+        fileId: String = ""
+    ) {
+        self.path = path
+        self.fileId = fileId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case fileId = "file_id"
+    }
+}
+
+/// SandboxFileExportRequest is POST /sandboxes/{id}/files/export: copy the
+/// file at Path on the box into a new platform file.
+public struct SandboxFileExportRequest: Codable, Sendable {
+    public var path: String
+
+    public init(
+        path: String = ""
+    ) {
+        self.path = path
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+}
+
+/// SandboxFileTransferDTO answers an import or an export: the path on the
+/// box, the platform file on the other side (its size is the file's), and,
+/// for an export, a short-lived URL that downloads it.
+public struct SandboxFileTransferDTO: Codable, Sendable {
+    public var path: String
+    @Indirect public var file: FileDTO?
+    public var downloadUrl: String?
+
+    public init(
+        path: String = "",
+        file: FileDTO? = nil,
+        downloadUrl: String? = nil
+    ) {
+        self.path = path
+        self.file = file
+        self.downloadUrl = downloadUrl
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case file = "file"
+        case downloadUrl = "download_url"
+    }
+}
+
 /// SDKTypes is a phantom type for gotypegen dependency tracing.
 /// Types listed here (and their transitive dependencies) are included
 /// in the generated SDK output (TypeScript, Python, Go).
