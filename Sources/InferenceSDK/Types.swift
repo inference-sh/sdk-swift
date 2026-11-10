@@ -1480,6 +1480,10 @@ public struct ApiAppRunRequest: Codable, Sendable {
     public var session: String?
     public var sessionTimeout: Int?
     public var runAt: String?
+    /// StartTimeout, in seconds (1-86400): if no worker has started the task
+    /// within it (counted from run_at when set), it is cancelled, not
+    /// billed, and leaves the queue. Unset, it waits as any task does.
+    public var startTimeout: Int?
 
     public init(
         app: String? = nil,
@@ -1495,7 +1499,8 @@ public struct ApiAppRunRequest: Codable, Sendable {
         function: String? = nil,
         session: String? = nil,
         sessionTimeout: Int? = nil,
-        runAt: String? = nil
+        runAt: String? = nil,
+        startTimeout: Int? = nil
     ) {
         self.app = app
         self.appId = appId
@@ -1511,6 +1516,7 @@ public struct ApiAppRunRequest: Codable, Sendable {
         self.session = session
         self.sessionTimeout = sessionTimeout
         self.runAt = runAt
+        self.startTimeout = startTimeout
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1528,6 +1534,7 @@ public struct ApiAppRunRequest: Codable, Sendable {
         case session = "session"
         case sessionTimeout = "session_timeout"
         case runAt = "run_at"
+        case startTimeout = "start_timeout"
     }
 }
 
