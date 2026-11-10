@@ -7500,6 +7500,11 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// counts its slot (GPU) workers only. The API then places CPU app runs
     /// there by size, against the engine's capacity (INF-1159).
     public static let sizedWorkers = EngineCapability(rawValue: "sized_workers")
+    /// EngineCapabilitySandboxSnapshots: the engine copies a stopped
+    /// sandbox's kept disk to a snapshot and starts a sandbox on a copy of a
+    /// snapshot (sandbox_snapshot, sandbox_snapshot_drop,
+    /// WsSandboxStartPayload.FromSnapshotID; INF-1251).
+    public static let sandboxSnapshots = EngineCapability(rawValue: "sandbox_snapshots")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -7763,6 +7768,55 @@ public struct FeatureAccess: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case resource = "resource"
         case allowed = "allowed"
+    }
+}
+
+/// ResourceUsage shows current usage vs limit for a single resource.
+public struct ResourceUsage: Codable, Sendable {
+    public var resource: EntitlementResource
+    public var label: String
+    public var unit: String?
+    public var type: EntitlementType
+    public var usage: Int
+    public var limit: Int
+    public var unlimited: Bool
+    public var enabled: Bool
+    /// Mode is how a set limit is enforced: block refuses past it, warn
+    /// only warns. Empty with no row.
+    public var mode: EnforcementMode?
+
+    public init(
+        resource: EntitlementResource,
+        label: String = "",
+        unit: String? = nil,
+        type: EntitlementType,
+        usage: Int = 0,
+        limit: Int = 0,
+        unlimited: Bool = false,
+        enabled: Bool = false,
+        mode: EnforcementMode? = nil
+    ) {
+        self.resource = resource
+        self.label = label
+        self.unit = unit
+        self.type = type
+        self.usage = usage
+        self.limit = limit
+        self.unlimited = unlimited
+        self.enabled = enabled
+        self.mode = mode
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resource = "resource"
+        case label = "label"
+        case unit = "unit"
+        case type = "type"
+        case usage = "usage"
+        case limit = "limit"
+        case unlimited = "unlimited"
+        case enabled = "enabled"
+        case mode = "mode"
     }
 }
 
@@ -13818,15 +13872,23 @@ public struct StartSandboxRequest: Codable, Sendable {
     /// FreshDisk starts the stopped sandbox on a new, empty disk: the one
     /// its engine keeps is dropped (INF-1163).
     public var freshDisk: Bool?
+    /// UpgradeImage moves the stopped sandbox to the server's current
+    /// image. A sandbox otherwise keeps the image it was made with, so its
+    /// kept disk stays valid; a disk made over the old image is dropped,
+    /// and it starts on a new one.
+    public var upgradeImage: Bool?
 
     public init(
-        freshDisk: Bool? = nil
+        freshDisk: Bool? = nil,
+        upgradeImage: Bool? = nil
     ) {
         self.freshDisk = freshDisk
+        self.upgradeImage = upgradeImage
     }
 
     enum CodingKeys: String, CodingKey {
         case freshDisk = "fresh_disk"
+        case upgradeImage = "upgrade_image"
     }
 }
 
@@ -13852,6 +13914,11 @@ public struct CreateSandboxRequest: Codable, Sendable {
     /// Unset is 900 (15 minutes), 0 never stops it; otherwise 60 to
     /// 2592000 (30 days).
     public var idleTimeoutSeconds: Int?
+    /// FromSnapshotID starts the sandbox on a copy of a ready snapshot's
+    /// disk, with the snapshot's image, on the engine that keeps it
+    /// (INF-1251). Sizes left at zero take the snapshot's; the disk is never
+    /// smaller than the snapshot's.
+    public var fromSnapshotId: String?
 
     public init(
         name: String = "",
@@ -13859,7 +13926,8 @@ public struct CreateSandboxRequest: Codable, Sendable {
         memoryMib: Int? = nil,
         diskMib: Int? = nil,
         credentials: [SandboxCredential]? = nil,
-        idleTimeoutSeconds: Int? = nil
+        idleTimeoutSeconds: Int? = nil,
+        fromSnapshotId: String? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
@@ -13867,6 +13935,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         self.diskMib = diskMib
         self.credentials = credentials
         self.idleTimeoutSeconds = idleTimeoutSeconds
+        self.fromSnapshotId = fromSnapshotId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13876,6 +13945,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case diskMib = "disk_mib"
         case credentials = "credentials"
         case idleTimeoutSeconds = "idle_timeout_seconds"
+        case fromSnapshotId = "from_snapshot_id"
     }
 }
 
@@ -14237,6 +14307,323 @@ public struct SandboxFileTransferDTO: Codable, Sendable {
         case path = "path"
         case file = "file"
         case downloadUrl = "download_url"
+    }
+}
+
+/// SandboxRange is what a sandbox may ask for of one size: the default
+/// when unset, and the largest.
+public struct SandboxRange: Codable, Sendable {
+    public var `default`: Int
+    public var max: Int
+
+    public init(
+        `default`: Int = 0,
+        max: Int = 0
+    ) {
+        self.`default` = `default`
+        self.max = max
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case `default` = "default"
+        case max = "max"
+    }
+}
+
+/// SandboxLimitsDTO answers GET /sandboxes/limits: the caller's team's plan
+/// limits on sandboxes and its use of them, the sizes one sandbox may ask
+/// for, and the idle stop's range, in seconds (0 never stops).
+public struct SandboxLimitsDTO: Codable, Sendable {
+    /// Limits are the team's plan limits on sandboxes, each of them
+    /// (unlimited without a row), as GET /entitlements/usage reports them.
+    public var limits: [ResourceUsage]?
+    @Indirect public var vcpusPerSandbox: SandboxRange
+    @Indirect public var memoryMib: SandboxRange
+    @Indirect public var diskMib: SandboxRange
+    /// IdleTimeout* are in seconds.
+    public var idleTimeoutDefault: Int
+    public var idleTimeoutMin: Int
+    public var idleTimeoutMax: Int
+    /// DiskKeptFor is how long a stopped sandbox's disk is kept, in seconds.
+    public var diskKeptFor: Int
+
+    public init(
+        limits: [ResourceUsage]? = nil,
+        vcpusPerSandbox: SandboxRange,
+        memoryMib: SandboxRange,
+        diskMib: SandboxRange,
+        idleTimeoutDefault: Int = 0,
+        idleTimeoutMin: Int = 0,
+        idleTimeoutMax: Int = 0,
+        diskKeptFor: Int = 0
+    ) {
+        self.limits = limits
+        self.vcpusPerSandbox = vcpusPerSandbox
+        self.memoryMib = memoryMib
+        self.diskMib = diskMib
+        self.idleTimeoutDefault = idleTimeoutDefault
+        self.idleTimeoutMin = idleTimeoutMin
+        self.idleTimeoutMax = idleTimeoutMax
+        self.diskKeptFor = diskKeptFor
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case limits = "limits"
+        case vcpusPerSandbox = "vcpus_per_sandbox"
+        case memoryMib = "memory_mib"
+        case diskMib = "disk_mib"
+        case idleTimeoutDefault = "idle_timeout_default"
+        case idleTimeoutMin = "idle_timeout_min"
+        case idleTimeoutMax = "idle_timeout_max"
+        case diskKeptFor = "disk_kept_for"
+    }
+}
+
+/// SandboxPortRequest opens a sandbox's port on its own HTTPS URL
+/// (POST /sandboxes/{id}/ports).
+public struct SandboxPortRequest: Codable, Sendable {
+    /// Port is the TCP port inside the box, 1-65535.
+    public var port: Int
+    /// Public answers anyone with the URL. Private (the default) asks once
+    /// per browser for the token, which the open answers with.
+    public var `public`: Bool?
+
+    public init(
+        port: Int = 0,
+        `public`: Bool? = nil
+    ) {
+        self.port = port
+        self.`public` = `public`
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case port = "port"
+        case `public` = "public"
+    }
+}
+
+/// SandboxPortDTO is an open port. URL opens it; for a private port the URL
+/// the open answered with carries its token, which is shown only then.
+public struct SandboxPortDTO: Codable, Sendable {
+    public var port: Int
+    public var `public`: Bool
+    public var url: String
+    public var createdAt: String
+
+    public init(
+        port: Int = 0,
+        `public`: Bool = false,
+        url: String = "",
+        createdAt: String = ""
+    ) {
+        self.port = port
+        self.`public` = `public`
+        self.url = url
+        self.createdAt = createdAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case port = "port"
+        case `public` = "public"
+        case url = "url"
+        case createdAt = "created_at"
+    }
+}
+
+/// SandboxPortList is GET /sandboxes/{id}/ports.
+public struct SandboxPortList: Codable, Sendable {
+    public var ports: [SandboxPortDTO]?
+
+    public init(
+        ports: [SandboxPortDTO]? = nil
+    ) {
+        self.ports = ports
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ports = "ports"
+    }
+}
+
+/// SandboxSnapshotStatus is where a snapshot stands.
+public struct SandboxSnapshotStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// SandboxSnapshotPending: the engine is copying the disk.
+    public static let sandboxSnapshotPending = SandboxSnapshotStatus(rawValue: "pending")
+    /// SandboxSnapshotReady: the copy is kept; forks and new sandboxes may
+    /// start from it.
+    public static let sandboxSnapshotReady = SandboxSnapshotStatus(rawValue: "ready")
+    /// SandboxSnapshotFailed: the copy could not be made (StatusReason
+    /// says why), or the engine no longer has it.
+    public static let sandboxSnapshotFailed = SandboxSnapshotStatus(rawValue: "failed")
+}
+
+/// SandboxSnapshotDTO is the API response for a snapshot.
+public struct SandboxSnapshotDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    /// UserID took it; TeamID is the workspace it belongs to.
+    public var userId: String
+    public var teamId: String
+    public var name: String
+    /// SandboxID is the sandbox it was taken of.
+    public var sandboxId: String
+    /// Image and the sizes are the source's at the snapshot: a sandbox made
+    /// from it runs that image, at least that size.
+    public var image: String
+    public var vcpus: Int
+    public var memoryMib: Int
+    public var diskMib: Int
+    /// Bytes is what the copy holds on the engine (sparse).
+    public var bytes: Int
+    public var status: SandboxSnapshotStatus
+    public var statusReason: String?
+    public var readyAt: String?
+    /// ForFork: taken by a fork for its sandboxes to start from, and
+    /// deleted once they have all started or failed. Not listed.
+    public var forFork: Bool?
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        teamId: String = "",
+        name: String = "",
+        sandboxId: String = "",
+        image: String = "",
+        vcpus: Int = 0,
+        memoryMib: Int = 0,
+        diskMib: Int = 0,
+        bytes: Int = 0,
+        status: SandboxSnapshotStatus,
+        statusReason: String? = nil,
+        readyAt: String? = nil,
+        forFork: Bool? = nil
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.teamId = teamId
+        self.name = name
+        self.sandboxId = sandboxId
+        self.image = image
+        self.vcpus = vcpus
+        self.memoryMib = memoryMib
+        self.diskMib = diskMib
+        self.bytes = bytes
+        self.status = status
+        self.statusReason = statusReason
+        self.readyAt = readyAt
+        self.forFork = forFork
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case teamId = "team_id"
+        case name = "name"
+        case sandboxId = "sandbox_id"
+        case image = "image"
+        case vcpus = "vcpus"
+        case memoryMib = "memory_mib"
+        case diskMib = "disk_mib"
+        case bytes = "bytes"
+        case status = "status"
+        case statusReason = "status_reason"
+        case readyAt = "ready_at"
+        case forFork = "for_fork"
+    }
+}
+
+/// CreateSandboxSnapshotRequest is POST /sandboxes/{id}/snapshots: a
+/// snapshot of the stopped sandbox's kept disk.
+public struct CreateSandboxSnapshotRequest: Codable, Sendable {
+    public var name: String
+
+    public init(
+        name: String = ""
+    ) {
+        self.name = name
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+}
+
+/// ForkSandboxRequest is POST /sandboxes/{id}/fork: a snapshot of the
+/// stopped sandbox's kept disk, then Count new sandboxes (1 when unset, at
+/// most MaxSandboxForks) made from it, named Name-1..Name-N (Name alone for
+/// one; the source's name + "-fork" when unset). They hold the disk as it
+/// was at the fork: starting the source afterwards changes none of them.
+public struct ForkSandboxRequest: Codable, Sendable {
+    public var name: String?
+    public var count: Int?
+    /// IdleTimeoutSeconds is as in CreateSandboxRequest; unset takes the
+    /// source's.
+    public var idleTimeoutSeconds: Int?
+    /// KeepSnapshot keeps the fork's snapshot as one of the workspace's
+    /// (listed, deleted by hand). Unset, it is deleted once every fork has
+    /// started or failed.
+    public var keepSnapshot: Bool?
+
+    public init(
+        name: String? = nil,
+        count: Int? = nil,
+        idleTimeoutSeconds: Int? = nil,
+        keepSnapshot: Bool? = nil
+    ) {
+        self.name = name
+        self.count = count
+        self.idleTimeoutSeconds = idleTimeoutSeconds
+        self.keepSnapshot = keepSnapshot
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case count = "count"
+        case idleTimeoutSeconds = "idle_timeout_seconds"
+        case keepSnapshot = "keep_snapshot"
+    }
+}
+
+/// ForkSandboxResponse is the sandboxes a fork made, and the snapshot they
+/// start from (SnapshotID). Error says why the rest were not, when it made
+/// fewer than asked (a plan limit, say).
+public struct ForkSandboxResponse: Codable, Sendable {
+    public var sandboxes: [SandboxDTO]?
+    public var snapshotId: String?
+    public var error: String?
+
+    public init(
+        sandboxes: [SandboxDTO]? = nil,
+        snapshotId: String? = nil,
+        error: String? = nil
+    ) {
+        self.sandboxes = sandboxes
+        self.snapshotId = snapshotId
+        self.error = error
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sandboxes = "sandboxes"
+        case snapshotId = "snapshot_id"
+        case error = "error"
     }
 }
 
@@ -20062,6 +20449,10 @@ public struct EntitlementResource: RawRepresentable, Codable, Hashable, Sendable
     /// ResourceSandboxKeptDisks is how many stopped sandboxes may keep their
     /// disk at once. It only warns: past it a stop still keeps its disk.
     public static let resourceSandboxKeptDisks = EntitlementResource(rawValue: "sandbox_kept_disks")
+    /// ResourceSandboxSnapshots is how many sandbox snapshots a team keeps
+    /// (INF-1251; not a fork's own, not failed). It only warns: past it a
+    /// snapshot is still taken.
+    public static let resourceSandboxSnapshots = EntitlementResource(rawValue: "sandbox_snapshots")
     /// Legacy — kept for DB compatibility, no longer in plan seeds
     public static let resourcePrivateApps = EntitlementResource(rawValue: "private_apps")
     public static let resourceTaskExecutions = EntitlementResource(rawValue: "task_executions")
