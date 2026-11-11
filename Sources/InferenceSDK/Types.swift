@@ -7531,6 +7531,14 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// snapshot (sandbox_snapshot, sandbox_snapshot_drop,
     /// WsSandboxStartPayload.FromSnapshotID; INF-1251).
     public static let sandboxSnapshots = EngineCapability(rawValue: "sandbox_snapshots")
+    /// EngineCapabilitySandboxSnapshotStore: the engine also keeps a
+    /// snapshot in object storage when asked (WsSandboxSnapshotPayload.Store):
+    /// it exports the copy's used blocks, compressed, and uploads them in
+    /// parts through URLs the API presigns (it holds no storage credential).
+    /// It starts a sandbox from a stored snapshot it has no copy of
+    /// (WsSandboxStartPayload.FromSnapshot): it downloads the parts, checks
+    /// each against the manifest, and rebuilds the disk.
+    public static let sandboxSnapshotStore = EngineCapability(rawValue: "sandbox_snapshot_store")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -14526,6 +14534,12 @@ public struct SandboxSnapshotDTO: Codable, Sendable {
     public var status: SandboxSnapshotStatus
     public var statusReason: String?
     public var readyAt: String?
+    /// StoreStatus is where keeping it in object storage stands: empty when
+    /// it is kept on its engine alone. Stored, a sandbox starts from it on
+    /// any engine, and it outlives the engine that took it. StoredBytes is
+    /// what the stored copy holds (compressed).
+    public var storeStatus: SandboxSnapshotStoreStatus?
+    public var storedBytes: Int?
     /// ForFork: taken by a fork for its sandboxes to start from, and
     /// deleted once they have all started or failed. Not listed.
     public var forFork: Bool?
@@ -14548,6 +14562,8 @@ public struct SandboxSnapshotDTO: Codable, Sendable {
         status: SandboxSnapshotStatus,
         statusReason: String? = nil,
         readyAt: String? = nil,
+        storeStatus: SandboxSnapshotStoreStatus? = nil,
+        storedBytes: Int? = nil,
         forFork: Bool? = nil
     ) {
         self.id = id
@@ -14567,6 +14583,8 @@ public struct SandboxSnapshotDTO: Codable, Sendable {
         self.status = status
         self.statusReason = statusReason
         self.readyAt = readyAt
+        self.storeStatus = storeStatus
+        self.storedBytes = storedBytes
         self.forFork = forFork
     }
 
@@ -14588,6 +14606,8 @@ public struct SandboxSnapshotDTO: Codable, Sendable {
         case status = "status"
         case statusReason = "status_reason"
         case readyAt = "ready_at"
+        case storeStatus = "store_status"
+        case storedBytes = "stored_bytes"
         case forFork = "for_fork"
     }
 }
@@ -14667,6 +14687,23 @@ public struct ForkSandboxResponse: Codable, Sendable {
         case snapshotId = "snapshot_id"
         case error = "error"
     }
+}
+
+/// SandboxSnapshotStoreStatus is where keeping a snapshot in object storage
+/// stands (EngineCapabilitySandboxSnapshotStore).
+public struct SandboxSnapshotStoreStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// SandboxSnapshotStorePending: asked of the engine, not begun.
+    public static let sandboxSnapshotStorePending = SandboxSnapshotStoreStatus(rawValue: "pending")
+    /// SandboxSnapshotStoreUploading: the engine is uploading it.
+    public static let sandboxSnapshotStoreUploading = SandboxSnapshotStoreStatus(rawValue: "uploading")
+    /// SandboxSnapshotStoreStored: it is in object storage, whole.
+    public static let sandboxSnapshotStoreStored = SandboxSnapshotStoreStatus(rawValue: "stored")
+    /// SandboxSnapshotStoreFailed: the upload did not finish; the snapshot
+    /// is still kept on its engine.
+    public static let sandboxSnapshotStoreFailed = SandboxSnapshotStoreStatus(rawValue: "failed")
 }
 
 /// SDKTypes is a phantom type for gotypegen dependency tracing.
