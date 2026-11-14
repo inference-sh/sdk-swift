@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.31.0
+
+Matching api-v1565. Breaking: `vaultId` is gone from `CreateSandboxRequest`, agent versions and agent config; a sandbox's and an agent's inference.sh access is `apiScopes` (INF-1292), and the API refuses `vault_id` on `POST /sandboxes`. Chat strictness levels that are unset are optional (`ChatSettingsDTO.strictness`, `ChatStrictnessDTO.chat`, `.minimum`, `.delegated`) instead of `""`; clear a chat's level with `DELETE /chats/{id}/strictness`. Added `CredentialConfigDTO.ownAppScope` and `CredentialAppRequest.scope` (team OAuth apps), and the `listing_not_live` error code.
+
 ## 0.30.0
 
 Matching the cancel change (a cancelled task ends cancelled with the output its app returned). `TaskRunError.cancelled` carries the task: `cancelled(TaskDTO)`. Matching/catching code is unchanged; code that constructs the case must pass a task. Types regenerated from api dcbb5f36b (run requests carry no task metadata).

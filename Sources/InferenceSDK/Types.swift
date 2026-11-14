@@ -1008,10 +1008,10 @@ public struct AgentVersionDTO: Codable, Sendable {
     /// ContentGuard is the agent's tool-result guard; absent is the
     /// platform's mode.
     @Indirect public var contentGuard: ContentGuardConfig?
-    /// VaultID is the agent's vault: the sandboxes its sandbox_create makes
-    /// get the vault's inference.sh access (VaultDTO.APIScopes). Absent: no
-    /// vault.
-    public var vaultId: String?
+    /// APIScopes is the inference.sh access the sandboxes its
+    /// sandbox_create makes get, cut to what the run can hand on. Absent:
+    /// none.
+    public var apiScopes: [Scope]?
     /// VisitorReads is the scope groups of the team's resources (knowledge,
     /// files, artifacts, remotes) a visitor of an embed of this version can
     /// have it read by id, beyond what it configures by name. Set when the
@@ -1042,7 +1042,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
         contentGuard: ContentGuardConfig? = nil,
-        vaultId: String? = nil,
+        apiScopes: [Scope]? = nil,
         visitorReads: [ScopeGroup]? = nil
     ) {
         self.id = id
@@ -1067,7 +1067,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.hooks = hooks
         self.outputSchema = outputSchema
         self.contentGuard = contentGuard
-        self.vaultId = vaultId
+        self.apiScopes = apiScopes
         self.visitorReads = visitorReads
     }
 
@@ -1094,7 +1094,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         case hooks = "hooks"
         case outputSchema = "output_schema"
         case contentGuard = "content_guard"
-        case vaultId = "vault_id"
+        case apiScopes = "api_scopes"
         case visitorReads = "visitor_reads"
     }
 }
@@ -1173,9 +1173,10 @@ public struct AgentConfigInput: Codable, Sendable {
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
     @Indirect public var contentGuard: ContentGuardConfig?
-    /// VaultID picks the agent's vault, whose inference.sh access the
-    /// sandboxes it makes get. Empty: no vault.
-    public var vaultId: String?
+    /// APIScopes is the inference.sh access the sandboxes it makes get:
+    /// reads, apps:execute, files:write and apps:write, none the writer
+    /// does not hold.
+    public var apiScopes: [Scope]?
 
     public init(
         name: String? = nil,
@@ -1191,7 +1192,7 @@ public struct AgentConfigInput: Codable, Sendable {
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
         contentGuard: ContentGuardConfig? = nil,
-        vaultId: String? = nil
+        apiScopes: [Scope]? = nil
     ) {
         self.name = name
         self.description = description
@@ -1206,7 +1207,7 @@ public struct AgentConfigInput: Codable, Sendable {
         self.hooks = hooks
         self.outputSchema = outputSchema
         self.contentGuard = contentGuard
-        self.vaultId = vaultId
+        self.apiScopes = apiScopes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1223,7 +1224,7 @@ public struct AgentConfigInput: Codable, Sendable {
         case hooks = "hooks"
         case outputSchema = "output_schema"
         case contentGuard = "content_guard"
-        case vaultId = "vault_id"
+        case apiScopes = "api_scopes"
     }
 }
 
@@ -2952,8 +2953,9 @@ public struct ScopeDefinition: Codable, Sendable {
     /// CostsCredits: using the scope spends the account's credits (running
     /// apps, agents, flows).
     public var costsCredits: Bool?
-    /// Sandbox: a vault may grant it to a sandbox (its inference.sh access,
-    /// VaultDTO.APIScopes); the allowlist is models.SandboxMayHold.
+    /// Sandbox: a sandbox may be granted it (its inference.sh access,
+    /// AgentVersionDTO.APIScopes, CreateSandboxRequest.APIScopes); the
+    /// allowlist is models.SandboxMayHold.
     public var sandbox: Bool?
 
     public init(
@@ -5443,19 +5445,27 @@ public struct ChatSettingsRequest: Codable, Sendable {
     /// ForgetMemory removes these keys from the chat's memory, the notes the
     /// agent keeps for this conversation. A key that is not there is ignored.
     public var forgetMemory: [String]?
+    /// Strictness sets what the agent does in this chat after the content
+    /// guard flags something it read: watch, ask or strict; anything else,
+    /// "" included, is refused. DELETE /chats/{id}/strictness clears the
+    /// chat's own level, so the agent's default applies. A team or org
+    /// minimum still raises it (GET /chats/{id}/strictness).
+    public var strictness: ChatStrictness?
 
     public init(
         name: String? = nil,
         visibility: Visibility? = nil,
         allowAllTools: Bool? = nil,
         disableHooks: Bool? = nil,
-        forgetMemory: [String]? = nil
+        forgetMemory: [String]? = nil,
+        strictness: ChatStrictness? = nil
     ) {
         self.name = name
         self.visibility = visibility
         self.allowAllTools = allowAllTools
         self.disableHooks = disableHooks
         self.forgetMemory = forgetMemory
+        self.strictness = strictness
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5464,6 +5474,7 @@ public struct ChatSettingsRequest: Codable, Sendable {
         case allowAllTools = "allow_all_tools"
         case disableHooks = "disable_hooks"
         case forgetMemory = "forget_memory"
+        case strictness = "strictness"
     }
 }
 
@@ -5480,6 +5491,9 @@ public struct ChatSettingsDTO: Codable, Sendable {
     public var disableHooks: Bool
     /// Memory is agent_data.memory after forget_memory removed its keys.
     public var memory: StringEncodedMap?
+    /// Strictness is agent_data.strictness: the chat's own level; absent
+    /// when it follows the agent's default.
+    public var strictness: ChatStrictness?
 
     public init(
         chatId: String = "",
@@ -5487,7 +5501,8 @@ public struct ChatSettingsDTO: Codable, Sendable {
         visibility: Visibility,
         allowAllTools: Bool = false,
         disableHooks: Bool = false,
-        memory: StringEncodedMap? = nil
+        memory: StringEncodedMap? = nil,
+        strictness: ChatStrictness? = nil
     ) {
         self.chatId = chatId
         self.name = name
@@ -5495,6 +5510,7 @@ public struct ChatSettingsDTO: Codable, Sendable {
         self.allowAllTools = allowAllTools
         self.disableHooks = disableHooks
         self.memory = memory
+        self.strictness = strictness
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5504,6 +5520,71 @@ public struct ChatSettingsDTO: Codable, Sendable {
         case allowAllTools = "allow_all_tools"
         case disableHooks = "disable_hooks"
         case memory = "memory"
+        case strictness = "strictness"
+    }
+}
+
+/// ChatStrictnessDTO is GET /chats/{id}/strictness: what the agent does in
+/// the chat after the content guard flags something it read, and where that
+/// comes from. Effective is the strictest of the chat's level (Chat, else
+/// AgentDefault), Minimum and Delegated. A level that is not set is absent.
+public struct ChatStrictnessDTO: Codable, Sendable {
+    public var chatId: String
+    /// Chat is the chat's own level (for a sub-agent's chat that sets none,
+    /// its nearest ancestor's); absent when it follows the agent.
+    public var chat: ChatStrictness?
+    /// AgentDefault is the agent's content_guard.strictness, watch when the
+    /// agent sets none.
+    public var agentDefault: ChatStrictness
+    /// Minimum is the strictest level the chat's team or org governance
+    /// policy sets; absent when neither sets one. Levels below it are
+    /// locked.
+    public var minimum: ChatStrictness?
+    /// MinimumSetBy is the rung that set Minimum: team or org.
+    public var minimumSetBy: PolicySubject?
+    /// Delegated is, for a sub-agent's chat, the level the chat that
+    /// delegated to it runs at: a floor, so a sub-agent never runs looser
+    /// than its delegating chat. Absent for a chat no agent delegated.
+    public var delegated: ChatStrictness?
+    /// Flagged reports that the content guard has flagged something an
+    /// agent read in this chat, or in the chat that delegated to it. It
+    /// lasts for the life of the chat: what was flagged stays in its
+    /// history, so ask and strict apply to every later run of the chat.
+    /// Lowering the chat's level (the person's sign-in) is how runs go on
+    /// unasked again.
+    public var flagged: Bool
+    /// Effective is the level the chat runs at.
+    public var effective: ChatStrictness
+
+    public init(
+        chatId: String = "",
+        chat: ChatStrictness? = nil,
+        agentDefault: ChatStrictness,
+        minimum: ChatStrictness? = nil,
+        minimumSetBy: PolicySubject? = nil,
+        delegated: ChatStrictness? = nil,
+        flagged: Bool = false,
+        effective: ChatStrictness
+    ) {
+        self.chatId = chatId
+        self.chat = chat
+        self.agentDefault = agentDefault
+        self.minimum = minimum
+        self.minimumSetBy = minimumSetBy
+        self.delegated = delegated
+        self.flagged = flagged
+        self.effective = effective
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case chat = "chat"
+        case agentDefault = "agent_default"
+        case minimum = "minimum"
+        case minimumSetBy = "minimum_set_by"
+        case delegated = "delegated"
+        case flagged = "flagged"
+        case effective = "effective"
     }
 }
 
@@ -6142,18 +6223,26 @@ public struct ContentGuardConfig: Codable, Sendable {
     /// IgnoreRules are rule ids not to apply (INF-PI-005 for an agent whose
     /// job is reading Slack mentions).
     public var ignoreRules: [String]?
+    /// Strictness is what the agent's chats do after the guard flags a
+    /// result, unless a chat sets its own: watch, ask or strict
+    /// (shared.ChatStrictness). Left out, it is watch; "" is refused. A
+    /// team or org minimum still raises it.
+    public var strictness: ChatStrictness?
 
     public init(
         mode: ContentGuardMode? = nil,
-        ignoreRules: [String]? = nil
+        ignoreRules: [String]? = nil,
+        strictness: ChatStrictness? = nil
     ) {
         self.mode = mode
         self.ignoreRules = ignoreRules
+        self.strictness = strictness
     }
 
     enum CodingKeys: String, CodingKey {
         case mode = "mode"
         case ignoreRules = "ignore_rules"
+        case strictness = "strictness"
     }
 }
 
@@ -6408,6 +6497,11 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// set up yet, or when it doesn't sign in through one. Credential is the
     /// login itself.
     @Indirect public var app: CredentialDTO?
+    /// OwnAppScope is where an app this caller saves without naming a scope
+    /// lands, when that is not the workspace's own: "platform" for the
+    /// platform team, whose usual app serves every workspace. The form then
+    /// asks which is meant (CredentialAppRequest.Scope). Empty: the team's.
+    public var ownAppScope: CredentialScope?
     /// AppNoun is what that app is called ("GitHub App") when it is not an
     /// OAuth sign-in app: its logins connect something other than a person
     /// signing in (an installation). Empty: an OAuth app logins sign in
@@ -6451,6 +6545,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         hasManaged: Bool = false,
         connectionScope: CredentialScope,
         app: CredentialDTO? = nil,
+        ownAppScope: CredentialScope? = nil,
         appNoun: String? = nil,
         hookUrl: String? = nil,
         authProviderId: String? = nil,
@@ -6476,6 +6571,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.hasManaged = hasManaged
         self.connectionScope = connectionScope
         self.app = app
+        self.ownAppScope = ownAppScope
         self.appNoun = appNoun
         self.hookUrl = hookUrl
         self.authProviderId = authProviderId
@@ -6503,6 +6599,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case hasManaged = "has_managed"
         case connectionScope = "connection_scope"
         case app = "app"
+        case ownAppScope = "own_app_scope"
         case appNoun = "app_noun"
         case hookUrl = "hook_url"
         case authProviderId = "auth_provider_id"
@@ -8140,6 +8237,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// is not verified, or it is flagged (abuse.CheckPublish). Meta is
     /// PublishQuarantinedMeta; Until says from when a new account can.
     public static let publishQuarantined = ErrorCode(rawValue: "publish_quarantined")
+    /// ErrorCodeFileInUse (409): the file is used by live content (a skill's
+    /// files, an artifact's assets) and was not deleted. Meta is FileInUseMeta:
+    /// the content using it. Staff may delete it anyway (?force=true).
+    public static let fileInUse = ErrorCode(rawValue: "file_in_use")
     /// ErrorCodePersonRequired (403): only a person may do this, and the
     /// caller is a workspace's service account (a workspace API key), or the
     /// account is one and cannot sign in.
@@ -8244,6 +8345,11 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// AppMaintenance (503, Retry-After): the owner paused it; the message is
     /// theirs. InvalidTransition (409): the task already moved on.
     public static let appRetired = ErrorCode(rawValue: "app_retired")
+    /// ListingNotLive (410): the app, agent, skill or knowledge entry is
+    /// listed in the store and its listing serves no reviewed version now,
+    /// so a caller who does not own it is not served it. One answer whatever
+    /// took it down.
+    public static let listingNotLive = ErrorCode(rawValue: "listing_not_live")
     public static let appMaintenance = ErrorCode(rawValue: "app_maintenance")
     public static let invalidTransition = ErrorCode(rawValue: "invalid_transition")
     /// Maintenance (503, Retry-After): the platform is draining for
@@ -13953,12 +14059,12 @@ public struct CreateSandboxRequest: Codable, Sendable {
     /// (INF-1251). Sizes left at zero take the snapshot's; the disk is never
     /// smaller than the snapshot's.
     public var fromSnapshotId: String?
-    /// VaultID is the vault whose inference.sh access (VaultDTO.APIScopes)
-    /// the box gets, copied once now and cut to what the caller can hand
-    /// on. Empty: the box holds what it needs to run its remote and
-    /// nothing more. A sandbox an agent's sandbox_create makes takes the
-    /// agent's vault (AgentVersionDTO.VaultID) instead.
-    public var vaultId: String?
+    /// APIScopes is the inference.sh access the box gets beyond running
+    /// its remote: reads, apps:execute, files:write and apps:write, cut to
+    /// what the caller can hand on. Empty: the remote's alone. A sandbox an
+    /// agent's sandbox_create makes takes the agent's
+    /// (AgentVersionDTO.APIScopes) instead.
+    public var apiScopes: [Scope]?
 
     public init(
         name: String = "",
@@ -13968,7 +14074,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         credentials: [SandboxCredential]? = nil,
         idleTimeoutSeconds: Int? = nil,
         fromSnapshotId: String? = nil,
-        vaultId: String? = nil
+        apiScopes: [Scope]? = nil
     ) {
         self.name = name
         self.vcpus = vcpus
@@ -13977,7 +14083,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         self.credentials = credentials
         self.idleTimeoutSeconds = idleTimeoutSeconds
         self.fromSnapshotId = fromSnapshotId
-        self.vaultId = vaultId
+        self.apiScopes = apiScopes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -13988,7 +14094,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case credentials = "credentials"
         case idleTimeoutSeconds = "idle_timeout_seconds"
         case fromSnapshotId = "from_snapshot_id"
-        case vaultId = "vault_id"
+        case apiScopes = "api_scopes"
     }
 }
 
@@ -14156,8 +14262,8 @@ public struct SandboxDTO: Codable, Sendable {
     /// its box started, whichever is later.
     public var lastActivityAt: String?
     /// APIScopes are what the box may do with our API beyond running its
-    /// remote: copied from its vault when it was made (VaultID), for its
-    /// whole life. Absent or empty: nothing beyond the remote.
+    /// remote: copied when it was made (CreateSandboxRequest.APIScopes, or
+    /// its agent's), for its whole life. Absent or empty: nothing beyond the remote.
     public var apiScopes: [Scope]?
 
     public init(
@@ -18612,6 +18718,27 @@ public struct ChannelType: RawRepresentable, Codable, Hashable, Sendable {
     public static let telegram = ChannelType(rawValue: "telegram")
 }
 
+/// ChatStrictness is what an agent does in a chat after the content guard
+/// flags a tool result it read (a web page, an app's output, an MCP reply):
+/// 
+///   - watch: the flag is recorded and the run goes on. The default.
+///   - ask: every later tool call of the run that has side effects waits
+///     for a person's approval (the tool-approval prompt).
+///   - strict: the run is stopped.
+/// 
+/// The agent's config sets the default (content_guard.strictness), a person
+/// changes it per chat (agent_data.strictness), and a team or org governance
+/// policy can set a minimum: the chat runs at the stricter of its own level
+/// and the minimum (EffectiveChatStrictness).
+public struct ChatStrictness: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let watch = ChatStrictness(rawValue: "watch")
+    public static let ask = ChatStrictness(rawValue: "ask")
+    public static let strict = ChatStrictness(rawValue: "strict")
+}
+
 /// ChatData contains agent-specific data for a chat session
 public struct ChatData: Codable, Sendable {
     public var planSteps: [PlanStep]?
@@ -18623,6 +18750,11 @@ public struct ChatData: Codable, Sendable {
     /// review branch is opened with it set, so a review cannot fire the hook
     /// that reviews it.
     public var disableHooks: Bool?
+    /// Strictness is what the agent does in this chat after the content
+    /// guard flags something it read: watch, ask or strict. Empty is the
+    /// agent's default (content_guard.strictness), itself watch when unset.
+    /// A team or org minimum can raise it (ChatStrictnessDTO.Effective).
+    public var strictness: ChatStrictness?
     /// Client is the app the chat was started from (web, mac, ios, cli,
     /// sdk-js), as the request named itself (X-Client-Source). Shown, never
     /// trusted or filtered on: Chat.Origin is what a chat list filters.
@@ -18633,12 +18765,14 @@ public struct ChatData: Codable, Sendable {
         memory: StringEncodedMap? = nil,
         allowAllTools: Bool = false,
         disableHooks: Bool? = nil,
+        strictness: ChatStrictness? = nil,
         client: String? = nil
     ) {
         self.planSteps = planSteps
         self.memory = memory
         self.allowAllTools = allowAllTools
         self.disableHooks = disableHooks
+        self.strictness = strictness
         self.client = client
     }
 
@@ -18647,6 +18781,7 @@ public struct ChatData: Codable, Sendable {
         case memory = "memory"
         case allowAllTools = "allow_all_tools"
         case disableHooks = "disable_hooks"
+        case strictness = "strictness"
         case client = "client"
     }
 }
@@ -18822,6 +18957,10 @@ public struct RunEndReason: RawRepresentable, Codable, Hashable, Sendable {
     /// the context every later turn sends (BuildContext), so the next
     /// message is not refused for what this run held.
     public static let refusal = RunEndReason(rawValue: "refusal")
+    /// RunEndReasonContentFlagged: the content guard flagged a tool result
+    /// the run read and the chat's strictness is strict, so the run was
+    /// stopped there.
+    public static let contentFlagged = RunEndReason(rawValue: "content_flagged")
 }
 
 /// ChatRunEvent is how a run ended, on a run_ended event.
@@ -20788,6 +20927,25 @@ public struct PolicyKind: RawRepresentable, Codable, Hashable, Sendable {
     /// PolicyKindSecretSend: an agent of another team sending the runner's
     /// secrets to a host.
     public static let secretSend = PolicyKind(rawValue: "SecretSend")
+}
+
+/// PolicySubject is a rung of the subject ladder: what a policy is attached
+/// to and what a decision names as its layer. Most specific first: remote,
+/// chat, agent, user, team, org, platform. The values match CredentialScope
+/// where both exist.
+public struct PolicySubject: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// PolicySubjectRemote is the machine a call runs on. Its policy is the
+    /// machine owner's, and only narrows.
+    public static let remote = PolicySubject(rawValue: "remote")
+    public static let chat = PolicySubject(rawValue: "chat")
+    public static let agent = PolicySubject(rawValue: "agent")
+    public static let user = PolicySubject(rawValue: "user")
+    public static let team = PolicySubject(rawValue: "team")
+    public static let org = PolicySubject(rawValue: "org")
+    public static let platform = PolicySubject(rawValue: "platform")
 }
 
 /// FunctionKind is how an app function talks to its caller.
