@@ -12,6 +12,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - run: swift --version
       - run: swift test
 
@@ -21,4 +23,6 @@ jobs:
     container: swift:5.10-jammy
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - run: swift test
