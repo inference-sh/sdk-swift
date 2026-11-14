@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.0
+
+Matching api-v1568. Added team variables (INF-1345): `VariableDTO`, `VariableSetRequest`, `VariableListResponse`, `VarRequirement`, `requiredVars` on app versions, requirement type `variable` and setup action `addVariable`. Added `infra` on `CreateSandboxRequest` and `SandboxDTO` (whose engines a sandbox runs on), and on `ApiAgentRunRequest`, `ChatSettingsRequest` and chat data (where an agent run's app tools run).
+
 ## 0.31.0
 
 Matching api-v1565. Breaking: `vaultId` is gone from `CreateSandboxRequest`, agent versions and agent config; a sandbox's and an agent's inference.sh access is `apiScopes` (INF-1292), and the API refuses `vault_id` on `POST /sandboxes`. Chat strictness levels that are unset are optional (`ChatSettingsDTO.strictness`, `ChatStrictnessDTO.chat`, `.minimum`, `.delegated`) instead of `""`; clear a chat's level with `DELETE /chats/{id}/strictness`. Added `CredentialConfigDTO.ownAppScope` and `CredentialAppRequest.scope` (team OAuth apps), and the `listing_not_live` error code.

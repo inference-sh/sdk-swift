@@ -1590,6 +1590,13 @@ public struct ApiAgentRunRequest: Codable, Sendable {
     public var agentName: String?
     @Indirect public var input: MessageInput
     public var context: [String: String]?
+    /// Infra is where the tasks the agent's app tools run go, for the
+    /// caller's workspace: cloud, private (its own engines only) or
+    /// private_first (its own when one can take the task, cloud
+    /// otherwise). It is kept on the chat, so it holds for the turns that
+    /// follow until a later request or the chat's settings change it.
+    /// Absent: the chat's, which starts as cloud.
+    public var infra: Infra?
     public var stream: Bool?
     /// ProjectID files the chat this message starts in a project. Ignored
     /// when the message posts into an existing chat (chat_id): a chat moves
@@ -1605,6 +1612,7 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         agentName: String? = nil,
         input: MessageInput,
         context: [String: String]? = nil,
+        infra: Infra? = nil,
         stream: Bool? = nil,
         projectId: String? = nil
     ) {
@@ -1616,6 +1624,7 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         self.agentName = agentName
         self.input = input
         self.context = context
+        self.infra = infra
         self.stream = stream
         self.projectId = projectId
     }
@@ -1629,6 +1638,7 @@ public struct ApiAgentRunRequest: Codable, Sendable {
         case agentName = "agent_name"
         case input = "input"
         case context = "context"
+        case infra = "infra"
         case stream = "stream"
         case projectId = "project_id"
     }
@@ -1744,6 +1754,7 @@ public struct AppVersionInput: Codable, Sendable {
     public var kernel: String?
     public var requiredSecrets: [SecretRequirement]?
     public var requiredCredentials: JSONValue?
+    public var requiredVars: [VarRequirement]?
     @Indirect public var resources: AppResources?
 
     public init(
@@ -1758,6 +1769,7 @@ public struct AppVersionInput: Codable, Sendable {
         kernel: String? = nil,
         requiredSecrets: [SecretRequirement]? = nil,
         requiredCredentials: JSONValue? = nil,
+        requiredVars: [VarRequirement]? = nil,
         resources: AppResources? = nil
     ) {
         self.metadata = metadata
@@ -1771,6 +1783,7 @@ public struct AppVersionInput: Codable, Sendable {
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
         self.requiredCredentials = requiredCredentials
+        self.requiredVars = requiredVars
         self.resources = resources
     }
 
@@ -1786,6 +1799,7 @@ public struct AppVersionInput: Codable, Sendable {
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
         case requiredCredentials = "required_credentials"
+        case requiredVars = "required_vars"
         case resources = "resources"
     }
 }
@@ -3799,6 +3813,9 @@ public struct AppVersionDTO: Codable, Sendable {
     public var kernel: String
     public var requiredSecrets: [SecretRequirement]?
     public var requiredCredentials: JSONValue?
+    /// RequiredVars are the environment variables the version reads from
+    /// the running team (vars: in inf.yml): plain configuration.
+    public var requiredVars: [VarRequirement]?
     @Indirect public var resources: AppResources
     /// Sandbox is the version's declared sandbox exceptions. Absent on a
     /// version deployed before the API recorded them (engines then read the
@@ -3829,6 +3846,7 @@ public struct AppVersionDTO: Codable, Sendable {
         kernel: String = "",
         requiredSecrets: [SecretRequirement]? = nil,
         requiredCredentials: JSONValue? = nil,
+        requiredVars: [VarRequirement]? = nil,
         resources: AppResources,
         sandbox: AppSandbox? = nil,
         checksum: String? = nil,
@@ -3853,6 +3871,7 @@ public struct AppVersionDTO: Codable, Sendable {
         self.kernel = kernel
         self.requiredSecrets = requiredSecrets
         self.requiredCredentials = requiredCredentials
+        self.requiredVars = requiredVars
         self.resources = resources
         self.sandbox = sandbox
         self.checksum = checksum
@@ -3879,6 +3898,7 @@ public struct AppVersionDTO: Codable, Sendable {
         case kernel = "kernel"
         case requiredSecrets = "required_secrets"
         case requiredCredentials = "required_credentials"
+        case requiredVars = "required_vars"
         case resources = "resources"
         case sandbox = "sandbox"
         case checksum = "checksum"
@@ -5451,6 +5471,9 @@ public struct ChatSettingsRequest: Codable, Sendable {
     /// chat's own level, so the agent's default applies. A team or org
     /// minimum still raises it (GET /chats/{id}/strictness).
     public var strictness: ChatStrictness?
+    /// Infra is where the tasks the agent's app tools run in this chat go:
+    /// cloud, private or private_first.
+    public var infra: Infra?
 
     public init(
         name: String? = nil,
@@ -5458,7 +5481,8 @@ public struct ChatSettingsRequest: Codable, Sendable {
         allowAllTools: Bool? = nil,
         disableHooks: Bool? = nil,
         forgetMemory: [String]? = nil,
-        strictness: ChatStrictness? = nil
+        strictness: ChatStrictness? = nil,
+        infra: Infra? = nil
     ) {
         self.name = name
         self.visibility = visibility
@@ -5466,6 +5490,7 @@ public struct ChatSettingsRequest: Codable, Sendable {
         self.disableHooks = disableHooks
         self.forgetMemory = forgetMemory
         self.strictness = strictness
+        self.infra = infra
     }
 
     enum CodingKeys: String, CodingKey {
@@ -5475,6 +5500,7 @@ public struct ChatSettingsRequest: Codable, Sendable {
         case disableHooks = "disable_hooks"
         case forgetMemory = "forget_memory"
         case strictness = "strictness"
+        case infra = "infra"
     }
 }
 
@@ -7636,6 +7662,14 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// (WsSandboxStartPayload.FromSnapshot): it downloads the parts, checks
     /// each against the manifest, and rebuilds the disk.
     public static let sandboxSnapshotStore = EngineCapability(rawValue: "sandbox_snapshot_store")
+    /// EngineCapabilityTaskEnv: the engine gives each task the app
+    /// environment that task was dispatched with (TaskDispatchPayload.AppEnv):
+    /// a worker whose visor was started with another environment is restarted
+    /// before the task runs, as it is when its secrets change. Without it a
+    /// warm worker keeps the environment of the first task it ran, so a task
+    /// whose environment carries its team's variables (INF-1345) is sent
+    /// only to an engine that has it.
+    public static let taskEnv = EngineCapability(rawValue: "task_env")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -13744,6 +13778,9 @@ public struct RequirementType: RawRepresentable, Codable, Hashable, Sendable {
     public static let secret = RequirementType(rawValue: "secret")
     public static let credential = RequirementType(rawValue: "credential")
     public static let scope = RequirementType(rawValue: "scope")
+    /// RequirementTypeVariable: an environment variable the app declares
+    /// under vars: that the team has not set and the app gives no default.
+    public static let variable = RequirementType(rawValue: "variable")
 }
 
 /// RequirementError represents a single missing requirement with actionable info
@@ -13784,6 +13821,9 @@ public struct SetupActionType: RawRepresentable, Codable, Hashable, Sendable {
     public static let setupActionAddSecret = SetupActionType(rawValue: "add_secret")
     public static let setupActionConnect = SetupActionType(rawValue: "connect")
     public static let setupActionAddScopes = SetupActionType(rawValue: "add_scopes")
+    /// SetupActionAddVariable: set the team's variable RequirementError.Key
+    /// (PUT /variables/{key}).
+    public static let setupActionAddVariable = SetupActionType(rawValue: "add_variable")
 }
 
 /// SetupAction provides actionable info for resolving a missing requirement
@@ -14042,6 +14082,13 @@ public struct CreateSandboxRequest: Codable, Sendable {
     public var memoryMib: Int?
     /// default 10240, max 51200
     public var diskMib: Int?
+    /// Infra is whose engines the sandbox runs on: cloud (the default),
+    /// private (the workspace's own engines that host sandboxes, where it
+    /// costs nothing and needs no credit) or private_first (the
+    /// workspace's when one has room, the cloud otherwise). One made from
+    /// a snapshot kept on an engine of the workspace alone is private
+    /// when this is left out.
+    public var infra: Infra?
     /// Credentials are the logins the box gets, by provider (slug), as a
     /// run of its owner resolves them (e.g. [{"slug":"github-app"}]). Only
     /// keys a provider binds to hosts: the box holds placeholders, the
@@ -14071,6 +14118,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         vcpus: Int? = nil,
         memoryMib: Int? = nil,
         diskMib: Int? = nil,
+        infra: Infra? = nil,
         credentials: [SandboxCredential]? = nil,
         idleTimeoutSeconds: Int? = nil,
         fromSnapshotId: String? = nil,
@@ -14080,6 +14128,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         self.vcpus = vcpus
         self.memoryMib = memoryMib
         self.diskMib = diskMib
+        self.infra = infra
         self.credentials = credentials
         self.idleTimeoutSeconds = idleTimeoutSeconds
         self.fromSnapshotId = fromSnapshotId
@@ -14091,6 +14140,7 @@ public struct CreateSandboxRequest: Codable, Sendable {
         case vcpus = "vcpus"
         case memoryMib = "memory_mib"
         case diskMib = "disk_mib"
+        case infra = "infra"
         case credentials = "credentials"
         case idleTimeoutSeconds = "idle_timeout_seconds"
         case fromSnapshotId = "from_snapshot_id"
@@ -14236,6 +14286,9 @@ public struct SandboxDTO: Codable, Sendable {
     public var vcpus: Int
     public var memoryMib: Int
     public var diskMib: Int
+    /// Infra is whose engines the sandbox runs on: cloud, private or
+    /// private_first.
+    public var infra: Infra
     public var desiredState: SandboxDesiredState
     public var status: SandboxStatus
     public var statusReason: String?
@@ -14282,6 +14335,7 @@ public struct SandboxDTO: Codable, Sendable {
         vcpus: Int = 0,
         memoryMib: Int = 0,
         diskMib: Int = 0,
+        infra: Infra,
         desiredState: SandboxDesiredState,
         status: SandboxStatus,
         statusReason: String? = nil,
@@ -14312,6 +14366,7 @@ public struct SandboxDTO: Codable, Sendable {
         self.vcpus = vcpus
         self.memoryMib = memoryMib
         self.diskMib = diskMib
+        self.infra = infra
         self.desiredState = desiredState
         self.status = status
         self.statusReason = statusReason
@@ -14344,6 +14399,7 @@ public struct SandboxDTO: Codable, Sendable {
         case vcpus = "vcpus"
         case memoryMib = "memory_mib"
         case diskMib = "disk_mib"
+        case infra = "infra"
         case desiredState = "desired_state"
         case status = "status"
         case statusReason = "status_reason"
@@ -17292,6 +17348,127 @@ public struct UserMetadataDTO: Codable, Sendable {
     }
 }
 
+/// VarRequirement is an entry under vars: in inf.yml: a variable the app
+/// reads from the running team. At run time the app gets the team's value
+/// for Key, else Default; a variable with neither that is not Optional
+/// fails the run as a missing requirement.
+public struct VarRequirement: Codable, Sendable {
+    public var key: String
+    public var description: String?
+    public var optional: Bool?
+    public var `default`: String?
+
+    public init(
+        key: String = "",
+        description: String? = nil,
+        optional: Bool? = nil,
+        `default`: String? = nil
+    ) {
+        self.key = key
+        self.description = description
+        self.optional = optional
+        self.`default` = `default`
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case description = "description"
+        case optional = "optional"
+        case `default` = "default"
+    }
+}
+
+/// VariableDTO is a team's variable. The value is plain by definition.
+public struct VariableDTO: Codable, Sendable {
+    public var id: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var teamId: String
+    public var userId: String
+    public var key: String
+    public var value: String
+    public var description: String?
+
+    public init(
+        id: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        teamId: String = "",
+        userId: String = "",
+        key: String = "",
+        value: String = "",
+        description: String? = nil
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.teamId = teamId
+        self.userId = userId
+        self.key = key
+        self.value = value
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case teamId = "team_id"
+        case userId = "user_id"
+        case key = "key"
+        case value = "value"
+        case description = "description"
+    }
+}
+
+/// VariableSetRequest is the body of PUT /variables/{key}: it creates the
+/// variable or replaces its value. Description, when sent, replaces the
+/// stored one.
+public struct VariableSetRequest: Codable, Sendable {
+    public var value: String
+    public var description: String?
+
+    public init(
+        value: String = "",
+        description: String? = nil
+    ) {
+        self.value = value
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case value = "value"
+        case description = "description"
+    }
+}
+
+/// VariableListResponse is one page of a team's variables, by key.
+public struct VariableListResponse: Codable, Sendable {
+    public var items: [VariableDTO]?
+    public var nextCursor: String
+    public var hasNext: Bool
+    public var itemsPerPage: Int
+
+    public init(
+        items: [VariableDTO]? = nil,
+        nextCursor: String = "",
+        hasNext: Bool = false,
+        itemsPerPage: Int = 0
+    ) {
+        self.items = items
+        self.nextCursor = nextCursor
+        self.hasNext = hasNext
+        self.itemsPerPage = itemsPerPage
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case nextCursor = "next_cursor"
+        case hasNext = "has_next"
+        case itemsPerPage = "items_per_page"
+    }
+}
+
 /// Widget is an A2UI surface stored on a ToolInvocation.
 /// Alias of shared.A2UISurface so the type generation pipeline picks it up.
 public typealias Widget = A2UISurface
@@ -18759,6 +18936,13 @@ public struct ChatData: Codable, Sendable {
     /// sdk-js), as the request named itself (X-Client-Source). Shown, never
     /// trusted or filtered on: Chat.Origin is what a chat list filters.
     public var client: String?
+    /// Infra is where the tasks the agent's app tools run in this chat go,
+    /// for the chat's team: its own engines (private), the cloud, or its
+    /// engines when one can take the task and the cloud otherwise
+    /// (private_first). Empty is the cloud. Whoever runs the agent sets it
+    /// (ApiAgentRunRequest.Infra, ChatSettingsRequest.Infra); a sub-agent's
+    /// chat takes its parent's.
+    public var infra: Infra?
 
     public init(
         planSteps: [PlanStep]? = nil,
@@ -18766,7 +18950,8 @@ public struct ChatData: Codable, Sendable {
         allowAllTools: Bool = false,
         disableHooks: Bool? = nil,
         strictness: ChatStrictness? = nil,
-        client: String? = nil
+        client: String? = nil,
+        infra: Infra? = nil
     ) {
         self.planSteps = planSteps
         self.memory = memory
@@ -18774,6 +18959,7 @@ public struct ChatData: Codable, Sendable {
         self.disableHooks = disableHooks
         self.strictness = strictness
         self.client = client
+        self.infra = infra
     }
 
     enum CodingKeys: String, CodingKey {
@@ -18783,6 +18969,7 @@ public struct ChatData: Codable, Sendable {
         case disableHooks = "disable_hooks"
         case strictness = "strictness"
         case client = "client"
+        case infra = "infra"
     }
 }
 
