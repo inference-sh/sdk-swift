@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.1
+
+Matching api-v1572. `InstanceDTO` no longer has `launchConfiguration` or `envs`; the API stopped returning them.
+
 ## 0.32.0
 
 Matching api-v1568. Added team variables (INF-1345): `VariableDTO`, `VariableSetRequest`, `VariableListResponse`, `VarRequirement`, `requiredVars` on app versions, requirement type `variable` and setup action `addVariable`. Added `infra` on `CreateSandboxRequest` and `SandboxDTO` (whose engines a sandbox runs on), and on `ApiAgentRunRequest`, `ChatSettingsRequest` and chat data (where an agent run's app tools run).

@@ -10134,7 +10134,9 @@ public struct ChatTraceDTO: Codable, Sendable {
     }
 }
 
-/// InstanceDTO is the API representation of a cloud instance.
+/// InstanceDTO is the API representation of a cloud instance. It has no
+/// launch_configuration and no envs: the boot script carries the engine's
+/// enrollment token (models.ToInstanceDTO).
 public struct InstanceDTO: Codable, Sendable {
     public var id: String
     public var shortId: String
@@ -10166,11 +10168,9 @@ public struct InstanceDTO: Codable, Sendable {
     public var volumeIds: [String]?
     public var tags: [String]?
     public var configuration: JSONValue?
-    public var launchConfiguration: JSONValue?
     public var autoDelete: JSONValue?
     public var alert: JSONValue?
     public var volumeMount: JSONValue?
-    public var envs: JSONValue?
 
     public init(
         id: String = "",
@@ -10203,11 +10203,9 @@ public struct InstanceDTO: Codable, Sendable {
         volumeIds: [String]? = nil,
         tags: [String]? = nil,
         configuration: JSONValue? = nil,
-        launchConfiguration: JSONValue? = nil,
         autoDelete: JSONValue? = nil,
         alert: JSONValue? = nil,
-        volumeMount: JSONValue? = nil,
-        envs: JSONValue? = nil
+        volumeMount: JSONValue? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -10239,11 +10237,9 @@ public struct InstanceDTO: Codable, Sendable {
         self.volumeIds = volumeIds
         self.tags = tags
         self.configuration = configuration
-        self.launchConfiguration = launchConfiguration
         self.autoDelete = autoDelete
         self.alert = alert
         self.volumeMount = volumeMount
-        self.envs = envs
     }
 
     enum CodingKeys: String, CodingKey {
@@ -10277,11 +10273,9 @@ public struct InstanceDTO: Codable, Sendable {
         case volumeIds = "volume_ids"
         case tags = "tags"
         case configuration = "configuration"
-        case launchConfiguration = "launch_configuration"
         case autoDelete = "auto_delete"
         case alert = "alert"
         case volumeMount = "volume_mount"
-        case envs = "envs"
     }
 }
 
