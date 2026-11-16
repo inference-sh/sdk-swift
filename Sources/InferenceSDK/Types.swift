@@ -21341,6 +21341,9 @@ public struct TeamCapability: RawRepresentable, Codable, Hashable, Sendable {
     public static let manageVault = TeamCapability(rawValue: "manage_vault")
     public static let viewBilling = TeamCapability(rawValue: "view_billing")
     public static let manageBilling = TeamCapability(rawValue: "manage_billing")
+    /// RentEngines: renting a cloud engine, and extending a rental, which
+    /// debit the team's balance for up to the rental's whole span.
+    public static let rentEngines = TeamCapability(rawValue: "rent_engines")
     public static let viewPolicy = TeamCapability(rawValue: "view_policy")
     public static let managePolicy = TeamCapability(rawValue: "manage_policy")
     public static let manageOrg = TeamCapability(rawValue: "manage_org")

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.2
+
+Matching api-v1577. Added the team capability `rent_engines` (`TeamCapability.rentEngines`): renting and extending cloud engines, held by owners and admins.
+
 ## 0.32.1
 
 Matching api-v1572. `InstanceDTO` no longer has `launchConfiguration` or `envs`; the API stopped returning them.
