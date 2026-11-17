@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.3
+
+Matching api-v1581. Added `AuthMethodBot` and `AuthMethod.bot` / `scopeParams`: a provider's bot installed in the signed-in workspace (Slack), its scopes and token.
+
 ## 0.32.2
 
 Matching api-v1577. Added the team capability `rent_engines` (`TeamCapability.rentEngines`): renting and extending cloud engines, held by owners and admins.

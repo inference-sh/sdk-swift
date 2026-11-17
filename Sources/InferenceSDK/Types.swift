@@ -18325,6 +18325,58 @@ public struct AuthMethodLookup: Codable, Sendable {
     }
 }
 
+/// AuthMethodBot is the provider's bot user, installed by the sign-in into
+/// the workspace the person signs in to (Slack's bot scopes on the same
+/// authorize as the user's). The token it yields is that workspace's bot,
+/// the login's own: stored with the login (its bot_token secret), never the
+/// OAuth app's, and read in env as {{bot_token}}.
+public struct AuthMethodBot: Codable, Sendable {
+    /// ScopeParam is the authorize param the bot's scopes travel in, apart
+    /// from the login's (Slack: "scope", next to user_scope). Bot scopes are
+    /// named with BotScopePrefix wherever scopes are (Scopes, a capability,
+    /// a request) and sent here without it.
+    public var scopeParam: String
+    /// Scopes are the bot's scopes, each named with BotScopePrefix: what
+    /// installing the bot asks for (a capability names them; a login made
+    /// without them is asked for them when a run needs its bot). Not asked
+    /// for by default: a first connect stays read-only.
+    public var scopes: [String]?
+    /// Token is the bot's token in the token exchange's document
+    /// ({{token.bot.access_token}}); blank when the exchange installed no
+    /// bot.
+    public var token: String
+    /// GrantedScopes is the bot scopes the exchange granted, in the same
+    /// document, comma or space separated; the login holds each with
+    /// BotScopePrefix. Empty: the bot scopes asked for, once a token came.
+    public var grantedScopes: String?
+    /// Hosts are the exact hosts the bot token is sent to: every env key
+    /// reading {{bot_token}} is bound to them (authmethod.HostBinder), so a
+    /// run behind the egress gateway holds a placeholder. Empty: env as is.
+    public var hosts: [String]?
+
+    public init(
+        scopeParam: String = "",
+        scopes: [String]? = nil,
+        token: String = "",
+        grantedScopes: String? = nil,
+        hosts: [String]? = nil
+    ) {
+        self.scopeParam = scopeParam
+        self.scopes = scopes
+        self.token = token
+        self.grantedScopes = grantedScopes
+        self.hosts = hosts
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case scopeParam = "scope_param"
+        case scopes = "scopes"
+        case token = "token"
+        case grantedScopes = "granted_scopes"
+        case hosts = "hosts"
+    }
+}
+
 /// AuthMethodCapability is something an app can ask for from this provider,
 /// satisfied by a connection holding its scopes. Scopes are the provider's
 /// own names (Wire form), the ones a credential stores.
@@ -18382,6 +18434,7 @@ public struct AuthMethodCapability: Codable, Sendable {
 /// 	                           is the userinfo lookup
 /// 	expires_at, metadata.*, app.*   env only: the token's expiry (RFC 3339),
 /// 	                           the stored metadata, the app's extra keys
+/// 	bot_token                  env only: the bot the login installed (Bot)
 /// 
 /// Array elements are indexed: {{resources.0.id}}. {{a|b}} takes the first
 /// path present. A template none of whose placeholders resolve renders "":
@@ -18452,6 +18505,13 @@ public struct AuthMethod: Codable, Sendable {
     /// email and profile; X's users.read and offline.access). In the
     /// provider's own names, like Scopes. Empty = only what was asked for.
     public var requiredScopes: [String]?
+    /// ScopeParams are authorize params sent when a scope is asked for, by
+    /// that scope (Discord's bot: the permissions the bot gets in the server
+    /// it is added to). They override ExtraAuthorizeParams.
+    public var scopeParams: [String: [String: String]]?
+    /// Bot is the provider's bot user, installed into the signed-in
+    /// workspace by the same authorize (Slack). Nil: none.
+    @Indirect public var bot: AuthMethodBot?
     /// IncrementalAddScopes: re-authorizing for more scopes asks only for
     /// the new ones (plus RequiredScopes), and the provider returns a token
     /// that also covers what the login already holds (Google, with
@@ -18555,6 +18615,8 @@ public struct AuthMethod: Codable, Sendable {
         accountHintParam: String? = nil,
         anotherAccountParams: [String: String]? = nil,
         requiredScopes: [String]? = nil,
+        scopeParams: [String: [String: String]]? = nil,
+        bot: AuthMethodBot? = nil,
         incrementalAddScopes: Bool? = nil,
         resource: String? = nil,
         issuer: String? = nil,
@@ -18604,6 +18666,8 @@ public struct AuthMethod: Codable, Sendable {
         self.accountHintParam = accountHintParam
         self.anotherAccountParams = anotherAccountParams
         self.requiredScopes = requiredScopes
+        self.scopeParams = scopeParams
+        self.bot = bot
         self.incrementalAddScopes = incrementalAddScopes
         self.resource = resource
         self.issuer = issuer
@@ -18655,6 +18719,8 @@ public struct AuthMethod: Codable, Sendable {
         case accountHintParam = "account_hint_param"
         case anotherAccountParams = "another_account_params"
         case requiredScopes = "required_scopes"
+        case scopeParams = "scope_params"
+        case bot = "bot"
         case incrementalAddScopes = "incremental_add_scopes"
         case resource = "resource"
         case issuer = "issuer"
