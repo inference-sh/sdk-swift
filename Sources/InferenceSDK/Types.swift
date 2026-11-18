@@ -10611,6 +10611,10 @@ public struct InterruptDTO: Codable, Sendable {
     public var resolvedData: JSONValue?
     public var expiresAt: String?
     public var meta: JSONValue?
+    /// Origin is the sub-agent that asked, on an interrupt a sub-agent's run
+    /// raised. Shown on an ancestor chat (its pending_interrupts), ChatID
+    /// is the sub-agent's chat, not the one read.
+    @Indirect public var origin: InterruptOrigin?
 
     public init(
         id: String = "",
@@ -10634,7 +10638,8 @@ public struct InterruptDTO: Codable, Sendable {
         resolvedAt: String? = nil,
         resolvedData: JSONValue? = nil,
         expiresAt: String? = nil,
-        meta: JSONValue? = nil
+        meta: JSONValue? = nil,
+        origin: InterruptOrigin? = nil
     ) {
         self.id = id
         self.shortId = shortId
@@ -10658,6 +10663,7 @@ public struct InterruptDTO: Codable, Sendable {
         self.resolvedData = resolvedData
         self.expiresAt = expiresAt
         self.meta = meta
+        self.origin = origin
     }
 
     enum CodingKeys: String, CodingKey {
@@ -10683,6 +10689,7 @@ public struct InterruptDTO: Codable, Sendable {
         case resolvedData = "resolved_data"
         case expiresAt = "expires_at"
         case meta = "meta"
+        case origin = "origin"
     }
 }
 
@@ -20035,6 +20042,39 @@ public struct GraphEdgeType: RawRepresentable, Codable, Hashable, Sendable {
     public static let output = GraphEdgeType(rawValue: "output")
 }
 
+/// InterruptOrigin is the sub-agent an interrupt came from, on an interrupt
+/// a sub-agent's run raised: what an ancestor chat's card names.
+public struct InterruptOrigin: Codable, Sendable {
+    /// AgentID and AgentRef ("namespace/name") are the sub-agent's.
+    public var agentId: String?
+    public var agentRef: String?
+    /// ToolInvocationID is the call in the parent chat that delegated to
+    /// the sub-agent's chat (the interrupt's ChatID).
+    public var toolInvocationId: String?
+    /// Depth is the sub-agent chat's depth (Chat.Depth), 1 under a chat a
+    /// person started.
+    public var depth: Int
+
+    public init(
+        agentId: String? = nil,
+        agentRef: String? = nil,
+        toolInvocationId: String? = nil,
+        depth: Int = 0
+    ) {
+        self.agentId = agentId
+        self.agentRef = agentRef
+        self.toolInvocationId = toolInvocationId
+        self.depth = depth
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case agentId = "agent_id"
+        case agentRef = "agent_ref"
+        case toolInvocationId = "tool_invocation_id"
+        case depth = "depth"
+    }
+}
+
 /// MergeStrategy defines how a delta field should be merged by consumers.
 public struct MergeStrategy: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
@@ -21976,6 +22016,7 @@ public struct InterruptReason: RawRepresentable, Codable, Hashable, Sendable {
 
     public static let wait = InterruptReason(rawValue: "wait")
     public static let egressLogin = InterruptReason(rawValue: "egress_login")
+    public static let subagent = InterruptReason(rawValue: "subagent")
     public static let toolApproval = InterruptReason(rawValue: "tool_approval")
     public static let clientTool = InterruptReason(rawValue: "client_tool")
     public static let widget = InterruptReason(rawValue: "widget")
