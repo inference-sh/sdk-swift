@@ -420,20 +420,25 @@ public struct InferenceOAuth: Sendable {
     }
 
     /// POST /oauth/token, grant_type=authorization_code.
-    public func exchangeCode(_ code: String, codeVerifier: String, redirectURI: String) async throws -> OAuthTokens {
+    /// `additionalParameters` go in the form after the grant's own, e.g. the
+    /// inference.sh Apple apps' App Attest proof (`app_attest_*`).
+    public func exchangeCode(_ code: String, codeVerifier: String, redirectURI: String,
+                             additionalParameters: [URLQueryItem] = []) async throws -> OAuthTokens {
         try await tokenRequest([
             ("grant_type", "authorization_code"),
             ("code", code),
             ("code_verifier", codeVerifier),
             ("redirect_uri", redirectURI),
-        ])
+        ] + Self.pairs(additionalParameters))
     }
 
     /// POST /oauth/token, grant_type=refresh_token. The server rotates the
     /// refresh token: use the returned one, the old one is now invalid. If a
-    /// response ever lacks one, the old one is kept.
-    public func refresh(_ refreshToken: String) async throws -> OAuthTokens {
-        var tokens = try await tokenRequest([("grant_type", "refresh_token"), ("refresh_token", refreshToken)])
+    /// response ever lacks one, the old one is kept. `additionalParameters`
+    /// as for `exchangeCode`.
+    public func refresh(_ refreshToken: String, additionalParameters: [URLQueryItem] = []) async throws -> OAuthTokens {
+        var tokens = try await tokenRequest([("grant_type", "refresh_token"), ("refresh_token", refreshToken)]
+                                            + Self.pairs(additionalParameters))
         if tokens.refreshToken == nil { tokens.refreshToken = refreshToken }
         return tokens
     }
@@ -494,6 +499,10 @@ public struct InferenceOAuth: Sendable {
     }
 
     // MARK: Plumbing
+
+    private static func pairs(_ items: [URLQueryItem]) -> [(String, String)] {
+        items.map { ($0.name, $0.value ?? "") }
+    }
 
     private var clientAuth: [(String, String)] {
         var params = [("client_id", clientId)]

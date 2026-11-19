@@ -97,6 +97,29 @@ final class AuthTests: XCTestCase {
         ])
     }
 
+    /// Extra token parameters (the Apple apps' App Attest proof) go in the
+    /// form beside the grant's own, for both grants.
+    func testTokenRequestsCarryAdditionalParameters() async throws {
+        var oauth = InferenceOAuth(clientId: "c")
+        oauth.transport = StubProtocol.start { _, _ in
+            .json(#"{"access_token":"at1","token_type":"Bearer","expires_in":600,"refresh_token":"infrt-2"}"#)
+        }
+        let extra = [URLQueryItem(name: "app_attest_key_id", value: "k+/="),
+                     URLQueryItem(name: "app_attest_assertion", value: "a b")]
+        _ = try await oauth.exchangeCode("c0de", codeVerifier: "v", redirectURI: "inferencesh://oauth/callback",
+                                         additionalParameters: extra)
+        _ = try await oauth.refresh("infrt-1", additionalParameters: extra)
+        XCTAssertEqual(formFields(StubProtocol.recorded[0].body), [
+            "grant_type": "authorization_code", "code": "c0de", "code_verifier": "v",
+            "redirect_uri": "inferencesh://oauth/callback", "client_id": "c",
+            "app_attest_key_id": "k+/=", "app_attest_assertion": "a b",
+        ])
+        XCTAssertEqual(formFields(StubProtocol.recorded[1].body), [
+            "grant_type": "refresh_token", "refresh_token": "infrt-1", "client_id": "c",
+            "app_attest_key_id": "k+/=", "app_attest_assertion": "a b",
+        ])
+    }
+
     func testCompleteAuthorizationRejectsBadCallbacks() async {
         let oauth = InferenceOAuth(clientId: "c")
         let req = oauth.authorizationRequest(redirectURI: "inferencesh://oauth/callback")

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+`InferenceOAuth.exchangeCode` and `refresh` take `additionalParameters`, sent in the token request's form after the grant's own. The inference.sh Apple apps send their App Attest proof this way (`app_attest_key_id`, `app_attest_challenge`, `app_attest_assertion`).
+
 ## 0.32.3
 
 Matching api-v1581. Added `AuthMethodBot` and `AuthMethod.bot` / `scopeParams`: a provider's bot installed in the signed-in workspace (Slack), its scopes and token.
