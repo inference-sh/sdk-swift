@@ -2509,6 +2509,11 @@ public struct CredentialConnectRequest: Codable, Sendable {
     /// connected: the provider is asked to let the user choose the account
     /// rather than reuse the one it remembers.
     public var anotherAccount: Bool?
+    /// AppCredentialID is the OAuth app the login goes through: one of the
+    /// provider's apps the caller can connect through
+    /// (CredentialConfigDTO.Apps). Empty: the default one; refused when the
+    /// caller has several and none is the default.
+    public var appCredentialId: String?
 
     public init(
         provider: String = "",
@@ -2517,7 +2522,8 @@ public struct CredentialConnectRequest: Codable, Sendable {
         apiKey: String? = nil,
         metadata: [String: JSONValue]? = nil,
         connectionScope: CredentialScope? = nil,
-        anotherAccount: Bool? = nil
+        anotherAccount: Bool? = nil,
+        appCredentialId: String? = nil
     ) {
         self.provider = provider
         self.type = type
@@ -2526,6 +2532,7 @@ public struct CredentialConnectRequest: Codable, Sendable {
         self.metadata = metadata
         self.connectionScope = connectionScope
         self.anotherAccount = anotherAccount
+        self.appCredentialId = appCredentialId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2536,6 +2543,7 @@ public struct CredentialConnectRequest: Codable, Sendable {
         case metadata = "metadata"
         case connectionScope = "connection_scope"
         case anotherAccount = "another_account"
+        case appCredentialId = "app_credential_id"
     }
 }
 
@@ -6423,6 +6431,163 @@ public struct CredentialDTO: Codable, Sendable {
     }
 }
 
+/// OAuthAppDTO is one OAuth app a provider's logins can go through
+/// (grant=credentials), as the caller sees it. DisplayName tells it apart
+/// from the provider's other apps.
+public struct OAuthAppDTO: Codable, Sendable {
+    public var id: String
+    public var shortId: String
+    public var createdAt: String
+    public var updatedAt: String
+    public var deletedAt: String?
+    public var userId: String
+    @Indirect public var user: UserRelationDTO?
+    public var teamId: String
+    @Indirect public var team: TeamRelationDTO?
+    public var visibility: Visibility
+    public var provider: String
+    public var type: CredentialType
+    public var grant: CredentialGrant
+    public var appCredentialId: String?
+    public var scope: CredentialScope
+    public var status: CredentialStatus
+    public var displayName: String
+    public var iconUrl: String?
+    /// AccountID is the provider's own, unchanging id for the account; what
+    /// an account is named by when choosing one. AccountIdentifier is its
+    /// label (an email, an @handle).
+    public var accountId: String?
+    public var accountIdentifier: String?
+    public var accountName: String?
+    public var scopes: StringSlice?
+    /// AllowedScopes, on an OAuth app row (grant credentials), is every
+    /// scope a login through it may request; absent when any scope may be
+    /// (a team's own client by default). Never set on a login.
+    public var allowedScopes: StringSlice?
+    public var expiresAt: String?
+    public var vaultId: String?
+    public var metadata: [String: JSONValue]?
+    public var isPrimary: Bool
+    public var errorMessage: String?
+    /// Secrets are the secret rows linked to the credential (a key's values),
+    /// by row and key, never by value. Filled on the vault's api_key configs,
+    /// on a config's app when it is the caller's workspace's own (which of
+    /// its keys are set) and on the admin provider tree.
+    public var secrets: [CredentialSecretRef]?
+    /// HookURL is where the app delivers its events; empty when the
+    /// provider's apps deliver none.
+    public var hookUrl: String?
+    /// Default: a connect that names no app goes through this one.
+    public var `default`: Bool
+    /// Usual: the owner's usual app for the provider (PUT
+    /// /credentials/{provider}/app). Another app (POST
+    /// /credentials/{provider}/apps) serves only a connect that names it.
+    public var usual: Bool
+
+    public init(
+        id: String = "",
+        shortId: String = "",
+        createdAt: String = "",
+        updatedAt: String = "",
+        deletedAt: String? = nil,
+        userId: String = "",
+        user: UserRelationDTO? = nil,
+        teamId: String = "",
+        team: TeamRelationDTO? = nil,
+        visibility: Visibility,
+        provider: String = "",
+        type: CredentialType,
+        grant: CredentialGrant,
+        appCredentialId: String? = nil,
+        scope: CredentialScope,
+        status: CredentialStatus,
+        displayName: String = "",
+        iconUrl: String? = nil,
+        accountId: String? = nil,
+        accountIdentifier: String? = nil,
+        accountName: String? = nil,
+        scopes: StringSlice? = nil,
+        allowedScopes: StringSlice? = nil,
+        expiresAt: String? = nil,
+        vaultId: String? = nil,
+        metadata: [String: JSONValue]? = nil,
+        isPrimary: Bool = false,
+        errorMessage: String? = nil,
+        secrets: [CredentialSecretRef]? = nil,
+        hookUrl: String? = nil,
+        `default`: Bool = false,
+        usual: Bool = false
+    ) {
+        self.id = id
+        self.shortId = shortId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+        self.userId = userId
+        self.user = user
+        self.teamId = teamId
+        self.team = team
+        self.visibility = visibility
+        self.provider = provider
+        self.type = type
+        self.grant = grant
+        self.appCredentialId = appCredentialId
+        self.scope = scope
+        self.status = status
+        self.displayName = displayName
+        self.iconUrl = iconUrl
+        self.accountId = accountId
+        self.accountIdentifier = accountIdentifier
+        self.accountName = accountName
+        self.scopes = scopes
+        self.allowedScopes = allowedScopes
+        self.expiresAt = expiresAt
+        self.vaultId = vaultId
+        self.metadata = metadata
+        self.isPrimary = isPrimary
+        self.errorMessage = errorMessage
+        self.secrets = secrets
+        self.hookUrl = hookUrl
+        self.`default` = `default`
+        self.usual = usual
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case shortId = "short_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case userId = "user_id"
+        case user = "user"
+        case teamId = "team_id"
+        case team = "team"
+        case visibility = "visibility"
+        case provider = "provider"
+        case type = "type"
+        case grant = "grant"
+        case appCredentialId = "app_credential_id"
+        case scope = "scope"
+        case status = "status"
+        case displayName = "display_name"
+        case iconUrl = "icon_url"
+        case accountId = "account_id"
+        case accountIdentifier = "account_identifier"
+        case accountName = "account_name"
+        case scopes = "scopes"
+        case allowedScopes = "allowed_scopes"
+        case expiresAt = "expires_at"
+        case vaultId = "vault_id"
+        case metadata = "metadata"
+        case isPrimary = "is_primary"
+        case errorMessage = "error_message"
+        case secrets = "secrets"
+        case hookUrl = "hook_url"
+        case `default` = "default"
+        case usual = "usual"
+    }
+}
+
 /// CredentialSecretRef names one secret linked to a credential: the row's
 /// id, the key it is stored under and when its value last changed.
 public struct CredentialSecretRef: Codable, Sendable {
@@ -6537,6 +6702,12 @@ public struct CredentialConfigDTO: Codable, Sendable {
     /// URL, to paste in its settings). Empty when the provider's apps
     /// deliver none.
     public var hookUrl: String?
+    /// Apps is every OAuth app the caller can connect through for this
+    /// provider: the workspace's own, its org's and the platform's, App
+    /// among them. More than one when a workspace holds another app next to
+    /// its usual one; a connect then names the one it goes through
+    /// (CredentialConnectRequest.AppCredentialID).
+    public var apps: [OAuthAppDTO]?
     /// AuthProviderID is set when the provider is one the team defined
     /// itself (models.AuthProvider), so the UI can offer edit and remove.
     public var authProviderId: String?
@@ -6574,6 +6745,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         ownAppScope: CredentialScope? = nil,
         appNoun: String? = nil,
         hookUrl: String? = nil,
+        apps: [OAuthAppDTO]? = nil,
         authProviderId: String? = nil,
         credential: CredentialDTO? = nil,
         accounts: [CredentialDTO]? = nil,
@@ -6600,6 +6772,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         self.ownAppScope = ownAppScope
         self.appNoun = appNoun
         self.hookUrl = hookUrl
+        self.apps = apps
         self.authProviderId = authProviderId
         self.credential = credential
         self.accounts = accounts
@@ -6628,6 +6801,7 @@ public struct CredentialConfigDTO: Codable, Sendable {
         case ownAppScope = "own_app_scope"
         case appNoun = "app_noun"
         case hookUrl = "hook_url"
+        case apps = "apps"
         case authProviderId = "auth_provider_id"
         case credential = "credential"
         case accounts = "accounts"
