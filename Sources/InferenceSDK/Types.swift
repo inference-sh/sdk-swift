@@ -122,13 +122,12 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var remote: Bool?
     public var knowledge: Bool?
     public var wait: Bool?
-    /// SandboxCredentials are the logins a sandbox sandbox_create makes gets
-    /// (Remote on), declared as an app's credentials are (provider slug,
-    /// scopes): the runner's own, as a task of theirs resolves it; a runner
-    /// with none is asked to connect it and the call waits. None declared,
-    /// none given. The model's arguments never add any. Each entry's mode
-    /// says when the box gets it: auto (the default) at once, ask on first
-    /// use once a person approves it (SandboxCredential).
+    /// SandboxCredentials is the old place of the agent's credentials
+    /// (AgentConfigInput.Credentials), still read: a write folds it into
+    /// credentials (a credentials entry wins on a slug both name) and
+    /// stores it empty; a read of a version stored with it does the same.
+    /// 
+    /// Deprecated: use the agent's credentials.
     public var sandboxCredentials: [SandboxCredential]?
 
     public init(
@@ -1002,6 +1001,9 @@ public struct AgentVersionDTO: Codable, Sendable {
     public var skills: [SkillConfig]?
     public var context: [ContextField]?
     @Indirect public var internalTools: InternalToolsConfig?
+    /// Credentials are the logins the agent needs (AgentConfigInput.Credentials),
+    /// with any entry of the old internal_tools.sandbox_credentials folded in.
+    public var credentials: JSONValue?
     @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
@@ -1038,6 +1040,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         skills: [SkillConfig]? = nil,
         context: [ContextField]? = nil,
         internalTools: InternalToolsConfig? = nil,
+        credentials: JSONValue? = nil,
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
@@ -1063,6 +1066,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         self.skills = skills
         self.context = context
         self.internalTools = internalTools
+        self.credentials = credentials
         self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
@@ -1090,6 +1094,7 @@ public struct AgentVersionDTO: Codable, Sendable {
         case skills = "skills"
         case context = "context"
         case internalTools = "internal_tools"
+        case credentials = "credentials"
         case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
@@ -1169,6 +1174,15 @@ public struct AgentConfigInput: Codable, Sendable {
     public var skills: [SkillConfig]?
     public var context: [ContextField]?
     @Indirect public var internalTools: InternalToolsConfig?
+    /// Credentials are the logins the agent needs, declared as an app's
+    /// credentials are (a map keyed by provider slug, or a list), each with
+    /// a mode: the sandboxes its sandbox_create makes (Remote on) get them,
+    /// the runner's own, as a task of theirs resolves them; a runner with
+    /// none is asked to connect and the call waits. None declared, none
+    /// given; the model's arguments never add any. Mode auto (the default)
+    /// gives the login at once, ask on first use once a person approves it.
+    /// Another team's agent may declare ask entries only.
+    public var credentials: JSONValue?
     @Indirect public var permissions: AgentPermissions?
     public var hooks: [LifecycleHookConfig]?
     public var outputSchema: JSONValue?
@@ -1188,6 +1202,7 @@ public struct AgentConfigInput: Codable, Sendable {
         skills: [SkillConfig]? = nil,
         context: [ContextField]? = nil,
         internalTools: InternalToolsConfig? = nil,
+        credentials: JSONValue? = nil,
         permissions: AgentPermissions? = nil,
         hooks: [LifecycleHookConfig]? = nil,
         outputSchema: JSONValue? = nil,
@@ -1203,6 +1218,7 @@ public struct AgentConfigInput: Codable, Sendable {
         self.skills = skills
         self.context = context
         self.internalTools = internalTools
+        self.credentials = credentials
         self.permissions = permissions
         self.hooks = hooks
         self.outputSchema = outputSchema
@@ -1220,6 +1236,7 @@ public struct AgentConfigInput: Codable, Sendable {
         case skills = "skills"
         case context = "context"
         case internalTools = "internal_tools"
+        case credentials = "credentials"
         case permissions = "permissions"
         case hooks = "hooks"
         case outputSchema = "output_schema"
@@ -1256,6 +1273,156 @@ public struct CoreAppConfigInput: Codable, Sendable {
         case ref = "ref"
         case setup = "setup"
         case input = "input"
+    }
+}
+
+/// AgentRequirementSourceKind is what in an agent needs a login.
+public struct AgentRequirementSourceKind: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AgentRequirementFromAgent: the agent's own credentials (its
+    /// sandboxes get them).
+    public static let agentRequirementFromAgent = AgentRequirementSourceKind(rawValue: "agent")
+    /// AgentRequirementFromApp: an app tool's (or the core app's) version
+    /// credentials: the pinned function's own list, else the app's.
+    public static let agentRequirementFromApp = AgentRequirementSourceKind(rawValue: "app")
+    /// AgentRequirementFromMCP: an MCP tool's server: the entry a call sends
+    /// (the server's first).
+    public static let agentRequirementFromMCP = AgentRequirementSourceKind(rawValue: "mcp")
+    /// AgentRequirementFromHTTP: an HTTP or call tool whose auth is a
+    /// credential.
+    public static let agentRequirementFromHTTP = AgentRequirementSourceKind(rawValue: "http")
+}
+
+/// AgentRequirementSource is one thing in the agent that asks for the
+/// requirement.
+public struct AgentRequirementSource: Codable, Sendable {
+    public var kind: AgentRequirementSourceKind
+    /// Name is the agent's, app's or MCP server's name (namespace/name for
+    /// an agent or app), or the HTTP tool's URL host.
+    public var name: String
+    /// ID is the agent's, app's or MCP server's id, when it has one.
+    public var id: String?
+    /// Tool is the agent tool that asks for it; empty for the agent's own
+    /// credentials. The core app's is "core_app".
+    public var tool: String?
+    /// Agent is the agent the source belongs to when it is not the agent
+    /// asked about: a sub-agent tool's (namespace/name).
+    public var agent: String?
+    /// NotGiven: the agent's own mode auto entry, from an agent of another
+    /// team. Its sandboxes are given only ask entries, so the runner's
+    /// login is not given for this source.
+    public var notGiven: Bool?
+
+    public init(
+        kind: AgentRequirementSourceKind,
+        name: String = "",
+        id: String? = nil,
+        tool: String? = nil,
+        agent: String? = nil,
+        notGiven: Bool? = nil
+    ) {
+        self.kind = kind
+        self.name = name
+        self.id = id
+        self.tool = tool
+        self.agent = agent
+        self.notGiven = notGiven
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case name = "name"
+        case id = "id"
+        case tool = "tool"
+        case agent = "agent"
+        case notGiven = "not_given"
+    }
+}
+
+/// AgentRequirementStatus is whether the caller holds the requirement.
+public struct AgentRequirementStatus: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// AgentRequirementConnected: a login the caller's runs resolve (theirs,
+    /// the team's, the org's or the platform's) covers it.
+    public static let agentRequirementConnected = AgentRequirementStatus(rawValue: "connected")
+    /// AgentRequirementMissing: no usable login (none, disconnected,
+    /// expired, or a key to add). Errors say what to do.
+    public static let agentRequirementMissing = AgentRequirementStatus(rawValue: "missing")
+    /// AgentRequirementMissingScopes: a login is connected without some of
+    /// the scopes. Errors name them.
+    public static let agentRequirementMissingScopes = AgentRequirementStatus(rawValue: "missing_scopes")
+    /// AgentRequirementUnknown: a capability the platform does not define.
+    public static let agentRequirementUnknown = AgentRequirementStatus(rawValue: "unknown")
+    /// AgentRequirementNotGiven: every source is NotGiven; no login is
+    /// given for it, so it is not checked.
+    public static let agentRequirementNotGiven = AgentRequirementStatus(rawValue: "not_given")
+}
+
+/// AgentRequirement is one credential slug the agent needs, merged from
+/// every source that asks for it: capabilities, scopes and secrets are the
+/// union; optional only when every source says optional; mode ask when an
+/// entry of the agent's own says ask (auto when its entries say auto, empty
+/// when the agent itself names none).
+public struct AgentRequirement: Codable, Sendable {
+    @Indirect public var requirement: CredentialRequirement
+    public var from: [AgentRequirementSource]?
+    public var status: AgentRequirementStatus
+    /// Errors are what POST /credentials/check answers for the requirement:
+    /// each missing login or scope with the action that sets it up
+    /// (connect, add_scopes, add_secret; provider, provider name, scopes).
+    /// Empty when connected or not_given.
+    public var errors: [RequirementError]?
+
+    public init(
+        requirement: CredentialRequirement,
+        from: [AgentRequirementSource]? = nil,
+        status: AgentRequirementStatus,
+        errors: [RequirementError]? = nil
+    ) {
+        self.requirement = requirement
+        self.from = from
+        self.status = status
+        self.errors = errors
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case requirement = "requirement"
+        case from = "from"
+        case status = "status"
+        case errors = "errors"
+    }
+}
+
+/// AgentRequirementsResponse is GET /agents/{id}/requirements.
+public struct AgentRequirementsResponse: Codable, Sendable {
+    public var agentId: String
+    public var versionId: String
+    /// Satisfied: every requirement that is not optional is connected or
+    /// not_given.
+    public var satisfied: Bool
+    public var requirements: [AgentRequirement]?
+
+    public init(
+        agentId: String = "",
+        versionId: String = "",
+        satisfied: Bool = false,
+        requirements: [AgentRequirement]? = nil
+    ) {
+        self.agentId = agentId
+        self.versionId = versionId
+        self.satisfied = satisfied
+        self.requirements = requirements
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case agentId = "agent_id"
+        case versionId = "version_id"
+        case satisfied = "satisfied"
+        case requirements = "requirements"
     }
 }
 
@@ -3503,6 +3670,12 @@ public struct CredentialRequirement: Codable, Sendable {
     @Indirect public var provider: CompanySeed?
     /// Auth is the credential's auth provider, for a slug no row defines yet.
     @Indirect public var auth: AuthMethod?
+    /// Mode is when a box gets the login: auto (empty) when the sandbox is
+    /// made, ask on first use once a person approves it. It means something
+    /// only where a box is given the login (a sandbox's credentials, an
+    /// agent's credentials, which its sandboxes get); an app's or an MCP
+    /// server's entry with a mode is refused (ValidateNoMode).
+    public var mode: SandboxCredentialMode?
     /// The rest describe the platform api_key scheme a platform app's deploy
     /// catalogues for the slug: set on the scheme it creates, and filled into
     /// an existing one only where that is still empty (an admin's edit
@@ -3532,6 +3705,7 @@ public struct CredentialRequirement: Codable, Sendable {
         scopes: [String]? = nil,
         provider: CompanySeed? = nil,
         auth: AuthMethod? = nil,
+        mode: SandboxCredentialMode? = nil,
         displayName: String? = nil,
         connectionScope: CredentialScope? = nil,
         instructions: String? = nil,
@@ -3546,6 +3720,7 @@ public struct CredentialRequirement: Codable, Sendable {
         self.scopes = scopes
         self.provider = provider
         self.auth = auth
+        self.mode = mode
         self.displayName = displayName
         self.connectionScope = connectionScope
         self.instructions = instructions
@@ -3562,6 +3737,7 @@ public struct CredentialRequirement: Codable, Sendable {
         case scopes = "scopes"
         case provider = "provider"
         case auth = "auth"
+        case mode = "mode"
         case displayName = "display_name"
         case connectionScope = "connection_scope"
         case instructions = "instructions"
@@ -7844,6 +8020,25 @@ public struct EngineCapability: RawRepresentable, Codable, Hashable, Sendable {
     /// whose environment carries its team's variables (INF-1345) is sent
     /// only to an engine that has it.
     public static let taskEnv = EngineCapability(rawValue: "task_env")
+    /// EngineCapabilityEgressForms: the engine's gateway takes the forms a
+    /// bound value goes by beyond a header or a query parameter: in a
+    /// request body (BoundForm.Body) and as a token it signs with the value
+    /// (BoundForm.JWT, HS256). A binding in such a form is sent to no other
+    /// engine (EngineCapabilities.Takes), and a task that may get one
+    /// requires it (Task.Requires).
+    public static let egressForms = EngineCapability(rawValue: "egress_forms")
+    /// EngineCapabilityEgressH2: the engine's gateway speaks HTTP/2 with a
+    /// sandbox whose TLS it terminates and with the bound host, so a client
+    /// that speaks nothing else (gRPC) gets its bound value placed. A task
+    /// given a key of a provider used over HTTP/2 (BoundKey.H2) requires it
+    /// (Task.Requires): on any other engine the client could not connect.
+    public static let egressH2 = EngineCapability(rawValue: "egress_h2")
+    /// EngineCapabilityEgressHostSuffix: the engine's gateway reads a bound
+    /// host that begins with a dot (".example.com") as every host under
+    /// that domain (models.HostBoundAt). Any other engine would read the
+    /// entry as a name no host has: it is sent none
+    /// (EngineCapabilities.Takes), and a task that may get one requires it.
+    public static let egressHostSuffix = EngineCapability(rawValue: "egress_host_suffix")
 }
 
 /// EngineCapabilities is a set of capabilities, kept as a list. Nil and
@@ -14356,93 +14551,11 @@ public struct SandboxCredentialMode: RawRepresentable, Codable, Hashable, Sendab
     public static let sandboxCredentialAsk = SandboxCredentialMode(rawValue: "ask")
 }
 
-/// SandboxCredential is a login a sandbox's box gets: a requirement by
-/// provider, as an app declares one, and when it is given (Mode, auto when
-/// unset). It reads and writes as the requirement's fields plus "mode", so
-/// a plain requirement is an auto one.
-public struct SandboxCredential: Codable, Sendable {
-    public var slug: String?
-    public var capabilities: [String]?
-    public var description: String?
-    public var optional: Bool?
-    public var secrets: [String]?
-    public var scopes: [String]?
-    /// Provider describes the company the credential belongs to, for a
-    /// catalog row that does not exist yet. Its slug defaults to the
-    /// credential slug.
-    @Indirect public var provider: CompanySeed?
-    /// Auth is the credential's auth provider, for a slug no row defines yet.
-    @Indirect public var auth: AuthMethod?
-    /// The rest describe the platform api_key scheme a platform app's deploy
-    /// catalogues for the slug: set on the scheme it creates, and filled into
-    /// an existing one only where that is still empty (an admin's edit
-    /// stands). Any other deploy ignores them.
-    /// 
-    /// DisplayName is the scheme's name ("Claude Code"); at most
-    /// MaxCredentialDisplayName characters.
-    public var displayName: String?
-    /// ConnectionScope is who a connection belongs to: team (empty) or user.
-    public var connectionScope: CredentialScope?
-    /// Instructions tell a person how to get the key (markdown, at most
-    /// MaxAuthProviderInstructions characters).
-    public var instructions: String?
-    /// DocsURL is the scheme's documentation link.
-    public var docsUrl: String?
-    /// ExpiresAfterDays is how long a saved key lasts: it counts as expired
-    /// this many days after it is saved. 0 is never; at most
-    /// MaxExpiresAfterDays.
-    public var expiresAfterDays: Int?
-    public var mode: SandboxCredentialMode?
-
-    public init(
-        slug: String? = nil,
-        capabilities: [String]? = nil,
-        description: String? = nil,
-        optional: Bool? = nil,
-        secrets: [String]? = nil,
-        scopes: [String]? = nil,
-        provider: CompanySeed? = nil,
-        auth: AuthMethod? = nil,
-        displayName: String? = nil,
-        connectionScope: CredentialScope? = nil,
-        instructions: String? = nil,
-        docsUrl: String? = nil,
-        expiresAfterDays: Int? = nil,
-        mode: SandboxCredentialMode? = nil
-    ) {
-        self.slug = slug
-        self.capabilities = capabilities
-        self.description = description
-        self.optional = optional
-        self.secrets = secrets
-        self.scopes = scopes
-        self.provider = provider
-        self.auth = auth
-        self.displayName = displayName
-        self.connectionScope = connectionScope
-        self.instructions = instructions
-        self.docsUrl = docsUrl
-        self.expiresAfterDays = expiresAfterDays
-        self.mode = mode
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case slug = "slug"
-        case capabilities = "capabilities"
-        case description = "description"
-        case optional = "optional"
-        case secrets = "secrets"
-        case scopes = "scopes"
-        case provider = "provider"
-        case auth = "auth"
-        case displayName = "display_name"
-        case connectionScope = "connection_scope"
-        case instructions = "instructions"
-        case docsUrl = "docs_url"
-        case expiresAfterDays = "expires_after_days"
-        case mode = "mode"
-    }
-}
+/// SandboxCredential is a login a sandbox's box gets: a credential
+/// requirement, as an app or an agent declares one, whose Mode says when
+/// it is given (auto when unset). The same type: a plain requirement is an
+/// auto one.
+public typealias SandboxCredential = CredentialRequirement
 
 /// SandboxDTO is the API response for a sandbox.
 public struct SandboxDTO: Codable, Sendable {
@@ -15499,6 +15612,10 @@ public struct SystemInfo: Codable, Sendable {
     /// HostCPU is how the host runs its CPUs (INF-1244); nil off Linux
     /// and from engines that predate it.
     @Indirect public var hostCpu: HostCPU?
+    /// Sandbox is the OS sandbox a remote's daemon confines commands with
+    /// (Landlock on Linux, Seatbelt on macOS), as it found it at startup;
+    /// nil from engines and from daemons that predate it.
+    @Indirect public var sandbox: RemoteSandbox?
 
     public init(
         hostname: String = "",
@@ -15514,7 +15631,8 @@ public struct SystemInfo: Codable, Sendable {
         volumes: [Volume]? = nil,
         hfCache: HFCacheInfo,
         gpus: [GPU]? = nil,
-        hostCpu: HostCPU? = nil
+        hostCpu: HostCPU? = nil,
+        sandbox: RemoteSandbox? = nil
     ) {
         self.hostname = hostname
         self.engineVersion = engineVersion
@@ -15530,6 +15648,7 @@ public struct SystemInfo: Codable, Sendable {
         self.hfCache = hfCache
         self.gpus = gpus
         self.hostCpu = hostCpu
+        self.sandbox = sandbox
     }
 
     enum CodingKeys: String, CodingKey {
@@ -15547,6 +15666,46 @@ public struct SystemInfo: Codable, Sendable {
         case hfCache = "hf_cache"
         case gpus = "gpus"
         case hostCpu = "host_cpu"
+        case sandbox = "sandbox"
+    }
+}
+
+/// RemoteSandbox is what a remote's daemon can enforce of a run's file rules
+/// (WsRemoteExecStart.FileRules) in the kernel.
+public struct RemoteSandbox: Codable, Sendable {
+    /// Mechanism is "landlock" (Linux), "seatbelt" (macOS) or "none".
+    public var mechanism: String
+    /// Version is the mechanism's version when it has one: the Landlock ABI
+    /// ("abi 6").
+    public var version: String?
+    /// Available says commands with file rules run confined. When false,
+    /// Reason says why, and they run unconfined unless Required.
+    public var available: Bool
+    public var reason: String?
+    /// Required is the owner's choice (belt remote start --require-sandbox):
+    /// a run with file rules the daemon cannot enforce is refused.
+    public var required: Bool?
+
+    public init(
+        mechanism: String = "",
+        version: String? = nil,
+        available: Bool = false,
+        reason: String? = nil,
+        required: Bool? = nil
+    ) {
+        self.mechanism = mechanism
+        self.version = version
+        self.available = available
+        self.reason = reason
+        self.required = required
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mechanism = "mechanism"
+        case version = "version"
+        case available = "available"
+        case reason = "reason"
+        case required = "required"
     }
 }
 
@@ -18295,6 +18454,15 @@ public struct AuthMethodAPIKeyIn: RawRepresentable, Codable, Hashable, Sendable 
     public static let query = AuthMethodAPIKeyIn(rawValue: "query")
 }
 
+/// AuthMethodTransport is the protocol a provider's API is spoken in, when
+/// it matters to where a run may go (AuthMethod.Transport).
+public struct AuthMethodTransport: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let h2 = AuthMethodTransport(rawValue: "h2")
+}
+
 /// AuthMethodHTTPScheme is the Authorization scheme of an http scheme.
 public struct AuthMethodHTTPScheme: RawRepresentable, Codable, Hashable, Sendable {
     public let rawValue: String
@@ -18341,6 +18509,174 @@ public struct SecretField: Codable, Sendable {
         case sensitive = "sensitive"
         case optional = "optional"
         case pattern = "pattern"
+    }
+}
+
+/// AuthMethodSign is one key pair a scheme signs requests with
+/// (AuthMethod.Sign), and how: which of the scheme's fields is the access
+/// key id (sent in the clear, in the request's Authorization) and which
+/// the secret key, the hosts the pair signs toward, and the signature
+/// itself as data. Preset names a vendor's parameter set (SignPresets); a
+/// parameter written out overrides the preset's, and with no preset the
+/// recipe writes them all. The engines' egress gateway implements the
+/// algorithm; the vendor is these parameters.
+public struct AuthMethodSign: Codable, Sendable {
+    /// Preset is a built-in parameter set: "volc-v4" (Volcengine, BytePlus)
+    /// or "tc3" (Tencent Cloud). Empty: the parameters below say it all.
+    public var preset: String?
+    /// KeyID and Secret are the keys of the two fields: the access key id
+    /// and the secret key.
+    public var keyId: String
+    public var secret: String
+    /// Region and Service fill the scope's {region} and {service} terms, as
+    /// the vendor names them for Hosts ("ap-southeast-1", "ark"). Each is
+    /// required when the scope has its term and refused when it does not.
+    public var region: String?
+    public var service: String?
+    /// Hosts are the hosts this pair signs toward, each exact; empty is
+    /// the scheme's Hosts. One of the two is required.
+    public var hosts: [String]?
+    /// The parameters (SignParams says what each does). The four that may
+    /// be empty on purpose are pointers: "" overrides a preset's value,
+    /// absent keeps it.
+    public var algorithm: String?
+    public var label: String?
+    public var keyPrefix: String?
+    public var scope: [String]?
+    public var dateFormat: String?
+    public var timeHeader: String?
+    public var timeFormat: String?
+    public var hashHeader: String?
+    public var unsignedHeader: String?
+    public var signedHeaders: [String]?
+    public var headerValues: String?
+    public var uri: String?
+    public var host: String?
+    public var tokenHeader: String?
+
+    public init(
+        preset: String? = nil,
+        keyId: String = "",
+        secret: String = "",
+        region: String? = nil,
+        service: String? = nil,
+        hosts: [String]? = nil,
+        algorithm: String? = nil,
+        label: String? = nil,
+        keyPrefix: String? = nil,
+        scope: [String]? = nil,
+        dateFormat: String? = nil,
+        timeHeader: String? = nil,
+        timeFormat: String? = nil,
+        hashHeader: String? = nil,
+        unsignedHeader: String? = nil,
+        signedHeaders: [String]? = nil,
+        headerValues: String? = nil,
+        uri: String? = nil,
+        host: String? = nil,
+        tokenHeader: String? = nil
+    ) {
+        self.preset = preset
+        self.keyId = keyId
+        self.secret = secret
+        self.region = region
+        self.service = service
+        self.hosts = hosts
+        self.algorithm = algorithm
+        self.label = label
+        self.keyPrefix = keyPrefix
+        self.scope = scope
+        self.dateFormat = dateFormat
+        self.timeHeader = timeHeader
+        self.timeFormat = timeFormat
+        self.hashHeader = hashHeader
+        self.unsignedHeader = unsignedHeader
+        self.signedHeaders = signedHeaders
+        self.headerValues = headerValues
+        self.uri = uri
+        self.host = host
+        self.tokenHeader = tokenHeader
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case preset = "preset"
+        case keyId = "key_id"
+        case secret = "secret"
+        case region = "region"
+        case service = "service"
+        case hosts = "hosts"
+        case algorithm = "algorithm"
+        case label = "label"
+        case keyPrefix = "key_prefix"
+        case scope = "scope"
+        case dateFormat = "date_format"
+        case timeHeader = "time_header"
+        case timeFormat = "time_format"
+        case hashHeader = "hash_header"
+        case unsignedHeader = "unsigned_header"
+        case signedHeaders = "signed_headers"
+        case headerValues = "header_values"
+        case uri = "uri"
+        case host = "host"
+        case tokenHeader = "token_header"
+    }
+}
+
+/// AuthMethodJWTAlg is a token's signature (AuthMethodJWT.Alg).
+public struct AuthMethodJWTAlg: RawRepresentable, Codable, Hashable, Sendable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public static let authMethodJWTHS256 = AuthMethodJWTAlg(rawValue: "HS256")
+}
+
+/// AuthMethodJWT is the token a scheme's key is made as (AuthMethod.JWT): a
+/// JWT with the header {"alg": Alg, "typ": "JWT"} and the claims iss
+/// (Issuer's value, when named), exp (now + TTL), nbf (now - NotBefore,
+/// when set) and Claims, signed with Secret's value.
+public struct AuthMethodJWT: Codable, Sendable {
+    /// Key is the name a run presents as its bearer: the one placeholder it
+    /// holds. A login holding a value under Key itself sends that value
+    /// instead (a static API key); it need not be one of Fields.
+    public var key: String
+    public var alg: AuthMethodJWTAlg
+    /// Secret is the field whose value signs; Issuer the field whose value
+    /// is the iss claim, "" for none. Neither is ever given to a run.
+    public var secret: String
+    public var issuer: String?
+    /// TTL is the token's lifetime in seconds, at most a day; NotBefore is
+    /// how many seconds before now nbf is set, 0 for no nbf.
+    public var ttl: Int
+    public var nbf: Int?
+    /// Claims are claims added as they are; iss, exp and nbf win.
+    public var claims: [String: String]?
+
+    public init(
+        key: String = "",
+        alg: AuthMethodJWTAlg,
+        secret: String = "",
+        issuer: String? = nil,
+        ttl: Int = 0,
+        nbf: Int? = nil,
+        claims: [String: String]? = nil
+    ) {
+        self.key = key
+        self.alg = alg
+        self.secret = secret
+        self.issuer = issuer
+        self.ttl = ttl
+        self.nbf = nbf
+        self.claims = claims
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case alg = "alg"
+        case secret = "secret"
+        case issuer = "issuer"
+        case ttl = "ttl"
+        case nbf = "nbf"
+        case claims = "claims"
     }
 }
 
@@ -18437,6 +18773,11 @@ public struct AuthMethodAppKey: Codable, Sendable {
     public var sensitive: Bool?
     /// Optional is implied for every name but client_id and client_secret.
     public var optional: Bool?
+    /// Token marks a key that is a token of its own, sent as
+    /// Authorization: Bearer to the method's hosts (Slack's bot token): a
+    /// run given it holds a placeholder, bound to Hosts like the login's
+    /// access token. A key that never travels (a signing secret) is not one.
+    public var token: Bool?
 
     public init(
         name: String = "",
@@ -18444,7 +18785,8 @@ public struct AuthMethodAppKey: Codable, Sendable {
         label: String? = nil,
         placeholder: String? = nil,
         sensitive: Bool? = nil,
-        optional: Bool? = nil
+        optional: Bool? = nil,
+        token: Bool? = nil
     ) {
         self.name = name
         self.key = key
@@ -18452,6 +18794,7 @@ public struct AuthMethodAppKey: Codable, Sendable {
         self.placeholder = placeholder
         self.sensitive = sensitive
         self.optional = optional
+        self.token = token
     }
 
     enum CodingKeys: String, CodingKey {
@@ -18461,6 +18804,7 @@ public struct AuthMethodAppKey: Codable, Sendable {
         case placeholder = "placeholder"
         case sensitive = "sensitive"
         case optional = "optional"
+        case token = "token"
     }
 }
 
@@ -18632,11 +18976,22 @@ public struct AuthMethod: Codable, Sendable {
     public var `in`: AuthMethodAPIKeyIn?
     public var paramName: String?
     public var valuePrefix: String?
+    /// InBody says an api_key key also travels in the body of a request to
+    /// Hosts (a field of a JSON or form body): the egress gateway replaces
+    /// the key's placeholder there too, toward Hosts only. With no In, the
+    /// key goes in the body alone. It needs Hosts, the row's or the
+    /// catalog's; without them the key is an environment variable as before.
+    public var inBody: Bool?
     /// Scheme and BearerFormat describe an http kind's Authorization header.
     public var scheme: AuthMethodHTTPScheme?
     public var bearerFormat: String?
     /// Hosts are the hosts the credential's value is sent to, each exact
-    /// ("api.anthropic.com", "db.example.com:5432"): the key a person
+    /// ("api.anthropic.com", "db.example.com:5432"), or, beginning with a
+    /// dot, every host under a domain (".example.com": api.example.com and
+    /// api.eu1.example.com, never example.com itself; the domain is never
+    /// a top-level domain or a registry's suffix such as ".co.uk", and may
+    /// be a company's shared domain such as ".googleapis.com", a broad
+    /// destination; models.ValidHostSuffix): the key a person
     /// pastes, or an oauth2 scheme's access token. A scheme with hosts
     /// binds its secrets: a run behind the egress gateway holds a
     /// placeholder for each, and the gateway puts the value in only on the
@@ -18644,6 +18999,28 @@ public struct AuthMethod: Codable, Sendable {
     /// environment variables, as they were. A catalogued provider's hosts
     /// come from the catalog when the row names none.
     public var hosts: [String]?
+    /// Sign says the provider takes no key: each request is signed with a
+    /// key pair of Fields (Volcengine and BytePlus, Tencent Cloud). Each
+    /// entry binds one pair for signing and says how the signature is made
+    /// (a preset, or its parameters): a run behind the egress gateway holds
+    /// a placeholder for both halves, its client signs with them, and the
+    /// gateway signs the request again with the real pair toward the
+    /// entry's hosts only. The secret key is never an environment variable.
+    /// api_key kind. A catalogued provider's come from the catalog when the
+    /// row has none.
+    public var sign: [AuthMethodSign]?
+    /// JWT says the provider takes a short-lived token the client signs
+    /// with a key of Fields (Kling): the egress gateway signs it, and a run
+    /// holds one placeholder, JWT.Key's, which leaves as the token toward
+    /// Hosts. The signing fields are never given to a run. api_key kind. A
+    /// catalogued provider's comes from the catalog when the row has none.
+    @Indirect public var jwt: AuthMethodJWT?
+    /// Transport says the provider's API is spoken over HTTP/2
+    /// (AuthMethodTransportH2: gRPC), so a run given one of the scheme's
+    /// bound secrets goes only to an engine whose egress gateway speaks it
+    /// (egress_h2). Empty: HTTP/1.1 serves, and any gateway does. It needs
+    /// Hosts, as InBody does.
+    public var transport: AuthMethodTransport?
     public var authorizationEndpoint: String?
     /// requested by default; a connect request may override (RequiredScopes stay)
     public var scopes: [String]?
@@ -18780,9 +19157,13 @@ public struct AuthMethod: Codable, Sendable {
         `in`: AuthMethodAPIKeyIn? = nil,
         paramName: String? = nil,
         valuePrefix: String? = nil,
+        inBody: Bool? = nil,
         scheme: AuthMethodHTTPScheme? = nil,
         bearerFormat: String? = nil,
         hosts: [String]? = nil,
+        sign: [AuthMethodSign]? = nil,
+        jwt: AuthMethodJWT? = nil,
+        transport: AuthMethodTransport? = nil,
         authorizationEndpoint: String? = nil,
         scopes: [String]? = nil,
         scopeAliases: [String: String]? = nil,
@@ -18831,9 +19212,13 @@ public struct AuthMethod: Codable, Sendable {
         self.`in` = `in`
         self.paramName = paramName
         self.valuePrefix = valuePrefix
+        self.inBody = inBody
         self.scheme = scheme
         self.bearerFormat = bearerFormat
         self.hosts = hosts
+        self.sign = sign
+        self.jwt = jwt
+        self.transport = transport
         self.authorizationEndpoint = authorizationEndpoint
         self.scopes = scopes
         self.scopeAliases = scopeAliases
@@ -18884,9 +19269,13 @@ public struct AuthMethod: Codable, Sendable {
         case `in` = "in"
         case paramName = "param_name"
         case valuePrefix = "value_prefix"
+        case inBody = "in_body"
         case scheme = "scheme"
         case bearerFormat = "bearer_format"
         case hosts = "hosts"
+        case sign = "sign"
+        case jwt = "jwt"
+        case transport = "transport"
         case authorizationEndpoint = "authorization_endpoint"
         case scopes = "scopes"
         case scopeAliases = "scope_aliases"
