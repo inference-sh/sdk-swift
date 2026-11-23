@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.33.0
+
+Matching api-v1600. Added `AgentRequirementsResponse`, `AgentRequirement`, `AgentRequirementSource`, `AgentRequirementStatus` and `AgentRequirementSourceKind` (`GET /agents/{id}/requirements`), `CredentialRequirement.mode` and agent `credentials`, `RemoteSandbox`, and the `AuthMethod` transport, signing and JWT types. `SandboxCredential` is now an alias of `CredentialRequirement`.
 
 `InferenceOAuth.exchangeCode` and `refresh` take `additionalParameters`, sent in the token request's form after the grant's own. The inference.sh Apple apps send their App Attest proof this way (`app_attest_key_id`, `app_attest_challenge`, `app_attest_assertion`).
 
