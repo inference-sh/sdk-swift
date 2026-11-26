@@ -122,6 +122,10 @@ public struct InternalToolsConfig: Codable, Sendable {
     public var remote: Bool?
     public var knowledge: Bool?
     public var wait: Bool?
+    /// Credentials offers credentials_search and credentials_ask: the agent
+    /// reads which logins the person running it has, finds a provider, and
+    /// asks them to connect one in the chat. Opt-in.
+    public var credentials: Bool?
     /// SandboxCredentials is the old place of the agent's credentials
     /// (AgentConfigInput.Credentials), still read: a write folds it into
     /// credentials (a credentials entry wins on a slug both name) and
@@ -143,6 +147,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         remote: Bool? = nil,
         knowledge: Bool? = nil,
         wait: Bool? = nil,
+        credentials: Bool? = nil,
         sandboxCredentials: [SandboxCredential]? = nil
     ) {
         self.plan = plan
@@ -157,6 +162,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         self.remote = remote
         self.knowledge = knowledge
         self.wait = wait
+        self.credentials = credentials
         self.sandboxCredentials = sandboxCredentials
     }
 
@@ -173,6 +179,7 @@ public struct InternalToolsConfig: Codable, Sendable {
         case remote = "remote"
         case knowledge = "knowledge"
         case wait = "wait"
+        case credentials = "credentials"
         case sandboxCredentials = "sandbox_credentials"
     }
 }
@@ -3033,6 +3040,11 @@ public struct Scope: RawRepresentable, Codable, Hashable, Sendable {
     /// Action-level scopes for Remotes
     public static let remotesRead = Scope(rawValue: "remotes:read")
     public static let remotesWrite = Scope(rawValue: "remotes:write")
+    /// ScopeRemotesExecute starts commands, terminals and agent sessions on
+    /// a remote (drives it). remotes:write registers, connects and manages
+    /// remotes, and implies it except in a list of remotes scopes alone (a
+    /// daemon's key).
+    public static let remotesExecute = Scope(rawValue: "remotes:execute")
     /// Action-level scopes for Sandboxes (managed boxes that run a remote)
     public static let sandboxesRead = Scope(rawValue: "sandboxes:read")
     public static let sandboxesWrite = Scope(rawValue: "sandboxes:write")
@@ -8736,6 +8748,10 @@ public struct ErrorCode: RawRepresentable, Codable, Hashable, Sendable {
     /// already has an open request for it.
     public static let alreadyEntitled = ErrorCode(rawValue: "already_entitled")
     public static let requestOpen = ErrorCode(rawValue: "request_open")
+    /// ErrorCodeNothingToInvoice (409): a statement was asked for a payer
+    /// that owes nothing beyond its open invoices (GET /admin/invoices/preview
+    /// shows the due amount).
+    public static let nothingToInvoice = ErrorCode(rawValue: "nothing_to_invoice")
     /// Authorization codes (device sign-in, admin elevation) (400): the code
     /// is unknown, already approved or denied, or past its expiry.
     public static let invalidCode = ErrorCode(rawValue: "invalid_code")
@@ -15685,19 +15701,30 @@ public struct RemoteSandbox: Codable, Sendable {
     /// Required is the owner's choice (belt remote start --require-sandbox):
     /// a run with file rules the daemon cannot enforce is refused.
     public var required: Bool?
+    /// MountNS says denied paths are covered in a mount view of the
+    /// program's own (Linux, where unprivileged user namespaces are
+    /// allowed): exact, and the folder holding one still takes new files.
+    /// False with Landlock means Landlock alone, which leaves such a folder
+    /// unable to take a new entry; NoMountNS says why.
+    public var mountNs: Bool?
+    public var noMountNs: String?
 
     public init(
         mechanism: String = "",
         version: String? = nil,
         available: Bool = false,
         reason: String? = nil,
-        required: Bool? = nil
+        required: Bool? = nil,
+        mountNs: Bool? = nil,
+        noMountNs: String? = nil
     ) {
         self.mechanism = mechanism
         self.version = version
         self.available = available
         self.reason = reason
         self.required = required
+        self.mountNs = mountNs
+        self.noMountNs = noMountNs
     }
 
     enum CodingKeys: String, CodingKey {
@@ -15706,6 +15733,8 @@ public struct RemoteSandbox: Codable, Sendable {
         case available = "available"
         case reason = "reason"
         case required = "required"
+        case mountNs = "mount_ns"
+        case noMountNs = "no_mount_ns"
     }
 }
 
@@ -18979,8 +19008,8 @@ public struct AuthMethod: Codable, Sendable {
     /// InBody says an api_key key also travels in the body of a request to
     /// Hosts (a field of a JSON or form body): the egress gateway replaces
     /// the key's placeholder there too, toward Hosts only. With no In, the
-    /// key goes in the body alone. It needs Hosts, the row's or the
-    /// catalog's; without them the key is an environment variable as before.
+    /// key goes in the body alone. It needs Hosts; without them the key is
+    /// an environment variable as before.
     public var inBody: Bool?
     /// Scheme and BearerFormat describe an http kind's Authorization header.
     public var scheme: AuthMethodHTTPScheme?
@@ -18996,8 +19025,8 @@ public struct AuthMethod: Codable, Sendable {
     /// binds its secrets: a run behind the egress gateway holds a
     /// placeholder for each, and the gateway puts the value in only on the
     /// way to these hosts (authmethod.HostBinder). Empty: the secrets are
-    /// environment variables, as they were. A catalogued provider's hosts
-    /// come from the catalog when the row names none.
+    /// environment variables, as they were. Nothing but the row says them:
+    /// a row gets its provider's seed hosts when it is created.
     public var hosts: [String]?
     /// Sign says the provider takes no key: each request is signed with a
     /// key pair of Fields (Volcengine and BytePlus, Tencent Cloud). Each
@@ -19006,14 +19035,12 @@ public struct AuthMethod: Codable, Sendable {
     /// a placeholder for both halves, its client signs with them, and the
     /// gateway signs the request again with the real pair toward the
     /// entry's hosts only. The secret key is never an environment variable.
-    /// api_key kind. A catalogued provider's come from the catalog when the
-    /// row has none.
+    /// api_key kind.
     public var sign: [AuthMethodSign]?
     /// JWT says the provider takes a short-lived token the client signs
     /// with a key of Fields (Kling): the egress gateway signs it, and a run
     /// holds one placeholder, JWT.Key's, which leaves as the token toward
-    /// Hosts. The signing fields are never given to a run. api_key kind. A
-    /// catalogued provider's comes from the catalog when the row has none.
+    /// Hosts. The signing fields are never given to a run. api_key kind.
     @Indirect public var jwt: AuthMethodJWT?
     /// Transport says the provider's API is spoken over HTTP/2
     /// (AuthMethodTransportH2: gRPC), so a run given one of the scheme's

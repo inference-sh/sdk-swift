@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.0
+
+Matching api-v1623. Added `Scope.remotesExecute` (`remotes:execute`: starts commands, terminals and agent sessions on a remote; `remotes:write` implies it except in a list made only of remotes scopes, a daemon's key), `InternalToolsConfig.credentials`, `RemoteSandbox.mountNs` / `noMountNs`, and the `nothing_to_invoice` error code.
+
 ## 0.33.0
 
 Matching api-v1600. Added `AgentRequirementsResponse`, `AgentRequirement`, `AgentRequirementSource`, `AgentRequirementStatus` and `AgentRequirementSourceKind` (`GET /agents/{id}/requirements`), `CredentialRequirement.mode` and agent `credentials`, `RemoteSandbox`, and the `AuthMethod` transport, signing and JWT types. `SandboxCredential` is now an alias of `CredentialRequirement`.
